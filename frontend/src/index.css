@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════
+   EHR Solutions — Modern Dark Theme
+   Inspired by G.Take dashboard: glassmorphism + gradients
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  /* Base layers */
+  --bg-deep:    #070d1a;
+  --bg-main:    #0b1424;
+  --bg-panel:   rgba(255, 255, 255, 0.04);
+  --bg-card:    rgba(255, 255, 255, 0.06);
+  --bg-hover:   rgba(255, 255, 255, 0.08);
+  --bg-input:   rgba(0, 0, 0, 0.35);
+
+  /* Borders */
+  --border:     rgba(255, 255, 255, 0.08);
+  --border-glow:rgba(47, 190, 181, 0.35);
+
+  /* Accent palette */
+  --teal:       #2FBEB5;
+  --teal-dim:   rgba(47, 190, 181, 0.15);
+  --teal-glow:  rgba(47, 190, 181, 0.3);
+  --blue:       #4F8EF7;
+  --blue-dim:   rgba(79, 142, 247, 0.15);
+  --green:      #34d399;
+  --amber:      #fbbf24;
+  --red:        #f87171;
+  --purple:     #a78bfa;
+
+  /* Gradients */
+  --grad-brand: linear-gradient(135deg, #2FBEB5 0%, #4F8EF7 100%);
+  --grad-card:  linear-gradient(135deg, rgba(47,190,181,0.12) 0%, rgba(79,142,247,0.08) 100%);
+  --grad-glow:  radial-gradient(ellipse at 50% 0%, rgba(47,190,181,0.15) 0%, transparent 70%);
+
+  /* Text */
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Fonts */
+  --font-display: 'Outfit', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Misc */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --shadow-lg:  0 20px 60px rgba(0,0,0,0.5);
+  --shadow-card:0 4px 24px rgba(0,0,0,0.35);
+  --shadow-glow:0 0 30px rgba(47,190,181,0.2);
+  --blur:       blur(20px);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 10% 20%, rgba(47,190,181,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(79,142,247,0.06) 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font-body); cursor: pointer; }
+input, select, textarea { font-family: var(--font-body); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(47,190,181,0.4); }
+
+/* ── Glass utility ── */
+.glass {
+  background: var(--bg-card);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* ── Gradient text ── */
+.grad-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Leaflet dark popup ── */
+.leaflet-popup-content-wrapper {
+  background: #0f1d2e !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.leaflet-popup-tip { background: #0f1d2e !important; }
+
+/* ── OSM Dark Mode Trick ── */
+.map-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* ── Table base ── */
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: rgba(255,255,255,0.03);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+tbody tr:hover { background: var(--bg-hover); }
+tbody td { padding: 14px 16px; font-size: 14px; color: var(--text-primary); }
+
+/* ── Fueling pulse animation ── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,0.6); }
+  70%  { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+}
+
+/* ── Leaflet Smooth Marker Gliding (Uber Style) ── */
+.leaflet-marker-icon.animated-truck,
+.leaflet-marker-icon.fueling-truck {
+  transition: transform 2.8s linear, left 2.8s linear, top 2.8s linear !important;
+}
+
+
