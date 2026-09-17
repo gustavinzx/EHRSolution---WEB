@@ -28,16 +28,26 @@ exports.list = async (req, res) => {
 };
 
 exports.create = async (req, res) => {
+  const { name, phone, email, truck } = req.body || {};
+  const client = await db.pool.connect();
   try {
-    const { name, phone, email } = req.body;
-    const result = await db.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       'INSERT INTO drivers (name, phone, email) VALUES ($1, $2, $3) RETURNING *',
       [name, phone, email]
     );
+    if (truck?.plate && truck?.model && Number(truck.capacity_liters) > 0) {
+      const createdTruck = await client.query(`INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state, route_phase) VALUES ($1,$2,$3,$3,'ok','driving','planned') RETURNING id, plate, model, capacity_liters`, [String(truck.plate).trim().toUpperCase(), truck.model, Number(truck.capacity_liters)]);
+      await client.query('INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1,$2)', [result.rows[0].id, createdTruck.rows[0].id]);
+      result.rows[0].assigned_trucks = [createdTruck.rows[0]];
+    }
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Create driver error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A placa informada já está cadastrada' : 'Internal server error' });
+  } finally { client.release();
   }
 };
 
@@ -46,6 +56,7 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const { name, phone, email } = req.body;
     
+    await db.query('DELETE FROM driver_trucks WHERE truck_id = $1 AND driver_id <> $2', [truck_id, id]);
     const result = await db.query(
       'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING *',
       [name, phone, email, id]
@@ -78,6 +89,17 @@ exports.deactivate = async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Deactivate driver error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.activate = async (req, res) => {
+  try {
+    const { rows } = await db.query('UPDATE drivers SET is_active = true WHERE id = $1 RETURNING *', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Activate driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

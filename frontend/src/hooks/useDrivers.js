@@ -63,9 +63,21 @@ export function useDrivers() {
     }
   };
 
+  const activateDriver = async (id) => {
+    try {
+      const response = await client.patch(`/drivers/${id}/activate`);
+      setDrivers(prev => prev.map(d => d.id === id ? response.data : d));
+      toast.success('Motorista reativado');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao reativar motorista');
+      return false;
+    }
+  };
+
   const assignTruck = async (driverId, truckId) => {
     try {
-      await client.post(`/drivers/${driverId}/assign`, { truck_id: truckId });
+      await client.post(`/drivers/${driverId}/trucks`, { truck_id: truckId });
       fetchDrivers();
       toast.success('Caminhão vinculado com sucesso');
       return true;
@@ -102,7 +114,7 @@ export function useDrivers() {
     fetchDrivers, 
     createDriver, 
     updateDriver, 
-    deactivateDriver,
+    deactivateDriver, activateDriver,
     assignTruck,
     fetchRanking,
     fetchDriverScore

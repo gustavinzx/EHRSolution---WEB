@@ -5,6 +5,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { RefreshCw, MapPin, Users, Gauge, Droplets } from 'lucide-react';
 import MapView from '../components/MapView';
+import RouteModal from '../components/RouteModal';
+import useFleetState from '../store/useFleetState';
 const glass = {
   background: 'rgba(255,255,255,0.04)',
   backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
@@ -22,6 +24,8 @@ const STATUS_META = {
 
 export default function FleetPage() {
   const { trucks, loading, error, refetch } = useFleet();
+  const fetchTruckRoute = useFleetState(state => state.fetchTruckRoute);
+  const [routeTruckId, setRouteTruckId] = useState(null);
 
   if (loading && trucks.length === 0) return <LoadingSpinner />;
   if (error && trucks.length === 0) return <ErrorMessage message={error} />;
@@ -131,6 +135,7 @@ export default function FleetPage() {
                 }}>
                   {s.label}
                 </span>
+                <button type="button" onClick={e=>{e.preventDefault();e.stopPropagation();setRouteTruckId(truck.id);}} style={{ marginLeft:'8px', padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(47,190,181,.45)', background:'rgba(47,190,181,.12)', color:'var(--teal)', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Definir viagem</button>
               </div>
 
               {/* Details */}
@@ -168,6 +173,7 @@ export default function FleetPage() {
                 </div>
                 {[
                   [Gauge,  'Velocidade',   `${truck.speed_kmh} km/h`,   'var(--text-secondary)'],
+                  [Gauge,  'Faixa segura',  `${truck.speed_min_kmh || 30}–${truck.speed_max_kmh || 90} km/h`, 'var(--text-muted)'],
                   [MapPin, 'Coordenadas',  `${parseFloat(truck.lat||0).toFixed(4)}, ${parseFloat(truck.lng||0).toFixed(4)}`, 'var(--text-muted)'],
                 ].map(([Icon, label, val, col]) => (
                   <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'12px' }}>
@@ -182,8 +188,9 @@ export default function FleetPage() {
               </div>
             </Link>
           );
-        })}
+      })}
       </div>
+      <RouteModal isOpen={Boolean(routeTruckId)} truckId={routeTruckId} onClose={()=>setRouteTruckId(null)} onConfigured={(id)=>{ refetch(); fetchTruckRoute(id); }} />
     </div>
   );
 }

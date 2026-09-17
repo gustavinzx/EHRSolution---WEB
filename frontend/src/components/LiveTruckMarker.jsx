@@ -70,7 +70,7 @@ export function getTruckIcon(truck, color) {
 
 
 
-export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim_state === 'fueling', children }) {
+export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim_state === 'fueling', children, onClick }) {
   const map = useMap();
   const markerRef = useRef(null);
   const { truckRoutes } = useFleetState();
@@ -198,7 +198,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       
       if (Math.abs(target - current) > 0.1) {
         // Move at constant speed to reach target in ~2.8s
-        const step = (target - current) * (dt / 2500); 
+        const step = (target - current) * (dt / 3400);
         let next = current + step;
         
         // Prevent overshooting
@@ -235,6 +235,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       // Stable props prevent React Leaflet from bypassing the transition guard.
       position={initialPosition.current}
       icon={initialIcon.current}
+      eventHandlers={onClick ? { click: onClick } : undefined}
     >
       {children}
     </Marker>

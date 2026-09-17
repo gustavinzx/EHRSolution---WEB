@@ -48,9 +48,9 @@ function AutoFitBounds({ trucks }) {
   return null;
 }
 
-export default function MapView({ trucks = [] }) {
+export default function MapView({ trucks = [], onOpen3D }) {
   const navigate = useNavigate();
-  const { truckRoutes, selectedTruckId } = useFleetState();
+  const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
   
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
@@ -141,6 +141,7 @@ export default function MapView({ trucks = [] }) {
               truck={truck}
               iconHtml={getTruckIcon(truck, color)}
               isFueling={isFueling}
+              onClick={() => setSelectedTruckId(truck.id)}
             >
               <Popup minWidth={210} className="custom-popup">
                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.7', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -169,6 +170,14 @@ export default function MapView({ trucks = [] }) {
                   >
                     Ver Detalhes
                   </button>
+                  {onOpen3D && (
+                    <button
+                      onClick={() => { setSelectedTruckId(truck.id); onOpen3D(truck); }}
+                      className="w-full bg-teal-500 text-slate-950 text-xs py-1.5 rounded hover:bg-teal-400 transition-colors font-semibold"
+                    >
+                      Ver no 3D
+                    </button>
+                  )}
                 </div>
               </Popup>
             </LiveTruckMarker>

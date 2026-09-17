@@ -17,7 +17,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
     try {
       const res = await client.post(`/fleet/${truckId}/route`, { origin, destination });
       toast.success(`Rota calculada com sucesso! (${res.data.route_points} pontos de rodovia)`, { id: toastId });
-      onConfigured();
+      onConfigured?.(truckId);
       onClose();
       setOrigin(''); setDestination('');
     } catch (err) {
@@ -66,7 +66,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Origem</label>
-            <input required placeholder="Ex: São Paulo, SP" value={origin} onChange={e => setOrigin(e.target.value)} style={inputStyle}
+            <input required pattern="[^,]+,.+" title="Informe qualquer cidade brasileira e UF/estado, por exemplo: Brasília, DF" placeholder="Ex: Brasília, DF" value={origin} onChange={e => setOrigin(e.target.value)} style={inputStyle}
               onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />
@@ -74,7 +74,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Destino</label>
-            <input required placeholder="Ex: Rio de Janeiro, RJ" value={destination} onChange={e => setDestination(e.target.value)} style={inputStyle}
+            <input required pattern="[^,]+,.+" title="Informe qualquer cidade brasileira e UF/estado, por exemplo: Rio de Janeiro, RJ" placeholder="Ex: Rio de Janeiro, RJ" value={destination} onChange={e => setDestination(e.target.value)} style={inputStyle}
               onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />

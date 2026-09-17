@@ -188,7 +188,13 @@ export default function DashboardPage() {
             </div>
           </div>
           <div style={{ height: '300px' }}>
-            <MapView trucks={safeTrucks} />
+            <MapView
+              trucks={safeTrucks}
+              onOpen3D={(truck) => {
+                setSelectedTruckId(truck.id);
+                setIs3DOpen(true);
+              }}
+            />
           </div>
           <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -358,7 +364,7 @@ export default function DashboardPage() {
       ) : null}
 
       {is3DOpen && selectedTruck && (
-        <Simulation3DModal truck={selectedTruck} onClose={() => setIs3DOpen(false)} />
+        <Simulation3DModal isOpen={is3DOpen} truck={selectedTruck} onClose={() => setIs3DOpen(false)} />
       )}
     </div>
   );

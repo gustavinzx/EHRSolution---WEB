@@ -3,7 +3,7 @@ import { X, Save, Trophy, Activity, Fuel, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriverScore }) {
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', truckPlate: '', truckModel: '', truckCapacity: '' });
   const [scoreData, setScoreData] = useState(null);
   const [loadingScore, setLoadingScore] = useState(false);
   const [tab, setTab] = useState('score');
@@ -29,7 +29,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
       }).catch(() => { if (active) setScoreData(null); })
         .finally(() => { if (active) setLoadingScore(false); });
     } else {
-      setFormData({ name: '', phone: '', email: '' });
+      setFormData({ name: '', phone: '', email: '', truckPlate: '', truckModel: '', truckCapacity: '' });
       setScoreData(null);
     }
     return () => { active = false; };
@@ -105,7 +105,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
               </AreaChart></ResponsiveContainer>
             </div> : <p>Sem histórico disponível para este motorista.</p>}
           </>
-        ) : <form onSubmit={e => { e.preventDefault(); onSave(formData); }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        ) : <form onSubmit={e => { e.preventDefault(); onSave({ name: formData.name, phone: formData.phone, email: formData.email, ...(!driver && formData.truckPlate && formData.truckModel ? { truck: { plate: formData.truckPlate, model: formData.truckModel, capacity_liters: formData.truckCapacity } } : {}) }); }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {[
             { key: 'name',  label: 'Nome *',   type: 'text',  required: true,  placeholder: 'Nome completo' },
             { key: 'phone', label: 'Telefone', type: 'text',  required: false, placeholder: '(11) 99999-9999' },
@@ -124,6 +124,13 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
               />
             </div>
           ))}
+          {!driver && <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: '16px', display: 'grid', gap: '10px' }}>
+            <span className="eyebrow">Caminhão próprio (opcional)</span>
+            <input placeholder="Placa (ex.: ABC-1234)" value={formData.truckPlate} onChange={e => setFormData({ ...formData, truckPlate: e.target.value })} style={inputStyle} />
+            <input placeholder="Modelo do caminhão" value={formData.truckModel} onChange={e => setFormData({ ...formData, truckModel: e.target.value })} style={inputStyle} />
+            <input type="number" min="1" placeholder="Capacidade do tanque (L)" value={formData.truckCapacity} onChange={e => setFormData({ ...formData, truckCapacity: e.target.value })} style={inputStyle} />
+            <small style={{ color: 'var(--text-muted)' }}>O score começa em 0 até existirem dados reais de operação.</small>
+          </div>}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
             <button type="button" onClick={onClose} style={{

@@ -45,6 +45,7 @@ async function getFleetSnapshot() {
       SELECT 
         t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, 
         t.lat, t.lng, t.speed_kmh, t.status, t.sim_state, t.route_index,
+        30 AS speed_min_kmh, 75 AS speed_avg_kmh, 90 AS speed_max_kmh,
         t.origin_name, t.dest_name, t.route_progress, t.created_at,
         t.route_phase, t.route_resume_index, t.fuel_station_id,
         t.planned_route_geometry,
@@ -200,7 +201,11 @@ async function getTruckRoute(truckId) {
   if (dataSource === 'mock' || dataSource === 'real') {
     const result = await db.query('SELECT route_geometry FROM trucks WHERE id = $1', [truckId]);
     const geometry = result.rows[0]?.route_geometry;
-    const route = typeof geometry === 'string' ? JSON.parse(geometry) : geometry;
+    let route = geometry;
+    if (typeof geometry === 'string') {
+      try { route = JSON.parse(geometry); } catch { route = []; }
+    }
+    if (route && !Array.isArray(route) && route.geometry?.coordinates) route = route.geometry.coordinates;
     return { route_geometry: Array.isArray(route) ? route : [] };
   }
   return { route_geometry: [] };
@@ -300,6 +305,11 @@ async function getDriverScore(driverId) {
     const { rows: telemetry } = await db.query(
       "SELECT speed_kmh FROM telemetry_logs t JOIN driver_trucks dt ON t.truck_id = dt.truck_id WHERE dt.driver_id = $1 LIMIT 500", [driverId]
     );
+
+    // Motorista recém-cadastrado não deve receber uma nota artificial.
+    if (events.length === 0 && telemetry.length === 0) {
+      return { score: 0, metrics: { consumption: null, safe_unloads_pct: null, idle_time_pct: null }, history: [] };
+    }
     
     let idlePct = 0.2; // default
     if (telemetry.length > 0) {
@@ -322,7 +332,8 @@ async function getDriverScore(driverId) {
     for(let i=30; i>=0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      history.push({ date: d.toISOString().split('T')[0], score: Math.min(100, Math.max(0, curScore + Math.round((Math.random()-0.5)*10))) });
+      const trend = Math.round(Math.sin(i / 3) * 3);
+      history.push({ date: d.toISOString().split('T')[0], score: Math.min(100, Math.max(0, curScore + trend)) });
     }
 
     return {

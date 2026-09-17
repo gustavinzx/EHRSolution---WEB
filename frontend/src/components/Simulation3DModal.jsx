@@ -45,7 +45,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     const liveTruck = fleet.find(t => t.id === truckProp.id) || truckProp;
     liveTruckRef.current = liveTruck;
     setLiveSpeed(parseFloat(liveTruck.speed_kmh) || 0);
-    setLiveSimState(liveTruck.sim_state || liveTruck.status || '');
+    setLiveSimState(liveTruck.route_phase || liveTruck.sim_state || liveTruck.status || '');
 
     // In live mode, feed new GPS coord as target for fallback interpolation
     if (map.current && map.current.isStyleLoaded()) {
@@ -87,9 +87,10 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     const liveTruck = liveTruckRef.current || truckProp;
 
     // Check if route is already string or array, or get it from store
-    let routeData = typeof liveTruck.route_geometry === 'string' 
-      ? JSON.parse(liveTruck.route_geometry) 
-      : (liveTruck.route_geometry || truckRoutes[liveTruck.id]);
+    // O store recebe a rota recém-configurada; ele tem prioridade sobre o
+    // snapshot antigo que abriu o modal.
+    const currentRoute = truckRoutes[liveTruck.id] ?? liveTruck.route_geometry;
+    let routeData = typeof currentRoute === 'string' ? JSON.parse(currentRoute) : currentRoute;
 
     // Defensive: handle object with .geometry.coordinates
     if (routeData && !Array.isArray(routeData) && routeData.geometry) {
@@ -122,7 +123,14 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       
       // Calculate current distance along route based on route_index if available
       const routeIdx = Math.min(liveTruck?.route_index || 0, rawGeo.length - 1);
-        if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
+      const isArrived = liveTruck?.route_phase === 'arrived' || liveTruck?.sim_state === 'arrived' || liveTruck?.status === 'arrived';
+      if (isArrived || routeIdx >= rawGeo.length - 1) {
+        // Viagem já concluída: abrir o 3D diretamente no destino, sem
+        // reproduzir todo o trajeto histórico como uma animação.
+        truckState.current.currentDistance = truckState.current.totalDistance;
+        truckState.current.coord = rawGeo[rawGeo.length - 1];
+        startCoord = rawGeo[rawGeo.length - 1];
+      } else if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
           let dist = 0;
           for (let i = 0; i < routeIdx; i++) {
             dist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
@@ -177,12 +185,12 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           'source-layer': 'building',
           filter: ['==', 'extrude', 'true'],
           type: 'fill-extrusion',
-          minzoom: 15,
+          minzoom: 16,
           paint: {
-            'fill-extrusion-color': '#cbd5e1', // Cor mais clara para contraste no satélite
+            'fill-extrusion-color': '#64748b',
             'fill-extrusion-height': ['get', 'height'],
             'fill-extrusion-base': ['get', 'min_height'],
-            'fill-extrusion-opacity': 0.8
+            'fill-extrusion-opacity': 0.32
           }
         });
 
@@ -207,8 +215,9 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         // -------------------------------------------------------------
         const el = document.createElement('div');
         el.className = 'uber-truck-marker';
-        el.style.width = '64px';
-        el.style.height = '140px';
+        // A base do ícone deve coincidir com a coordenada GPS da via.
+        el.style.width = '46px';
+        el.style.height = '76px';
         
         
         el.style.borderRadius = '12px';
@@ -216,21 +225,17 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
+        el.style.overflow = 'hidden';
         
-        el.innerHTML = `
-          <img 
-            src="/images/caminhao-Photoroom.png" 
-            alt="Truck" 
-            style="width: 100%; height: 100%; object-fit: contain; " 
-          />
-        `;
-
+        // Modelo oficial do projeto. A base do elemento coincide com a via;
+        // o Mapbox aplica apenas o rumo calculado pela geometria da rota.
+        // O PNG possui margens transparentes laterais; o zoom interno mantém
+        // o eixo do caminhão sobre a coordenada da estrada.
+        el.innerHTML = '<img src="/images/caminhao-Photoroom.png" alt="Caminhão" style="width:100%;height:100%;object-fit:contain;display:block;transform:scale(3.2);transform-origin:center bottom;" />';
         const truckImage = el.querySelector('img');
-        truckImage.onerror = () => {
-          el.innerHTML = '<div style="width:34px;height:54px;border-radius:10px;background:#2fbeb5;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:22px">🚛</div>';
-        };
+        truckImage.onerror = () => { truckImage.style.display = 'none'; };
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'map' })
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', rotationAlignment: 'map', pitchAlignment: 'map' })
           .setLngLat(startCoord)
           .setRotation(truckState.current.bearing)
           .addTo(map.current);
@@ -240,7 +245,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         // Garante que a câmera comece na posição viva do caminhão e que o mapa
         // tenha dimensões corretas mesmo quando o modal acabou de abrir.
         map.current.resize();
-        map.current.jumpTo({ center: startCoord, zoom: Math.max(map.current.getZoom(), 15), pitch: 55, bearing: truckState.current.bearing });
+        map.current.jumpTo({ center: startCoord, zoom: Math.max(map.current.getZoom(), 14.5), pitch: 48, bearing: truckState.current.bearing });
 
         animateTruck();
       });
@@ -282,6 +287,13 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
 
       if (liveTruck && liveTruck.route_index !== undefined && truckState.current.routeGeometry) {
         const rawGeo = truckState.current.routeGeometry.geometry.coordinates;
+        const isArrived = liveTruck.route_phase === 'arrived' || liveTruck.sim_state === 'arrived' || liveTruck.status === 'arrived';
+        if (isArrived) {
+          truckState.current.currentDistance = truckState.current.totalDistance;
+          moveMarkerAlongRoute(truckState.current.totalDistance);
+          animationRef.current = requestAnimationFrame(loop);
+          return;
+        }
         const idx = Math.min(Math.max(0, liveTruck.route_index), rawGeo.length - 1);
         let targetDist = 0;
           if (idx > 0) {
@@ -302,7 +314,9 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           truckState.current.currentDistance = targetDist;
           moveMarkerAlongRoute(targetDist);
         } else if (Math.abs(diff) > 0.5) {
-          let next = current + diff * (dt / 2500);
+          // O backend publica a cada 3s; uma janela ligeiramente maior mantém
+          // a interpolação contínua entre atualizações, sem pequenas paradas.
+          let next = current + diff * (dt / 3400);
           if (diff > 0 && next > targetDist) next = targetDist;
           if (diff < 0 && next < targetDist) next = targetDist;
           truckState.current.currentDistance = next;
@@ -383,7 +397,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     to_station: 'A caminho do posto',
     awaiting_fueling_authorization: 'Aguardando liberação',
     returning_to_route: 'Retornando à rota'
-  }[liveTruckRef.current?.route_phase || liveSimState] || 'Aguardando dados';
+  }[liveSimState || liveTruckRef.current?.route_phase || liveTruckRef.current?.sim_state] || 'Aguardando dados';
   return (
     <div className="tracking-overlay">
       <section className="tracking-dialog" role="dialog" aria-modal="true" aria-labelledby="tracking-title">

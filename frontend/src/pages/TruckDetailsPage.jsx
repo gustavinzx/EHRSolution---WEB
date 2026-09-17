@@ -35,7 +35,7 @@ export default function TruckDetailsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSimulationOpen, setIsSimulationOpen] = useState(false);
   
-  const { fleet, truckRoutes } = useFleetState();
+  const { fleet, truckRoutes, fetchTruckRoute } = useFleetState();
 
   const loadData = () => {
     fetchTruckDetails(id).then(data => {
@@ -329,7 +329,7 @@ export default function TruckDetailsPage() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         truckId={truck.id} 
-        onConfigured={loadData} 
+        onConfigured={(truckId) => { loadData(); fetchTruckRoute(truckId); }}
       />
 
       <Simulation3DModal

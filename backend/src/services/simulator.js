@@ -94,8 +94,9 @@ async function simulateFleet(io) {
     `);
 
     for (const truck of trucks) {
-      const route = typeof truck.route_geometry === "string"
-        ? JSON.parse(truck.route_geometry) : truck.route_geometry;
+      let route;
+      try { route = typeof truck.route_geometry === "string" ? JSON.parse(truck.route_geometry) : truck.route_geometry; }
+      catch { console.error(`[SIM] Rota inválida ignorada no caminhão #${truck.id}`); continue; }
 
       if (!route || !Array.isArray(route) || route.length < 2) continue;
 
@@ -137,6 +138,11 @@ async function simulateFleet(io) {
             [driverId, truck.id, truck.lat, truck.lng, levelBefore, levelAfter, method,
              truck.fuel_station_id || null, truck.station_name || null, levelAfter - levelBefore]
           );
+
+          // Fecha a sessão autorizada correspondente quando o abastecimento automático termina.
+          await db.query(`UPDATE fueling_sessions
+            SET status='completed', completed_at=NOW(), duration_minutes=18
+            WHERE truck_id=$1 AND status IN ('authorized','active')`, [truck.id]);
 
           // Return to planned route
           const resumeIndex = parseInt(truck.route_resume_index) || 0;
@@ -209,7 +215,7 @@ async function simulateFleet(io) {
 
       // ── MOVEMENT (planned or to_station) ─────────────────────────────────
       const speed = 75 + Math.random() * 15; // 75-90 km/h
-        const TIME_MULTIPLIER = 300; // Acelera o tempo para não levar 24h cruzando o país
+          const TIME_MULTIPLIER = 60; // acelera moderadamente a simulação sem saltos perceptíveis
           const distToTravelM = (speed * 1000 / 3600) * (TICK_MS / 1000) * TIME_MULTIPLIER;
         let remainingM = distToTravelM;
         

@@ -78,6 +78,20 @@ exports.configureRoute = async (req, res) => {
   if (!origin || !destination) {
     return res.status(400).json({ error: 'Os campos origin e destination são obrigatórios' });
   }
+  if (!String(origin).includes(',') || !String(destination).includes(',')) {
+    return res.status(400).json({ error: 'Informe origem e destino no formato Cidade, UF (ex.: Brasília, DF)' });
+  }
+  const normalizePlace = (value) => {
+    const [city, ...stateParts] = String(value).split(',');
+    const state = stateParts.join(',').trim();
+    if (!city.trim() || !state || state.length < 2) return null;
+    return `${city.trim()}, ${state.length === 2 ? state.toUpperCase() : state}`;
+  };
+  const normalizedOrigin = normalizePlace(origin);
+  const normalizedDestination = normalizePlace(destination);
+  if (!normalizedOrigin || !normalizedDestination) {
+    return res.status(400).json({ error: 'Use o padrão Cidade, UF ou Cidade, Estado para qualquer local do Brasil' });
+  }
 
   const getCoords = async (address) => {
     try {
@@ -94,12 +108,12 @@ exports.configureRoute = async (req, res) => {
   };
 
   try {
-    const originData = await getCoords(origin);
+    const originData = await getCoords(normalizedOrigin);
     if (!originData) {
       return res.status(400).json({ error: `Não foi possível encontrar as coordenadas para a origem: ${origin}` });
     }
 
-    const destData = await getCoords(destination);
+    const destData = await getCoords(normalizedDestination);
     if (!destData) {
       return res.status(400).json({ error: `Não foi possível encontrar as coordenadas para o destino: ${destination}` });
     }
@@ -116,9 +130,9 @@ exports.configureRoute = async (req, res) => {
     
     await db.query(`
       UPDATE trucks 
-      SET origin_name = $1, dest_name = $2, route_geometry = $3, planned_route_geometry = $3, route_phase = 'planned', fuel_station_id = NULL, route_index = 0, lat = $4, lng = $5, sim_state = 'driving', status = 'ok', fueling_ticks = 0
+      SET origin_name = $1, dest_name = $2, route_geometry = $3, planned_route_geometry = $3, route_phase = 'planned', fuel_station_id = NULL, route_index = 0, lat = $4, lng = $5, sim_state = 'driving', status = 'ok', fueling_ticks = 0, updated_at = NOW()
       WHERE id = $6
-    `, [originData.name, destData.name, JSON.stringify(geometry), originData.lat, originData.lng, id]);
+    `, [normalizedOrigin, normalizedDestination, JSON.stringify(geometry), originData.lat, originData.lng, id]);
 
     res.json({ 
       message: 'Rota configurada com sucesso', 

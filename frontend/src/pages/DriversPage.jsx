@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useDrivers } from '../hooks/useDrivers';
+import { useFleet } from '../hooks/useFleet';
 import DriverModal    from '../components/DriverModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { UserPlus, Search, Users, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { UserPlus, Search, Users, Trophy, UserX, UserCheck } from 'lucide-react';
 
 
 const glass = {
@@ -13,12 +14,14 @@ const glass = {
 };
 
 export default function DriversPage() {
-  const { drivers, loading, createDriver, updateDriver, deactivateDriver, fetchRanking, fetchDriverScore } = useDrivers();
+  const { drivers, loading, createDriver, updateDriver, deactivateDriver, activateDriver, assignTruck, fetchRanking, fetchDriverScore } = useDrivers();
+  const { trucks } = useFleet();
   const [search,       setSearch]       = useState('');
   const [isModalOpen,  setIsModalOpen]  = useState(false);
   const [editingDriver,setEditingDriver] = useState(null);
   const [ranking, setRanking] = useState([]);
   const [loadingRank, setLoadingRank] = useState(true);
+  const [assigning, setAssigning] = useState(null);
 
   useEffect(() => {
     fetchRanking().then(res => {
@@ -40,11 +43,21 @@ export default function DriversPage() {
     const ok = editingDriver
       ? await updateDriver(editingDriver.id, data)
       : await createDriver(data);
-    if (ok) { setIsModalOpen(false); setEditingDriver(null); }
+    if (ok) { setIsModalOpen(false); setEditingDriver(null); setRanking(await fetchRanking()); }
   };
 
-  const handleDeactivate = async (id) => {
-    if (window.confirm('Desativar este motorista?')) await deactivateDriver(id);
+  const handleToggleActive = async (driver) => {
+    const action = driver.is_active ? deactivateDriver : activateDriver;
+    if (window.confirm(`${driver.is_active ? 'Desativar' : 'Reativar'} este motorista?`)) {
+      await action(driver.id);
+      setRanking(await fetchRanking());
+    }
+  };
+  const handleAssign = async (driverId) => {
+    const truckId = assigning?.[driverId];
+    if (!truckId) return;
+    await assignTruck(driverId, truckId);
+    setAssigning(prev => ({ ...prev, [driverId]: '' }));
   };
 
   if (loading || loadingRank) return <LoadingSpinner />;
@@ -156,6 +169,13 @@ export default function DriversPage() {
                   })()}
                 </td>
                 <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', marginRight:'8px' }}>
+                    <select aria-label={`Vincular caminhão a ${d.name}`} value={assigning?.[d.id] || ''} onChange={e=>setAssigning(prev=>({...prev,[d.id]:e.target.value}))} style={{ background:'var(--bg-main)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:'7px', padding:'7px 6px', fontSize:'11px', maxWidth:'115px' }}>
+                      <option value="">Vincular veículo</option>
+                      {trucks.map(t=><option key={t.id} value={t.id}>{t.plate}</option>)}
+                    </select>
+                    <button onClick={()=>handleAssign(d.id)} disabled={!assigning?.[d.id]} style={{ background:'rgba(47,190,181,0.1)', border:'1px solid rgba(47,190,181,0.3)', color:'var(--teal)', cursor:assigning?.[d.id]?'pointer':'not-allowed', padding:'7px', borderRadius:'7px' }} title="Vincular caminhão"><UserCheck size={14}/></button>
+                  </div>
                   <button
                     onClick={() => { setEditingDriver(d); setIsModalOpen(true); }}
                     style={{ background:'rgba(47,190,181,0.1)', border:'1px solid rgba(47,190,181,0.3)', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:600, padding: '8px 16px', borderRadius: '8px', transition: 'all 0.2s' }}
@@ -163,6 +183,9 @@ export default function DriversPage() {
                     onMouseLeave={e => { e.target.style.background = 'rgba(47,190,181,0.1)'; }}
                   >
                     Detalhes do Score
+                  </button>
+                  <button onClick={() => handleToggleActive(d)} title={d.is_active ? 'Desativar motorista' : 'Reativar motorista'} style={{ marginLeft:'8px', background:'transparent', border:'1px solid var(--border)', color: d.is_active ? '#f87171' : '#34d399', cursor:'pointer', padding:'8px', borderRadius:'8px' }}>
+                    {d.is_active ? <UserX size={15}/> : <UserCheck size={15}/>}<span className="sr-only">{d.is_active ? 'Desativar' : 'Reativar'}</span>
                   </button>
                 </td>
               </tr>
