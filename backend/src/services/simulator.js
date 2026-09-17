@@ -227,7 +227,7 @@ async function simulateFleet(io) {
 
       // ── MOVEMENT (planned or to_station) ─────────────────────────────────
       const speed = 75 + Math.random() * 15; // 75-90 km/h
-          const TIME_MULTIPLIER = 60; // acelera moderadamente a simulação sem saltos perceptíveis
+          const TIME_MULTIPLIER = 15; // Velocidade visual e logica (15x o tempo real) // acelera moderadamente a simulação sem saltos perceptíveis
           const distToTravelM = (speed * 1000 / 3600) * (TICK_MS / 1000) * TIME_MULTIPLIER;
         let remainingM = distToTravelM;
         
