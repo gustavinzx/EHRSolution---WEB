@@ -56,7 +56,7 @@ export default function MapView({ trucks = [] }) {
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" style={{ height: '500px' }}>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" style={{ height: '100%' }}>
       <MapContainer 
         center={[-15.7801, -47.9292]} // default center (Brasilia)
         zoom={4} 
@@ -67,7 +67,7 @@ export default function MapView({ trucks = [] }) {
           attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
           url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
           className="map-tiles"
-          noWrap={true}
+          noWrap={false}
         />
         <AutoFitBounds trucks={trucks} />
 
