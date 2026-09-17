@@ -218,7 +218,7 @@ async function simulateFleet(io) {
       // Realistic consumption: L per 100km, ±15% speed variation
       const speedFactor   = 1 + (speed - 80) / 800; // faster = slightly more consumption
       const consumedL     = (distKm * consumption / 100) * speedFactor;
-      const newFuel       = Math.max(0, fuelL - consumedL);
+      let newFuel = fuelL - consumedL;
       const fuelPct       = (newFuel / capacityL) * 100;
 
       // ── Autonomy-based fueling decision (only in 'planned' phase) ────────
@@ -242,7 +242,7 @@ async function simulateFleet(io) {
               [truck.id]
             );
 
-            if (recentFuel.length === 0) {
+            if (true) {
               console.log(`[SIM] Truck #${truck.id} calculando rota ao posto: ${station.name} (${station.distKm?.toFixed(1)}km)`);
               // Calculate route to station
               const tempRoute = await fetchOSRMRoute(
@@ -278,8 +278,21 @@ async function simulateFleet(io) {
         }
       }
 
-      if (fuelPct <= 40 && nextStatus !== "security_alert") nextStatus = "low_fuel";
-      if (fuelPct <= 15) nextStatus = "critical_fuel";
+      let actualSpeed = speed;
+      let finalLat = nextLat;
+      let finalLng = nextLng;
+      let finalIndex = nextIndex;
+      if (newFuel <= 0) {
+        newFuel = 0;
+        actualSpeed = 0;
+        nextStatus = 'critical_fuel';
+        finalLat = prevLat;
+        finalLng = prevLng;
+        finalIndex = routeIndex;
+      } else {
+        if (fuelPct <= 40 && nextStatus !== 'security_alert') nextStatus = 'low_fuel';
+        if (fuelPct <= 15) nextStatus = 'critical_fuel';
+      }
 
       await db.query(`
         UPDATE trucks SET
@@ -287,11 +300,11 @@ async function simulateFleet(io) {
           route_index=$5, status=$6, sim_state='driving',
           route_phase=$7, fueling_ticks=0, updated_at=NOW()
         WHERE id=$8
-      `, [nextLat, nextLng, newFuel, speed, nextIndex, nextStatus, nextPhase, truck.id]);
+      `, [finalLat, finalLng, newFuel, actualSpeed, finalIndex, nextStatus, nextPhase, truck.id]);
 
       await db.query(
         "INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1,$2,$3,$4,$5)",
-        [truck.id, nextLat, nextLng, speed, newFuel]
+        [truck.id, finalLat, finalLng, actualSpeed, newFuel]
       );
     }
 
@@ -316,4 +329,4 @@ function startSimulator(io) {
   setInterval(() => { simulateFleet(io); detectFuelAnomalies(io); }, TICK_MS);
 }
 
-module.exports = { startSimulator };
+module.exports = { startSimulator, simulateFleet };
