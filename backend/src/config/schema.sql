@@ -85,3 +85,5 @@ CREATE TABLE IF NOT EXISTS unloading_events (
   vibration_level NUMERIC(5,2) NOT NULL,
   status VARCHAR(20) NOT NULL CHECK (status IN ('safe','low','high'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_truck_time ON telemetry_logs (truck_id, timestamp DESC);
