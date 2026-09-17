@@ -142,7 +142,7 @@ tbody td { padding: 14px 16px; font-size: 14px; color: var(--text-primary); }
 /* ── Leaflet Smooth Marker Gliding (Uber Style) ── */
 .leaflet-marker-icon.animated-truck,
 .leaflet-marker-icon.fueling-truck {
-  transition: transform 2.8s linear, left 2.8s linear, top 2.8s linear !important;
+  /* transition removed to fix map panning decoupling */
 }
 
 
