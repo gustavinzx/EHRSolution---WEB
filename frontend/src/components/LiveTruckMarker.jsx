@@ -34,28 +34,15 @@ export function getTruckIcon(truck, color) {
   ` : '';
 
   if (truck.sim_state === 'fueling') {
-    // Ícone de bomba de combustível, pulsando
     return `
       <div style="position:relative;display:flex;align-items:center;justify-content:center;">
         ${driverTag}
-        <div style="
-          width:34px;height:34px;
-          background:${color};
-          border-radius:50%;
-          border:2px solid #fff;
-          box-shadow:0 0 0 4px ${color}55;
-          display:flex;align-items:center;justify-content:center;
-          color:#0a101a;
-          animation: pulse-ring 1.2s ease-out infinite;
-        ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 22V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v15"/>
-            <path d="M3 11h12"/>
-            <path d="M12 7h4l3 3v5h-7"/>
-            <circle cx="17.5" cy="18.5" r="1.5"/>
-          </svg>
+        <div style="width: 36px; height: 36px; background: ${color}; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 15px ${color}; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; animation: pulse 1.5s infinite;">
+          🚛
         </div>
-      </div>`;
+        <div style="position:absolute; bottom:-5px; right:-5px; background:#ef4444; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:10px; border:2px solid #fff;">⛽</div>
+      </div>
+    `;
   }
   // Ícone de caminhão padrão com tag do motorista
   return `
@@ -177,7 +164,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       }
     }
 
-    if (!routeInitializedRef.current || (dist < currentDistanceRef.current && (currentDistanceRef.current - dist) > 500)) {
+    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 1500) {
       // Start at the current route position, or reset when a new trip starts.
       currentDistanceRef.current = dist;
       routeInitializedRef.current = true;

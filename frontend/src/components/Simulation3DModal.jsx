@@ -295,7 +295,10 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         if (targetDist < current && (current - targetDist) > 500) current = targetDist;
 
         const diff = targetDist - current;
-        if (Math.abs(diff) > 0.5) {
+        if (Math.abs(diff) > 1500) {
+          truckState.current.currentDistance = targetDist;
+          moveMarkerAlongRoute(targetDist);
+        } else if (Math.abs(diff) > 0.5) {
           let next = current + diff * (dt / 2500);
           if (diff > 0 && next > targetDist) next = targetDist;
           if (diff < 0 && next < targetDist) next = targetDist;
