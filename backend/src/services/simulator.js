@@ -230,7 +230,7 @@ async function simulateFleet(io) {
         const autonomyKm     = (newFuel / consumption) * 100 * (1 - SAFETY_FUEL_MARGIN);
         const distToDestKm   = remainingRouteKm(route, nextIndex);
 
-        if (autonomyKm < distToDestKm) {
+        if (fuelPct < 25 && autonomyKm < distToDestKm) {
           // Need to refuel — find station
           nextPhase = "evaluating_station";
           const station = await findBestStation(truck, route, nextIndex);
