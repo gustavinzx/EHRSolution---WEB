@@ -164,7 +164,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       }
     }
 
-    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 1500) {
+    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 5000) {
       // Start at the current route position, or reset when a new trip starts.
       currentDistanceRef.current = dist;
       routeInitializedRef.current = true;
