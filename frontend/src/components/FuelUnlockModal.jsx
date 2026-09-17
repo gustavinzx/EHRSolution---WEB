@@ -19,8 +19,10 @@ export default function FuelUnlockModal() {
     setAuthorizing(true);
     try {
       const url = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const token = localStorage.getItem('token');
       const res = await fetch(url + '/fleet/' + awaitingTruck.id + '/force-fueling', {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         setSuccessId(awaitingTruck.id);
