@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import * as turf from '@turf/turf';
-import { X } from 'lucide-react';
+import { X, LocateFixed, Gauge, Route, Truck } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -25,13 +25,11 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     routeGeometry: null,
     totalDistance: 0,
     currentDistance: 0,
-    isPlaying: false,
     marker: null,
     targetCoord: null,
     isCameraLocked: true
   });
 
-  const [isSimulating, setIsSimulating] = useState(false);
   const [routeColor, setRouteColor] = useState('#2FBEB5');
   const [isCameraLockedUI, setIsCameraLockedUI] = useState(true);
   // Live telemetry display state (updated from WebSocket store)
@@ -49,7 +47,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     setLiveSimState(liveTruck.sim_state || liveTruck.status || '');
 
     // In live mode, feed new GPS coord as target for fallback interpolation
-    if (!truckState.current.isPlaying && map.current && map.current.isStyleLoaded()) {
+    if (map.current && map.current.isStyleLoaded()) {
       const lng = Number(liveTruck.lng);
       const lat = Number(liveTruck.lat);
       if (!Number.isNaN(lng) && !Number.isNaN(lat) && lng !== 0 && lat !== 0) {
@@ -61,8 +59,6 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
   // Initialization and Map Lifecycle
   useEffect(() => {
     if (!isOpen || !truckProp || !MAPBOX_TOKEN) {
-      setIsSimulating(false);
-      truckState.current.isPlaying = false;
       return;
     }
     
@@ -246,20 +242,6 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
 
       if (!map.current) return;
 
-      // ── MODO DEMO: cinematic fast playback ──────────────────────────────
-      if (truckState.current.isPlaying && truckState.current.routeGeometry) {
-        truckState.current.currentDistance += 33 * (dt / 1000); // ~120 km/h
-
-        if (truckState.current.currentDistance >= truckState.current.totalDistance) {
-          truckState.current.currentDistance = truckState.current.totalDistance;
-          truckState.current.isPlaying = false;
-          setIsSimulating(false);
-        }
-        moveMarkerAlongRoute(truckState.current.currentDistance);
-        animationRef.current = requestAnimationFrame(loop);
-        return;
-      }
-
       // ── MODO AO VIVO: follows backend route_index from WebSocket ─────────
       const liveTruck = liveTruckRef.current;
 
@@ -300,7 +282,8 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           applyMarkerPosition(tgt, truckState.current.bearing);
         } else if (dist > 1) {
           const bearing = turf.bearing(cur, tgt);
-          const step = Math.min(dist, Math.max(1, dist * (dt / 2500)));
+          const speedKmh = Math.max(0, Number(liveTruck?.speed_kmh) || 0);
+          const step = Math.min(dist, dist * (dt / 2500), (speedKmh / 3.6) * (dt / 1000));
           const next = turf.destination(cur, step, bearing, { units: 'meters' }).geometry.coordinates;
           truckState.current.coord = next;
           truckState.current.bearing = bearing;
@@ -345,146 +328,29 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     truckState.current.isCameraLocked = true;
   };
 
-  const handleToggleSimulation = () => {
-    const newIsSimulating = !isSimulating;
-    truckState.current.isPlaying = newIsSimulating;
-    setIsSimulating(newIsSimulating);
-
-    if (!newIsSimulating) {
-      truckState.current.targetCoord = truckState.current.coord;
-    }
-  };
-
   if (!isOpen) return null;
 
+  const stateLabel = { driving: 'Em trânsito', fueling: 'Abastecendo', low_fuel: 'Combustível baixo', no_signal: 'Sem sinal', ok: 'Operacional' }[liveSimState] || 'Aguardando dados';
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)' }}>
-      <div style={{ position: 'relative', width: '90vw', height: '90vh', background: '#0a101a', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
-        
-        {!MAPBOX_TOKEN ? (
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a101a', color: '#fff', textAlign: 'center', padding: '24px' }}>
-            <X size={48} color="#f87171" style={{ marginBottom: '16px' }} />
-            <h2 style={{ margin: '0 0 12px 0', fontSize: '24px' }}>Token do Mapbox Não Configurado</h2>
-            <p style={{ maxWidth: '500px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              Para visualizar o mapa 3D cinemático, você precisa configurar um token do Mapbox. <br/><br/>
-              Crie um arquivo <code>.env</code> na pasta <code>frontend/</code> contendo:<br/>
-              <code style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', marginTop: '8px', color: '#34d399' }}>VITE_MAPBOX_TOKEN=pk.seu_token_aqui</code>
-            </p>
-            <button onClick={onClose} style={{ marginTop: '24px', background: 'var(--teal)', color: '#000', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
-              Voltar
-            </button>
+    <div className="tracking-overlay">
+      <section className="tracking-dialog" role="dialog" aria-modal="true" aria-labelledby="tracking-title">
+        <header className="tracking-header">
+          <div className="tracking-heading">
+            <span className="tracking-symbol"><Truck size={20} /></span>
+            <div><span className="eyebrow">MONITORAMENTO DA FROTA</span><h2 id="tracking-title">Rastreamento 3D <span>{truckProp?.plate}</span></h2><p>{truckProp?.model}</p></div>
           </div>
-        ) : (
-          <>
-            {/* Top Bar */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 24px', background: 'linear-gradient(180deg, rgba(0,0,0,0.8), transparent)', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 10px #f87171' }} className="pulse" />
-              Rastreamento Cinematográfico 2.5D
-            </h2>
-            <div style={{ color: 'var(--teal)', fontSize: '13px', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-              Alvo: {truckProp?.model} | {truckProp?.plate}
-            </div>
+          <button className="icon-button" aria-label="Fechar rastreamento" onClick={onClose}><X size={20} /></button>
+        </header>
+        {MAPBOX_TOKEN ? <div ref={mapContainer} className="tracking-map" /> : <div className="tracking-empty"><Route size={32}/><h3>Mapa indisponível</h3><p>Configure o token do Mapbox para visualizar o rastreamento.</p></div>}
+        <footer className="tracking-toolbar">
+          <div className="tracking-metric"><span className="eyebrow"><Gauge size={14}/> VELOCIDADE</span><strong>{liveSpeed.toFixed(0)} <small>km/h</small></strong></div>
+          <div className="tracking-metric"><span className="eyebrow">SITUAÇÃO DO VEÍCULO</span><span className={`vehicle-status ${liveSimState === 'no_signal' || liveSimState === 'low_fuel' ? 'vehicle-status-warning' : ''}`}><i/>{stateLabel}</span></div>
+          <div className="tracking-actions">
+            <label className="route-color"><Route size={16}/><span>Cor da rota</span><input type="color" aria-label="Cor da rota" value={routeColor} onChange={e=>setRouteColor(e.target.value)}/></label>
+            <button className="panel-button" onClick={handleCenterCamera} disabled={isCameraLockedUI}><LocateFixed size={16}/>{isCameraLockedUI ? 'Seguindo veículo' : 'Seguir veículo'}</button>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-        
-        {/* Painel de Controle e Telemetria */}
-        <div style={{ position: 'absolute', bottom: '24px', left: '24px', display: 'flex', gap: '16px', zIndex: 10 }}>
-          
-          <div style={{ background: 'rgba(10,16,26,0.85)', backdropFilter: 'blur(10px)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', minWidth: '200px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.8px' }}>● Ao Vivo</div>
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Velocidade</div>
-                <div style={{ fontSize: '18px', color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                  {liveSpeed.toFixed(1)} km/h
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Estado</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 
-                  liveSimState === 'fueling' ? '#f87171' :
-                  liveSimState === 'low_fuel' ? '#fbbf24' :
-                  liveSimState === 'driving' ? '#34d399' : '#94a3b8'
-                }}>
-                  {liveSimState === 'fueling' ? '⛽ Abastecendo' :
-                   liveSimState === 'low_fuel' ? '⚠️ Baixo' :
-                   liveSimState === 'driving' ? '🚛 Em Trânsito' :
-                   liveSimState || '—'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {!isCameraLockedUI && (
-            <button 
-              onClick={handleCenterCamera}
-              style={{ 
-                background: 'rgba(255,255,255,0.1)', 
-                border: '1px solid rgba(255,255,255,0.2)', 
-                color: '#fff', 
-                padding: '0 20px', 
-                borderRadius: '12px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              📍 Centralizar Câmera
-            </button>
-          )}
-
-          {/* Seletor de Cor da Rota */}
-          <div style={{ 
-            background: 'rgba(10,16,26,0.8)', 
-            border: '1px solid rgba(255,255,255,0.1)', 
-            borderRadius: '12px', 
-            padding: '0 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>COR DA ROTA</span>
-            <input 
-              type="color" 
-              value={routeColor} 
-              onChange={(e) => setRouteColor(e.target.value)}
-              style={{ width: '32px', height: '32px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-            />
-          </div>
-
-          {/* Botão Demo — opcional, caminhão já se move ao vivo sem clicar aqui */}
-          <button 
-            onClick={handleToggleSimulation}
-            title="Percorre a rota completa em velocidade acelerada (modo demo)"
-            style={{ 
-              background: isSimulating ? '#E2574C' : 'rgba(47,190,181,0.15)', 
-              border: `1px solid ${isSimulating ? '#E2574C' : '#2FBEB5'}`,
-              color: isSimulating ? '#fff' : '#2FBEB5', 
-              fontWeight: 700, 
-              padding: '0 24px', 
-              borderRadius: '12px', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: isSimulating ? '0 0 15px rgba(226, 87, 76, 0.4)' : 'none'
-            }}
-          >
-            {isSimulating ? '⏹ Parar Demo' : '⚡ Demo Acelerada'}
-          </button>
-
-        </div>
-        </>
-        )}
-      </div>
+        </footer>
+      </section>
     </div>
   );
 }

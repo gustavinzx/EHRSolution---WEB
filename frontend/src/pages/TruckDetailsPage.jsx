@@ -4,14 +4,14 @@ import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
 import Simulation3DModal from '../components/Simulation3DModal';
-import { MapContainer, TileLayer, CircleMarker, Marker, Polyline, Popup } from 'react-leaflet';
-import L from 'leaflet';
+import { MapContainer, TileLayer, Polyline, Popup } from 'react-leaflet';
+import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map } from 'lucide-react';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', overflow: 'hidden',
+  background: 'var(--bg-panel)',
+  border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden',
 };
 
 const STATUS_META = {
@@ -66,9 +66,10 @@ export default function TruckDetailsPage() {
   const routePoints = [];
   let currentPos = null;
   
-  if (truck.route_geometry) {
+  const routeGeometry = truckRoutes[truck.id] ?? truck.route_geometry;
+  if (routeGeometry) {
     try {
-      const geo = typeof truck.route_geometry === 'string' ? JSON.parse(truck.route_geometry) : truck.route_geometry;
+      const geo = typeof routeGeometry === 'string' ? JSON.parse(routeGeometry) : routeGeometry;
       if (Array.isArray(geo)) {
         // geometry vem no formato [lng, lat], o leaflet precisa de [lat, lng]
         geo.forEach(p => {
@@ -147,7 +148,7 @@ export default function TruckDetailsPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
+      <div className="detail-columns">
         {/* Left Column (Map & Chart) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
@@ -182,7 +183,7 @@ export default function TruckDetailsPage() {
                   onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
                   onMouseLeave={e => e.target.style.transform = 'scale(1)'}
                 >
-                  <Map size={16} /> Entrar em Simulação 3D
+                  <Map size={16} /> Abrir rastreamento 3D
                 </button>
               </>
             ) : (
@@ -193,8 +194,8 @@ export default function TruckDetailsPage() {
           {/* MAP */}
           <div style={{ ...glass, height: '400px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
-               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Trajeto Recente</span>
-               <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} /> Últimas 3 horas</span>
+               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Rota e posição atual</span>
+               <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} /> Rota completa</span>
             </div>
             <div style={{ flex: 1, background: '#0a101a' }}>
               {routePoints.length > 0 ? (
@@ -206,53 +207,9 @@ export default function TruckDetailsPage() {
                     noWrap={true}
                   />
                   <Polyline positions={routePoints} pathOptions={{ color: 'var(--teal)', weight: 4, opacity: 0.8 }} />
-                  {/* Posição atual (último ponto) */}
-                  {routePoints.length > 0 && (() => {
-                    const currentDriver = truck.current_drivers?.length > 0 ? truck.current_drivers[0] : null;
-                    const driverName = currentDriver ? currentDriver.name.split(' ')[0] : null;
-                    return (
-                      <Marker 
-                        position={routePoints[routePoints.length - 1]}
-                        icon={L.divIcon({
-                          html: `
-                            <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-                              ${driverName ? `
-                                <div style="
-                                  position: absolute;
-                                  bottom: 34px;
-                                  left: 50%;
-                                  transform: translateX(-50%);
-                                  white-space: nowrap;
-                                  background: rgba(11, 20, 36, 0.92);
-                                  border: 1px solid rgba(47, 190, 181, 0.4);
-                                  box-shadow: 0 4px 14px rgba(0,0,0,0.6);
-                                  padding: 3px 9px;
-                                  border-radius: 20px;
-                                  font-size: 11px;
-                                  font-weight: 700;
-                                  color: #fff;
-                                  display: flex;
-                                  align-items: center;
-                                  gap: 5px;
-                                  pointer-events: none;
-                                  backdrop-filter: blur(8px);
-                                  z-index: 10;
-                                ">
-                                  <span style="width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0;"></span>
-                                  <span>${driverName}</span>
-                                </div>
-                              ` : ''}
-                              <div style="width:28px;height:28px;background:${s.color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 12px ${s.color};display:flex;align-items:center;justify-content:center;color:#0a101a;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5"/><path d="M14 17h1"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></div>
-                            </div>`,
-                          className: 'animated-truck',
-                          iconSize: [28, 28],
-                          iconAnchor: [14, 14],
-                        })}
-                      >
-                        <Popup minWidth={100}><div style={{ color: '#000', fontWeight: 'bold' }}>Posição Atual</div></Popup>
-                      </Marker>
-                    );
-                  })()}
+                  <LiveTruckMarker key={truck.id} truck={truck}>
+                    <Popup minWidth={100}><div style={{ color: '#000', fontWeight: 'bold' }}>Posição Atual</div></Popup>
+                  </LiveTruckMarker>
                 </MapContainer>
               ) : (
                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Sem dados de rota</div>

@@ -18,27 +18,20 @@ export default function StatCard({ title, value, unit, icon: Icon, color = 'teal
 
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.04)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
+      background: 'var(--bg-panel)',
+
+
       border: '1px solid rgba(255,255,255,0.07)',
-      borderRadius: '16px',
+      borderRadius: '12px',
       padding: '22px',
       display: 'flex',
       flexDirection: 'column',
       gap: '14px',
       position: 'relative',
       overflow: 'hidden',
-      boxShadow: `0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
+      boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
       transition: 'transform 0.2s, box-shadow 0.2s',
     }}>
-      {/* Ambient glow */}
-      <div style={{
-        position: 'absolute', top: '-20px', right: '-20px',
-        width: '80px', height: '80px', borderRadius: '50%',
-        background: c.glow, filter: 'blur(20px)', pointerEvents: 'none',
-      }} />
-
       {/* Top row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <span style={{
@@ -51,11 +44,11 @@ export default function StatCard({ title, value, unit, icon: Icon, color = 'teal
         {Icon && (
           <div style={{
             width: '36px', height: '36px', borderRadius: '10px',
-            background: c.grad,
+            background: c.bg,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 4px 16px ${c.glow}`,
+            border: `1px solid ${c.main}33`,
           }}>
-            <Icon size={18} color="#fff" />
+            <Icon size={18} color={c.main} />
           </div>
         )}
       </div>
@@ -85,7 +78,7 @@ export default function StatCard({ title, value, unit, icon: Icon, color = 'teal
       {/* Bottom accent bar */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px',
-        background: c.grad, opacity: 0.6,
+        background: c.bg, opacity: 0.6,
       }} />
     </div>
   );

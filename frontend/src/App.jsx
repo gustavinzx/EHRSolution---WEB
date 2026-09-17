@@ -19,11 +19,11 @@ const ProtectedLayout = ({ children }) => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f1624' }}>
+    <div className="app-shell">
       <Sidebar />
-      <div style={{ flex: 1, marginLeft: '72px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div className="app-content">
         <TopBar />
-        <main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
+        <main className="app-main">
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

@@ -12,9 +12,9 @@ import ErrorMessage   from '../components/ErrorMessage';
 import Simulation3DModal from '../components/Simulation3DModal';
 
 const card = {
-  background: 'rgba(255,255,255,0.04)',
+  background: 'var(--bg-panel)',
   border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px',
+  borderRadius: '12px',
 };
 
 function MiniBarChart({ trucks }) {
@@ -166,7 +166,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+      <div className="dashboard-stats">
         {statCards.map((s, i) => (
           <div key={i} style={{ ...card, background: s.bg, border: `1px solid ${s.border}`, padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: '14px', transition: 'transform 0.2s' }}
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
@@ -184,7 +184,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px', alignItems: 'start' }}>
+      <div className="dashboard-columns">
         <div style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

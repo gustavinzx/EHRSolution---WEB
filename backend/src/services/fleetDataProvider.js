@@ -190,9 +190,23 @@ async function getLiveEvents() {
 
 /**
  * getTruckRoute(truckId)
- * Retorna a rota mais recente executada pelo caminhão (telemetry history).
+ * Retorna a rota completa planejada pelo OSRM, usada nos mapas 2D e 3D.
  */
 async function getTruckRoute(truckId) {
+  if (dataSource === 'mock' || dataSource === 'real') {
+    const result = await db.query('SELECT route_geometry FROM trucks WHERE id = $1', [truckId]);
+    const geometry = result.rows[0]?.route_geometry;
+    const route = typeof geometry === 'string' ? JSON.parse(geometry) : geometry;
+    return { route_geometry: Array.isArray(route) ? route : [] };
+  }
+  return { route_geometry: [] };
+}
+
+/**
+ * getTruckTelemetryHistory(truckId)
+ * Retorna o histórico de pings reais, separado da rota planejada.
+ */
+async function getTruckTelemetryHistory(truckId) {
   if (dataSource === 'mock' || dataSource === 'real') {
     const routeQuery = `SELECT lat, lng, speed_kmh, fuel_level_liters, timestamp FROM telemetry_logs WHERE truck_id = $1 ORDER BY timestamp ASC LIMIT 100`;
     const result = await db.query(routeQuery, [truckId]);
@@ -344,6 +358,7 @@ module.exports = {
   getDashboardStats,
   getLiveEvents,
   getTruckRoute,
+  getTruckTelemetryHistory,
   getFleetSnapshot,
   getTruckTelemetry,
   getFuelingLogs,
