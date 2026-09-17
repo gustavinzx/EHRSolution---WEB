@@ -170,7 +170,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       dist += turf.distance(turf.point(nodePos), turf.point(truckPos), { units: 'meters' });
     }
 
-    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 20000) {
+    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 50000) {
       // Start at the current route position, or reset when a new trip starts.
       currentDistanceRef.current = dist;
       routeInitializedRef.current = true;

@@ -10,6 +10,7 @@
     "migrate": "node runMigration.js"
   },
   "dependencies": {
+    "@turf/turf": "^7.4.0",
     "axios": "^1.20.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

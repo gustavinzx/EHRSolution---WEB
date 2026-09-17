@@ -209,7 +209,7 @@ async function simulateFleet(io) {
 
       // ── MOVEMENT (planned or to_station) ─────────────────────────────────
       const speed = 75 + Math.random() * 15; // 75-90 km/h
-        const TIME_MULTIPLIER = 100; // Acelera o tempo para não levar 24h cruzando o país
+        const TIME_MULTIPLIER = 300; // Acelera o tempo para não levar 24h cruzando o país
           const distToTravelM = (speed * 1000 / 3600) * (TICK_MS / 1000) * TIME_MULTIPLIER;
         let remainingM = distToTravelM;
         
