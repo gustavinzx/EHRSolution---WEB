@@ -1,5 +1,6 @@
 "use strict";
 const db = require("../config/db");
+const { buildReturnRoute } = require("./returnRoute");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TICK_MS             = 3000;   // 3s per tick
@@ -94,6 +95,7 @@ async function simulateFleet(io) {
     `);
 
     for (const truck of trucks) {
+      try {
       let route;
       try { route = typeof truck.route_geometry === "string" ? JSON.parse(truck.route_geometry) : truck.route_geometry; }
       catch { console.error(`[SIM] Rota inválida ignorada no caminhão #${truck.id}`); continue; }
@@ -123,6 +125,7 @@ async function simulateFleet(io) {
       if (phase === "fueling" || simState === "fueling") {
         const newTicks = (parseInt(truck.fueling_ticks) || 0) + 1;
         if (newTicks >= FUELING_TICKS) {
+          const returning = await buildReturnRoute(truck);
           // Fueling complete — fill tank, create log, return to route
           const levelBefore = fuelL;
           const levelAfter  = capacityL;
@@ -144,20 +147,13 @@ async function simulateFleet(io) {
             SET status='completed', completed_at=NOW(), duration_minutes=18
             WHERE truck_id=$1 AND status IN ('authorized','active')`, [truck.id]);
 
-          // Return to planned route
-          const resumeIndex = parseInt(truck.route_resume_index) || 0;
-          const plannedRoute = truck.planned_route_geometry
-            ? (typeof truck.planned_route_geometry === "string" ? JSON.parse(truck.planned_route_geometry) : truck.planned_route_geometry)
-            : route;
-
           await db.query(`
             UPDATE trucks SET
               current_level_liters=$1, speed_kmh=0, status='ok',
-              sim_state='driving', route_phase='planned',
-              fueling_ticks=0, fuel_station_id=NULL,
-              route_geometry=$2, route_index=$3
+              sim_state='driving', route_phase='returning_to_route',
+              fueling_ticks=0, route_geometry=$2, route_index=0, route_resume_index=$3
             WHERE id=$4
-          `, [levelAfter, JSON.stringify(plannedRoute), resumeIndex, truck.id]);
+          `, [levelAfter, JSON.stringify(returning.route), returning.index, truck.id]);
 
           console.log(`[SIM] Truck #${truck.id} abasteceu | ${levelBefore.toFixed(0)}L -> ${levelAfter.toFixed(0)}L`);
         } else {
@@ -190,6 +186,15 @@ async function simulateFleet(io) {
         // Keep moving on temporary route toward station (fall through to movement logic below)
       }
 
+      if (phase === 'returning_to_route' && routeIndex >= route.length - 1) {
+        const planned = typeof truck.planned_route_geometry === 'string' ? JSON.parse(truck.planned_route_geometry) : truck.planned_route_geometry;
+        const resumeIndex = Math.min(planned.length - 1, Math.max(0, Number(truck.route_resume_index) || 0));
+        await db.query(`UPDATE trucks SET route_geometry=$1, route_index=$2, lat=$3, lng=$4,
+          route_phase='planned', sim_state='driving', fuel_station_id=NULL WHERE id=$5`,
+          [JSON.stringify(planned), resumeIndex, planned[resumeIndex][1], planned[resumeIndex][0], truck.id]);
+        continue;
+      }
+
       // ── End of route check ─────────────────────────────────────────────────
       if (routeIndex >= route.length - 1) {
         // Final destination reached
@@ -210,6 +215,13 @@ async function simulateFleet(io) {
           if (io && alert[0]) io.emit("newAlert", alert[0]);
         }
         console.log(`[SIM] Truck #${truck.id} chegou ao destino.`);
+        continue;
+      }
+
+      // Preserve the trip, but expose why a vehicle cannot advance.
+      // A later authorized refuel resumes this same trip through the normal flow.
+      if (fuelL <= 0) {
+        await db.query("UPDATE trucks SET speed_kmh=0, status='critical_fuel', sim_state='out_of_fuel' WHERE id=$1", [truck.id]);
         continue;
       }
 
@@ -244,7 +256,7 @@ async function simulateFleet(io) {
         const nextLng = curLng;
         const prevLat = parseFloat(truck.lat);
         const prevLng = parseFloat(truck.lng);
-        const distKm = distToTravelM / 1000;
+        const distKm = (distToTravelM - remainingM) / 1000;
 
       // Realistic consumption: L per 100km, ±15% speed variation
       const speedFactor   = 1 + (speed - 80) / 800; // faster = slightly more consumption
@@ -337,6 +349,9 @@ async function simulateFleet(io) {
         "INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1,$2,$3,$4,$5)",
         [truck.id, finalLat, finalLng, actualSpeed, newFuel]
       );
+      } catch (error) {
+        console.error(`[SIM] Caminhão #${truck.id}: ${error.message}`);
+      }
     }
 
     // Emit fleet update to all connected clients
@@ -356,8 +371,15 @@ const { detectFuelAnomalies } = require("./anomalyDetector");
 
 function startSimulator(io) {
   console.log("[SIM] Iniciando simulador realista de frota...");
-  simulateFleet(io);
-  setInterval(() => { simulateFleet(io); detectFuelAnomalies(io); }, TICK_MS);
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try { await simulateFleet(io); await detectFuelAnomalies(io); }
+    finally { running = false; }
+  };
+  tick();
+  setInterval(tick, TICK_MS);
 }
 
 module.exports = { startSimulator, simulateFleet };

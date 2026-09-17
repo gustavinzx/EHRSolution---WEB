@@ -1,5 +1,6 @@
 "use strict";
 const db = require("../config/db");
+const { buildReturnRoute } = require("../services/returnRoute");
 
 // ─── Fueling Logs ────────────────────────────────────────────────────────────
 exports.list = async (req, res) => {
@@ -99,6 +100,7 @@ exports.finishSession = async (req, res) => {
     if (trucks.length === 0) return res.status(404).json({ error: "Caminhao nao encontrado" });
     const truck = trucks[0];
 
+    const returning = await buildReturnRoute(truck);
     const levelBefore = parseFloat(truck.current_level_liters);
     const levelAfter  = parseFloat(truck.capacity_liters);
     const volume      = levelAfter - levelBefore;
@@ -124,20 +126,11 @@ exports.finishSession = async (req, res) => {
       [id]
     );
 
-    // Restore truck to planned route
-    const resumeIndex = parseInt(truck.route_resume_index) || 0;
-    const plannedRoute = truck.planned_route_geometry
-      ? (typeof truck.planned_route_geometry === "string" ? truck.planned_route_geometry : JSON.stringify(truck.planned_route_geometry))
-      : truck.route_geometry;
-
     await db.query(`
-      UPDATE trucks SET
-        current_level_liters=$1, speed_kmh=0, status='ok',
-        sim_state='driving', route_phase='planned',
-        fueling_ticks=0, fuel_station_id=NULL,
-        route_geometry=$2, route_index=$3
-      WHERE id=$4
-    `, [levelAfter, plannedRoute, resumeIndex, session.truck_id]);
+      UPDATE trucks SET current_level_liters=$1, speed_kmh=0, status='ok',
+        sim_state='driving', route_phase='returning_to_route', fueling_ticks=0,
+        route_geometry=$2, route_index=0, route_resume_index=$3 WHERE id=$4
+    `, [levelAfter, JSON.stringify(returning.route), returning.index, session.truck_id]);
 
     res.json({ success: true, volume_liters: volume, duration_minutes: durationMin.toFixed(1) });
   } catch (err) {

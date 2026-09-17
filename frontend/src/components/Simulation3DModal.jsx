@@ -15,6 +15,7 @@ import { normalizeRoute, routeDistance } from '../utils/routeGeometry';
 export default function Simulation3DModal({ isOpen, onClose, truck: truckProp }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const styleReady = useRef(false);
   const animationRef = useRef(null);
   
   // Ref always holds the latest truck data so the animation loop reads live values
@@ -56,7 +57,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     const liveTruck = fleet.find(t => t.id === truckProp.id) || truckProp;
     liveTruckRef.current = liveTruck;
     setLiveSpeed(parseFloat(liveTruck.speed_kmh) || 0);
-    setLiveSimState(liveTruck.route_phase || liveTruck.sim_state || liveTruck.status || '');
+    setLiveSimState(liveTruck.sim_state === 'out_of_fuel' ? 'out_of_fuel' : liveTruck.route_phase || liveTruck.sim_state || liveTruck.status || '');
 
     // In live mode, feed new GPS coord as target for fallback interpolation
     if (map.current && map.current.isStyleLoaded()) {
@@ -121,6 +122,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     setIsCameraLockedUI(true);
     setRouteReady(false);
     setMapReady(false);
+    styleReady.current = false;
 
     if (!map.current) {
       map.current = new mapboxgl.Map({
@@ -144,6 +146,8 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       map.current.on('wheel', unlockCamera);
 
       map.current.on('style.load', () => {
+        styleReady.current = true;
+        try {
         // Mapbox 3D Terrain
         map.current.addSource('mapbox-dem', {
           type: 'raster-dem',
@@ -169,32 +173,35 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           }
         });
 
+        } catch (error) {
+          console.warn('[3D] Camada visual opcional indisponível:', error.message);
+        }
+
         // -------------------------------------------------------------
         // ESTILO UBER (MARKER 2D - IMAGEM DO USUÁRIO)
         // -------------------------------------------------------------
         const el = document.createElement('div');
         el.className = 'uber-truck-marker';
-        // A base do ícone deve coincidir com a coordenada GPS da via.
-        el.style.width = '46px';
+        // Original PNG: 2400x1309. Visible truck bounds (alpha >= 32):
+        // x=1033..1367, y=90..1231. Crop the transparent margins through CSS,
+        // with no transform on the image or Mapbox-owned marker element.
+        const imageScale = 76 / 1141;
+        el.style.width = `${334 * imageScale}px`;
         el.style.height = '76px';
-        
-        
-        el.style.borderRadius = '12px';
-        
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
         el.style.overflow = 'hidden';
-        
-        // Modelo oficial do projeto. A base do elemento coincide com a via;
-        // o Mapbox aplica apenas o rumo calculado pela geometria da rota.
-        // O PNG possui margens transparentes laterais; o zoom interno mantém
-        // o eixo do caminhão sobre a coordenada da estrada.
-        el.innerHTML = '<img src="/images/caminhao-Photoroom.png" alt="Caminhão" style="width:100%;height:100%;object-fit:contain;display:block;transform:scale(3.2);transform-origin:center bottom;" />';
+        const model = document.createElement('img');
+        model.alt = 'Caminhão';
+        model.style.cssText = `position:absolute;width:${2400 * imageScale}px;height:${1309 * imageScale}px;max-width:none;left:${-1033 * imageScale}px;top:${-90 * imageScale}px;display:block;`;
+        el.appendChild(model);
         const truckImage = el.querySelector('img');
-        truckImage.onerror = () => { truckImage.style.display = 'none'; };
+        truckImage.onerror = () => {
+          console.warn('[3D] Falha ao carregar imagem do caminhão');
+          el.innerHTML = '<span role="img" aria-label="Caminhão — imagem indisponível" style="display:block;width:24px;height:24px;border-radius:50%;background:#2fbeb5;border:3px solid white;box-shadow:0 2px 8px #0008"></span>';
+        };
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', rotationAlignment: 'map', pitchAlignment: 'map' })
+        truckImage.src = '/images/caminhao-Photoroom.png';
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'map' })
           .setLngLat(startCoord)
           .setRotation(truckState.current.bearing)
           .addTo(map.current);
@@ -218,6 +225,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       if (map.current) {
         map.current.remove();
         map.current = null;
+        styleReady.current = false;
         truckState.current.marker = null;
         truckState.current.stationMarker = null;
         truckState.current.routeGeometry = null;
@@ -229,7 +237,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
   // Route data and the Mapbox style can become ready in either order.
   // Telemetry ticks do not reset interpolation; only a geometry change does.
   useEffect(() => {
-    if (!isOpen || !mapReady || !map.current?.isStyleLoaded()) return;
+    if (!isOpen || !mapReady || !map.current || !styleReady.current) return;
     const coordinates = normalizeRoute(activeRoute);
     const geometry = coordinates ? turf.lineString(coordinates) : null;
     const state = truckState.current;
@@ -339,7 +347,10 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       const pt = turf.along(line, d, { units: 'meters' });
       const coord = pt.geometry.coordinates;
       const lookAhead = turf.along(line, Math.min(d + 10, truckState.current.totalDistance), { units: 'meters' });
-      const bearing = turf.bearing(coord, lookAhead.geometry.coordinates);
+      const behind = turf.along(line, Math.max(0, d - 10), { units: 'meters' });
+      const bearing = d >= truckState.current.totalDistance
+        ? turf.bearing(behind.geometry.coordinates, coord)
+        : turf.bearing(coord, lookAhead.geometry.coordinates);
       truckState.current.coord = coord;
       truckState.current.bearing = bearing;
       applyMarkerPosition(coord, bearing);
@@ -364,7 +375,8 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
   if (!isOpen) return null;
 
   const stateLabel = { 
-    driving: 'Em trânsito', 
+    driving: 'Em trânsito',
+    out_of_fuel: 'Sem combustível — aguardando abastecimento', 
     fueling: 'Abastecendo', 
     low_fuel: 'Combustível baixo', 
     no_signal: 'Sem sinal', 
@@ -396,7 +408,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         </div> : <div className="tracking-empty"><Route size={32}/><h3>Mapa indisponível</h3><p>Configure o token do Mapbox para visualizar o rastreamento.</p></div>}
         <footer className="tracking-toolbar">
           <div className="tracking-metric"><span className="eyebrow"><Gauge size={14}/> VELOCIDADE</span><strong>{liveSpeed.toFixed(0)} <small>km/h</small></strong></div>
-          <div className="tracking-metric"><span className="eyebrow">SITUAÇÃO DO VEÍCULO</span><span className={`vehicle-status ${liveSimState === 'no_signal' || liveSimState === 'low_fuel' ? 'vehicle-status-warning' : ''}`}><i/>{stateLabel}</span></div>
+          <div className="tracking-metric"><span className="eyebrow">SITUAÇÃO DO VEÍCULO</span><span className={`vehicle-status ${liveSimState === 'out_of_fuel' || liveSimState === 'no_signal' || liveSimState === 'low_fuel' ? 'vehicle-status-warning' : ''}`}><i/>{stateLabel}</span></div>
           <div className="tracking-actions">
             <label className="route-color"><Route size={16}/><span>Cor da rota</span><input type="color" aria-label="Cor da rota" value={routeColor} onChange={e=>setRouteColor(e.target.value)}/></label>
             <button className="panel-button" onClick={handleCenterCamera} disabled={isCameraLockedUI}><LocateFixed size={16}/>{isCameraLockedUI ? 'Seguindo veículo' : 'Seguir veículo'}</button>

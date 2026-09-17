@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
@@ -15,8 +15,13 @@ import Sidebar     from './components/Sidebar';
 import TopBar from './components/TopBar';
 import useFleetState from './store/useFleetState';
 
-const ProtectedLayout = ({ children }) => {
+export const ProtectedLayout = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    useFleetState.getState().connectSocket();
+    return () => useFleetState.getState().disconnectSocket();
+  }, [isAuthenticated]);
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
