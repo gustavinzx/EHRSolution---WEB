@@ -195,7 +195,7 @@ export default function TruckDetailsPage() {
           </div>
 
           {/* MAP */}
-          <div style={{ ...glass, height: '400px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...glass, height: '600px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Rota e posição atual</span>
                <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} /> Rota completa</span>

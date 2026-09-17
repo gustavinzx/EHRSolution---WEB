@@ -200,41 +200,54 @@ export default function MapView({ trucks = [], onOpen3D }) {
               isFueling={isFueling}
               onClick={() => setSelectedTruckId(truck.id)}
             >
-              <Popup minWidth={210} className="custom-popup">
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.7', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="font-semibold text-white">🚛 {truck.plate} — {truck.model}</div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-400">Velocidade:</span>
-                      <span className="font-mono text-white">{parseFloat(truck.speed_kmh).toFixed(0)} km/h</span>
+              <Popup minWidth={220} className="custom-popup">
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px' }}>
+                    🚛 {truck.plate} <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>— {truck.model}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#94a3b8' }}>Velocidade:</span>
+                      <span style={{ fontFamily: 'monospace', color: '#fff', fontWeight: 600 }}>{parseFloat(truck.speed_kmh).toFixed(0)} km/h</span>
                     </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-400">Combustível:</span>
-                      <span className={`font-mono font-bold ${pct < 25 ? 'text-red-500' : 'text-emerald-500'}`}>{pct}% · {parseFloat(truck.current_level_liters).toFixed(0)}L</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#94a3b8' }}>Combustível:</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: pct < 25 ? '#f87171' : '#34d399' }}>{pct}% · {parseFloat(truck.current_level_liters).toFixed(0)}L</span>
                     </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-400">Status:</span>
-                      <span className="font-mono uppercase text-white">{truck.status}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#94a3b8' }}>Status:</span>
+                      <span style={{ fontFamily: 'monospace', textTransform: 'uppercase', color: truck.status === 'ok' ? '#34d399' : '#fbbf24', fontWeight: 600 }}>{truck.status === 'ok' ? 'OK' : truck.status}</span>
                     </div>
-                    <div className="flex justify-between text-xs mb-2">
-                      <span className="text-slate-400">Fase da Rota:</span>
-                      <span className="font-mono text-slate-300">{truck.route_phase || truck.sim_state}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#94a3b8' }}>Fase da Rota:</span>
+                      <span style={{ fontFamily: 'monospace', color: '#cbd5e1', fontWeight: 500 }}>
+                        {(truck.route_phase || truck.sim_state) === 'to_station' ? 'Indo p/ Posto' :
+                         (truck.route_phase || truck.sim_state) === 'awaiting_fueling_authorization' ? 'Aguardando Trava' :
+                         (truck.route_phase || truck.sim_state) === 'fueling' ? 'Abastecendo' :
+                         (truck.route_phase || truck.sim_state) === 'returning_to_route' ? 'Retornando à Rota' :
+                         (truck.route_phase || truck.sim_state) === 'arrived' ? 'Chegou' :
+                         (truck.route_phase || truck.sim_state) === 'planned' ? 'Rota Planejada' :
+                         (truck.route_phase || truck.sim_state) === 'driving' ? 'Em Viagem' :
+                         (truck.route_phase || truck.sim_state)}
+                      </span>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => navigate(`/fleet/${truck.id}`)}
-                    className="w-full mt-2 bg-slate-900 text-white text-xs py-1.5 rounded hover:bg-slate-800 transition-colors border border-slate-700 font-semibold"
-                  >
-                    Ver Detalhes
-                  </button>
-                  {onOpen3D && (
-                    <button
-                      onClick={() => { setSelectedTruckId(truck.id); onOpen3D(truck); }}
-                      className="w-full bg-teal-500 text-slate-950 text-xs py-1.5 rounded hover:bg-teal-400 transition-colors font-semibold"
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button 
+                      onClick={() => navigate(`/fleet/${truck.id}`)}
+                      style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
                     >
-                      Ver no 3D
+                      Ver Detalhes
                     </button>
-                  )}
+                    {onOpen3D && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onOpen3D(truck); }}
+                        style={{ flex: 1, padding: '8px', background: 'rgba(47,190,181,0.1)', color: 'var(--teal)', border: '1px solid rgba(47,190,181,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
+                      >
+                        Ver no 3D
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </LiveTruckMarker>
