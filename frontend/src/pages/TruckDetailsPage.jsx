@@ -341,7 +341,7 @@ export default function TruckDetailsPage() {
                             {isFueling ? (ev.driver_name || 'Desconhecido') : (ev.status === 'safe' ? 'Segura' : ev.status === 'low' ? 'Risco Tombamento' : 'Vibração Excessiva')}
                           </span>
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: iconColor, fontWeight: 600 }}>
-                            {isFueling ? `+${ev.level_after - ev.level_before}L` : `${ev.vibration_level}%`}
+                            {isFueling ? `+${(ev.level_after - ev.level_before).toFixed(2)}L` : `${ev.vibration_level}%`}
                           </span>
                         </div>
                       </div>
