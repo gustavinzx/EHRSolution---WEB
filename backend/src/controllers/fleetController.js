@@ -167,27 +167,46 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+const { buildReturnToBase } = require('../services/returnRoute');
+
 exports.cancelRoute = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query(`
-      UPDATE trucks 
-      SET 
-        origin_name = NULL,
-        dest_name = NULL,
-        route_geometry = NULL,
-        planned_route_geometry = NULL,
-        route_phase = 'arrived',
-        fuel_station_id = NULL,
-        route_index = 0,
-        route_resume_index = NULL,
-        sim_state = 'idle',
-        speed_kmh = 0,
-        fueling_ticks = 0,
-        updated_at = NOW()
-      WHERE id = $1
-    `, [id]);
-    res.json({ success: true, message: 'Viagem cancelada com sucesso' });
+    const { rows } = await db.query("SELECT * FROM trucks WHERE id=$1", [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Truck not found' });
+    const truck = rows[0];
+
+    try {
+      const returnRoute = await buildReturnToBase(truck);
+      await db.query(`
+        UPDATE trucks 
+        SET 
+          dest_name = origin_name,
+          route_geometry = $2,
+          planned_route_geometry = $2,
+          route_phase = 'returning_to_base',
+          fuel_station_id = NULL,
+          route_index = 0,
+          route_resume_index = NULL,
+          sim_state = 'driving',
+          fueling_ticks = 0,
+          updated_at = NOW()
+        WHERE id = $1
+      `, [id, JSON.stringify(returnRoute)]);
+      return res.json({ success: true, message: 'Viagem cancelada, retornando para a base' });
+    } catch (e) {
+      console.error('Falha ao traçar rota de retorno:', e.message);
+      // Fallback
+      await db.query(`
+        UPDATE trucks 
+        SET 
+          route_phase = 'arrived',
+          sim_state = 'idle',
+          speed_kmh = 0
+        WHERE id = $1
+      `, [id]);
+      return res.json({ success: true, message: 'Viagem parada imediatamente' });
+    }
   } catch (error) {
     console.error('Cancel route error:', error);
     res.status(500).json({ error: 'Erro ao cancelar a rota' });

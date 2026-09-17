@@ -14,4 +14,19 @@ async function buildReturnRoute(truck) {
   if (data.code !== 'Ok' || !Array.isArray(route) || route.length < 2) throw new Error('Não foi possível traçar o retorno à viagem');
   return { route, index };
 }
-module.exports = { buildReturnRoute };
+
+async function buildReturnToBase(truck) {
+  const raw = truck.planned_route_geometry || truck.route_geometry;
+  const planned = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!Array.isArray(planned) || planned.length < 2) throw new Error('Origem indisponível para retorno');
+  
+  const origin = planned[0];
+  const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${Number(truck.lng)},${Number(truck.lat)};${origin[0]},${origin[1]}?overview=full&geometries=geojson`, { signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error('Serviço indisponível');
+  const data = await response.json();
+  const route = data.routes?.[0]?.geometry?.coordinates;
+  if (data.code !== 'Ok' || !Array.isArray(route) || route.length < 2) throw new Error('Não foi possível traçar o retorno à base');
+  return route;
+}
+
+module.exports = { buildReturnRoute, buildReturnToBase };
