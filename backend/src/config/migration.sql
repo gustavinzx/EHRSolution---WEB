@@ -18,6 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_fuel_stations_location ON fuel_stations (lat, lng
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS route_resume_index INTEGER DEFAULT 0;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS planned_route_geometry JSON;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS consumption_per_100km NUMERIC(5,2) DEFAULT 32.0;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS fuel_station_id INTEGER REFERENCES fuel_stations(id);
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=''trucks'' AND column_name=''route_phase'') THEN
