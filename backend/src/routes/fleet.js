@@ -11,6 +11,7 @@ router.get("/:id", fleetController.getOne);
 router.get("/:id/unloading-events", fleetController.getUnloadingEvents);
 router.get("/:id/route", fleetController.getRoute);
 router.post("/:id/route", fleetController.configureRoute);
+router.post("/:id/cancel-route", fleetController.cancelRoute);
 router.post("/:id/force-fueling", fleetController.forceFueling);
 router.post("/:id/security-events", fleetController.securityEvent);
 router.patch("/alerts/:id/resolve", alertsController.resolve);

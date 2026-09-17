@@ -73,62 +73,19 @@ export default function FleetPage() {
             background:`${color}10`, border:`1px solid ${color}30`,
             minWidth:'120px',
           }}>
-            <span style={{ width:'8px', height:'8px', borderRadius:'50%', background:color, boxShadow:`0 0 8px ${color}`, flexShrink:0 }} />
-            <div>
-              <div style={{ fontSize:'10px', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.8px', fontWeight:600 }}>{label}</div>
-              <div style={{ fontFamily:'var(--font-display)', fontSize:'22px', fontWeight:800, color, lineHeight:1 }}>{val}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      {/* Split Screen Layout */}
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: '650px', alignItems: 'stretch' }}>
-        
-        {/* Left Column: Truck List */}
-        <div style={{ flex: '1 1 45%', display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingRight: '4px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:'16px' }}>
-        {Array.isArray(trucks) && trucks.map(truck => {
-          const levelPct = pct(truck);
-          const levelColor = levelPct < 20 ? '#f87171' : levelPct < 50 ? '#fbbf24' : '#34d399';
-          const s = STATUS_META[truck.status] || STATUS_META.ok;
-          const drivers = truck.current_drivers?.length > 0
-            ? truck.current_drivers.map(d => d.name).join(', ')
-            : 'Sem motorista';
-
-          return (
-            <Link key={truck.id} to={`/fleet/${truck.id}`} style={{
-              ...glass,
-              display: 'block',
-              textDecoration: 'none',
-              background: 'rgba(255,255,255,0.04)',
-              transition: 'border-color 0.2s, transform 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              {/* Card header */}
-              <div style={{
-                padding:'16px 18px',
-                background: `linear-gradient(135deg, ${s.glow}, transparent)`,
-                borderBottom:'1px solid rgba(255,255,255,0.06)',
-                display:'flex', justifyContent:'space-between', alignItems:'center',
-              }}>
-                <div>
-                  <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'15px', letterSpacing:'2px', color:'#fff' }}>
-                    {truck.plate}
+                              <span style={{
+                    fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'20px',
+                    background: s.glow, color: s.color, border:`1px solid ${s.color}44`,
+                  }}>
+                    {s.label}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto', paddingLeft: '8px' }}>
+                    {(truck.sim_state === 'driving' || truck.route_phase !== 'arrived') && (
+                      <button type="button" onClick={e => handleCancelRoute(e, truck.id)} style={{ padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(248,113,113,.45)', background:'rgba(248,113,113,.12)', color:'#f87171', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Cancelar</button>
+                    )}
+                    <button type="button" onClick={e=>{e.preventDefault();e.stopPropagation();setRouteTruckId(truck.id);}} style={{ padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(47,190,181,.45)', background:'rgba(47,190,181,.12)', color:'var(--teal)', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Definir viagem</button>
                   </div>
-                  <div style={{ fontSize:'12px', color:'var(--text-muted)', marginTop:'2px' }}>{truck.model}</div>
                 </div>
-                <span style={{
-                  fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'20px',
-                  background: s.glow, color: s.color, border:`1px solid ${s.color}44`,
-                }}>
-                  {s.label}
-                </span>
-                <button type="button" onClick={e=>{e.preventDefault();e.stopPropagation();setRouteTruckId(truck.id);}} style={{ marginLeft:'8px', padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(47,190,181,.45)', background:'rgba(47,190,181,.12)', color:'var(--teal)', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Definir viagem</button>
-              </div>
 
               {/* Details */}
               <div style={{ padding:'14px 18px', display:'flex', flexDirection:'column', gap:'10px' }}>

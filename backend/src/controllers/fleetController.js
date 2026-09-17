@@ -166,3 +166,30 @@ exports.getDashboardStats = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+exports.cancelRoute = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query(`
+      UPDATE trucks 
+      SET 
+        origin_name = NULL,
+        dest_name = NULL,
+        route_geometry = NULL,
+        planned_route_geometry = NULL,
+        route_phase = 'arrived',
+        fuel_station_id = NULL,
+        route_index = 0,
+        route_resume_index = NULL,
+        sim_state = 'idle',
+        speed_kmh = 0,
+        fueling_ticks = 0,
+        updated_at = NOW()
+      WHERE id = $1
+    `, [id]);
+    res.json({ success: true, message: 'Viagem cancelada com sucesso' });
+  } catch (error) {
+    console.error('Cancel route error:', error);
+    res.status(500).json({ error: 'Erro ao cancelar a rota' });
+  }
+};
