@@ -2,6 +2,7 @@ const { startSimulator } = require('./services/simulator');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 
 const authMiddleware = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
@@ -28,6 +29,7 @@ const io = new Server(server, {
 
 app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
+app.use(compression());
 
 // Make io accessible in requests if needed
 app.use((req, res, next) => {
