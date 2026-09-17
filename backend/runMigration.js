@@ -12,8 +12,9 @@ async function runMigration() {
     await client.query("CREATE INDEX IF NOT EXISTS idx_fuel_stations_location ON fuel_stations (lat, lng) WHERE active = true");
     
     await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS route_resume_index INTEGER DEFAULT 0");
+    await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()");
     await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS planned_route_geometry JSON");
-    await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS consumption_per_100km NUMERIC(5,2) DEFAULT 32.0"); await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS fuel_station_id INTEGER REFERENCES fuel_stations(id)");
+    await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS consumption_per_100km NUMERIC(5,2) DEFAULT 32.0"); await client.query("ALTER TABLE trucks DROP CONSTRAINT IF EXISTS trucks_status_check"); await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS fuel_station_id INTEGER REFERENCES fuel_stations(id)");
     await client.query("ALTER TABLE trucks ADD COLUMN IF NOT EXISTS route_phase VARCHAR(30) DEFAULT 'planned'");
 
     await client.query("ALTER TABLE fueling_logs ADD COLUMN IF NOT EXISTS station_id INTEGER REFERENCES fuel_stations(id)");

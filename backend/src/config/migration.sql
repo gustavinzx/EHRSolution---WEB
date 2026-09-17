@@ -16,13 +16,17 @@ CREATE TABLE IF NOT EXISTS fuel_stations (
 CREATE INDEX IF NOT EXISTS idx_fuel_stations_location ON fuel_stations (lat, lng) WHERE active = true;
 
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS route_resume_index INTEGER DEFAULT 0;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS planned_route_geometry JSON;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS consumption_per_100km NUMERIC(5,2) DEFAULT 32.0;
+ALTER TABLE trucks DROP CONSTRAINT IF EXISTS trucks_status_check;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS fuel_station_id INTEGER REFERENCES fuel_stations(id);
+UPDATE trucks SET current_level_liters = LEAST(current_level_liters, capacity_liters)
+WHERE current_level_liters > capacity_liters;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=''trucks'' AND column_name=''route_phase'') THEN
-    ALTER TABLE trucks ADD COLUMN route_phase VARCHAR(30) DEFAULT ''planned'';
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='trucks' AND column_name='route_phase') THEN
+    ALTER TABLE trucks ADD COLUMN route_phase VARCHAR(30) DEFAULT 'planned';
   END IF;
 END $$;
 
