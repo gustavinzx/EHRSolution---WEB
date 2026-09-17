@@ -70,7 +70,7 @@ export function getTruckIcon(truck, color) {
 
 
 
-export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim_state === 'fueling', children, onClick }) {
+function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim_state === 'fueling', children, onClick }) {
   const map = useMap();
   const markerRef = useRef(null);
   const { truckRoutes } = useFleetState();
@@ -241,3 +241,18 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
     </Marker>
   );
 }
+
+
+export default React.memo(LiveTruckMarker, (prevProps, nextProps) => {
+  // Somente re-renderiza se o estado relevante do caminhão mudar
+  return (
+    prevProps.truck.id === nextProps.truck.id &&
+    prevProps.truck.lat === nextProps.truck.lat &&
+    prevProps.truck.lng === nextProps.truck.lng &&
+    prevProps.truck.route_index === nextProps.truck.route_index &&
+    prevProps.truck.sim_state === nextProps.truck.sim_state &&
+    prevProps.truck.route_phase === nextProps.truck.route_phase &&
+    prevProps.iconHtml === nextProps.iconHtml &&
+    prevProps.isFueling === nextProps.isFueling
+  );
+});
