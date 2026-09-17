@@ -209,7 +209,8 @@ async function simulateFleet(io) {
 
       // ── MOVEMENT (planned or to_station) ─────────────────────────────────
       const speed = 75 + Math.random() * 15; // 75-90 km/h
-        const distToTravelM = (speed * 1000 / 3600) * (TICK_MS / 1000);
+        const TIME_MULTIPLIER = 25; // Acelera o tempo para não levar 24h cruzando o país
+          const distToTravelM = (speed * 1000 / 3600) * (TICK_MS / 1000) * TIME_MULTIPLIER;
         let remainingM = distToTravelM;
         
         let nextIndex = routeIndex;
@@ -241,7 +242,7 @@ async function simulateFleet(io) {
 
       // Realistic consumption: L per 100km, ±15% speed variation
       const speedFactor   = 1 + (speed - 80) / 800; // faster = slightly more consumption
-      const consumedL     = (distKm * consumption / 100) * speedFactor;
+      const consumedL     = (distKm * consumption / 100) * speedFactor; // distKm já está com o TIME_MULTIPLIER embutido!
       let newFuel = fuelL - consumedL;
       const fuelPct       = (newFuel / capacityL) * 100;
 
