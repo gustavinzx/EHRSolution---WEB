@@ -28,7 +28,7 @@ const primaryButton = {
 export default function FuelingPage() {
   const [filters, setFilters] = useState({ truckId:'', driverId:'', start:'', end:'' });
   const { logs, loading, refetch, requestSession, authorizeSession, finishSession, getActiveSession } = useFueling();
-  const { trucks, fetchFleet } = useFleet();
+  const { trucks, refetch: fetchFleet } = useFleet();
   const { drivers } = useDrivers();
 
   const [truckId, setTruckId] = useState('');
