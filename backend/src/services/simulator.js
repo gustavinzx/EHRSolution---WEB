@@ -1,178 +1,319 @@
-const db = require('../config/db');
+"use strict";
+const db = require("../config/db");
 
-// ─── Haversine distance ───────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TICK_MS             = 3000;   // 3s per tick
+const ROUTE_JUMP          = 5;      // route points advanced per tick
+const SAFETY_FUEL_MARGIN  = 0.20;   // 20% reserved
+const STATION_RADIUS_M    = 150;    // meters — considered "at station"
+const MIN_KM_BETWEEN_FUEL = 80;     // minimum km between refuels
+const FUELING_TICKS       = 6;      // ~18s of fueling simulation
+
+// ─── Haversine ────────────────────────────────────────────────────────────────
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-const TICK_MS       = 3000;  // 3s por tick (atualização rápida e constante)
-const ROUTE_JUMP    = 4;     // 4 pontos da rota por tick (movimento fluido sem saltos gigantes)
-const FUEL_STOP_PCT = 25;    // % de combustível para parar no posto
-const FUELING_TICKS = 4;     // quantos ticks fica parado abastecendo (~12s)
+function haversineM(lat1, lon1, lat2, lon2) {
+  return haversineKm(lat1, lon1, lat2, lon2) * 1000;
+}
 
+// ─── Estimate remaining distance along route ──────────────────────────────────
+function remainingRouteKm(route, currentIndex) {
+  let dist = 0;
+  for (let i = currentIndex; i < route.length - 1; i++) {
+    const [lng1, lat1] = route[i];
+    const [lng2, lat2] = route[i + 1];
+    dist += haversineKm(lat1, lng1, lat2, lng2);
+  }
+  return dist;
+}
 
-// ─── Máquina de estados por caminhão ─────────────────────────────────────────
-// Estados: 'driving' | 'fueling' | 'resuming'
-// 'driving'  → caminhão anda, consome combustível
-// 'fueling'  → parou no posto, velocidade=0, conta ticks
-// 'resuming' → tick de transição, registra o fueling_log e volta a 'driving'
+// ─── Route from OSRM (with fallback) ─────────────────────────────────────────
+async function fetchOSRMRoute(originLat, originLng, destLat, destLng) {
+  try {
+    const url = `http://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    if (data.code === "Ok" && data.routes.length > 0) {
+      return data.routes[0].geometry.coordinates; // [[lng, lat], ...]
+    }
+  } catch (e) {
+    // OSRM failed — use straight line
+  }
+  // Straight line fallback: 10 intermediate points
+  const points = [];
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10;
+    points.push([originLng + (destLng - originLng) * t, originLat + (destLat - originLat) * t]);
+  }
+  return points;
+}
 
+// ─── Find best reachable station ─────────────────────────────────────────────
+async function findBestStation(truck, route, currentIndex) {
+  const fuelL       = parseFloat(truck.current_level_liters);
+  const consumption = parseFloat(truck.consumption_per_100km || 32);
+  const autonomyKm  = (fuelL / consumption) * 100 * (1 - SAFETY_FUEL_MARGIN);
+  const truckLat    = parseFloat(truck.lat);
+  const truckLng    = parseFloat(truck.lng);
+
+  const { rows: stations } = await db.query("SELECT * FROM fuel_stations WHERE active = true");
+  
+  const candidates = stations
+    .map(s => ({
+      ...s,
+      distKm: haversineKm(truckLat, truckLng, parseFloat(s.lat), parseFloat(s.lng))
+    }))
+    .filter(s => s.distKm <= autonomyKm)  // can reach with remaining fuel
+    .sort((a, b) => a.distKm - b.distKm);
+
+  return candidates[0] || null;
+}
+
+// ─── Main simulator tick ───────────────────────────────────────────────────────
 async function simulateFleet(io) {
   try {
     const { rows: trucks } = await db.query(`
-      SELECT id, current_level_liters, capacity_liters,
-             route_geometry, route_index,
-             sim_state, fueling_ticks,
-             lat, lng
-      FROM trucks
-      WHERE route_geometry IS NOT NULL
+      SELECT t.id, t.plate, t.model, t.dest_name,
+             t.current_level_liters, t.capacity_liters,
+             t.consumption_per_100km,
+             t.route_geometry, t.planned_route_geometry,
+             t.route_index, t.route_resume_index,
+             t.route_phase, t.fuel_station_id,
+             t.sim_state, t.fueling_ticks,
+             t.lat, t.lng, t.status,
+             fs.lat AS station_lat, fs.lng AS station_lng, fs.name AS station_name
+      FROM trucks t
+      LEFT JOIN fuel_stations fs ON t.fuel_station_id = fs.id
+      WHERE t.route_geometry IS NOT NULL
     `);
 
     for (const truck of trucks) {
-      const route = typeof truck.route_geometry === 'string'
-        ? JSON.parse(truck.route_geometry)
-        : truck.route_geometry;
+      const route = typeof truck.route_geometry === "string"
+        ? JSON.parse(truck.route_geometry) : truck.route_geometry;
 
       if (!route || !Array.isArray(route) || route.length < 2) continue;
 
-      let { route_index, sim_state, fueling_ticks, current_level_liters, capacity_liters } = truck;
-      sim_state    = sim_state    || 'driving';
-      fueling_ticks = fueling_ticks || 0;
+      const phase         = truck.route_phase || "planned";
+      const simState      = truck.sim_state   || "driving";
+      const fuelL         = parseFloat(truck.current_level_liters);
+      const capacityL     = parseFloat(truck.capacity_liters);
+      const consumption   = parseFloat(truck.consumption_per_100km || 32);
+      let   routeIndex    = parseInt(truck.route_index) || 0;
 
-      // ── Estado: FUELING ───────────────────────────────────────────────────
-      if (sim_state === 'fueling') {
-        const newTicks = fueling_ticks + 1;
+      // ── ARRIVED — do nothing ──────────────────────────────────────────────
+      if (simState === "arrived" || phase === "arrived") {
+        await db.query("UPDATE trucks SET speed_kmh=0, status='arrived', route_phase='arrived', sim_state='arrived' WHERE id=$1", [truck.id]);
+        continue;
+      }
 
+      // ── AWAITING FUELING AUTHORIZATION — stay still ───────────────────────
+      if (phase === "awaiting_fueling_authorization") {
+        await db.query("UPDATE trucks SET speed_kmh=0 WHERE id=$1", [truck.id]);
+        continue;
+      }
+
+      // ── FUELING (session active, simulator manages short animation) ───────
+      if (phase === "fueling" || simState === "fueling") {
+        const newTicks = (parseInt(truck.fueling_ticks) || 0) + 1;
         if (newTicks >= FUELING_TICKS) {
-          // ── Abastecimento completo! Registrar log + voltar a driving ──────
-          const levelBefore = parseFloat(current_level_liters);
-          const levelAfter  = parseFloat(capacity_liters); // tanque cheio
-          const method      = Math.random() < 0.85 ? 'facial' : 'ble_fallback';
-
-          // Pega o driver vinculado ao caminhão (se houver)
+          // Fueling complete — fill tank, create log, return to route
+          const levelBefore = fuelL;
+          const levelAfter  = capacityL;
+          const method      = Math.random() < 0.85 ? "facial" : "ble_fallback";
           const { rows: driverRows } = await db.query(
-            `SELECT driver_id FROM driver_trucks WHERE truck_id = $1 LIMIT 1`,
-            [truck.id]
+            "SELECT driver_id FROM driver_trucks WHERE truck_id=$1 LIMIT 1", [truck.id]
           );
           const driverId = driverRows[0]?.driver_id || null;
 
-          // Cria o fueling_log
-          await db.query(`
-            INSERT INTO fueling_logs (driver_id, truck_id, lat, lng, level_before, level_after, release_method)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `, [driverId, truck.id, truck.lat, truck.lng, levelBefore, levelAfter, method]);
+          await db.query(
+            `INSERT INTO fueling_logs (driver_id, truck_id, lat, lng, level_before, level_after, release_method, station_id, station_name, started_at, completed_at, volume_liters)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() - INTERVAL '3 minutes',NOW(),$10)`,
+            [driverId, truck.id, truck.lat, truck.lng, levelBefore, levelAfter, method,
+             truck.fuel_station_id || null, truck.station_name || null, levelAfter - levelBefore]
+          );
 
-          // Insere telemetria do reabastecimento
-          await db.query(`
-            INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters)
-            VALUES ($1, $2, $3, 0, $4)
-          `, [truck.id, truck.lat, truck.lng, levelAfter]);
+          // Return to planned route
+          const resumeIndex = parseInt(truck.route_resume_index) || 0;
+          const plannedRoute = truck.planned_route_geometry
+            ? (typeof truck.planned_route_geometry === "string" ? JSON.parse(truck.planned_route_geometry) : truck.planned_route_geometry)
+            : route;
 
-          // Atualiza caminhão: tanque cheio, volta a dirigir
           await db.query(`
-            UPDATE trucks
-            SET current_level_liters = $1,
-                speed_kmh = 0,
-                status = 'ok',
-                sim_state = 'driving',
-                fueling_ticks = 0
-            WHERE id = $2
-          `, [levelAfter, truck.id]);
+            UPDATE trucks SET
+              current_level_liters=$1, speed_kmh=0, status='ok',
+              sim_state='driving', route_phase='planned',
+              fueling_ticks=0, fuel_station_id=NULL,
+              route_geometry=$2, route_index=$3
+            WHERE id=$4
+          `, [levelAfter, JSON.stringify(plannedRoute), resumeIndex, truck.id]);
 
-          console.log(`[SIM] Truck #${truck.id} abasteceu | ${levelBefore.toFixed(0)}L → ${levelAfter.toFixed(0)}L | método: ${method}`);
+          console.log(`[SIM] Truck #${truck.id} abasteceu | ${levelBefore.toFixed(0)}L -> ${levelAfter.toFixed(0)}L`);
         } else {
-          // Ainda abastecendo — permanece parado
-          await db.query(`
-            UPDATE trucks
-            SET speed_kmh = 0, fueling_ticks = $1, status = 'fueling'
-            WHERE id = $2
-          `, [newTicks, truck.id]);
+          await db.query("UPDATE trucks SET speed_kmh=0, fueling_ticks=$1 WHERE id=$2", [newTicks, truck.id]);
         }
-        continue; // pula o movimento neste tick
+        continue;
       }
 
-      // ── Estado: DRIVING ───────────────────────────────────────────────────
-      // Verifica se chegou no fim da rota → loop
-      if (route_index >= route.length - 1) {
-        route_index = 0;
-        await db.query(
-          `UPDATE trucks SET route_index = 0 WHERE id = $1`,
+      // ── TO_STATION — moving toward fuel station ───────────────────────────
+      if (phase === "to_station") {
+        // Check if arrived at station
+        if (truck.station_lat && truck.station_lng) {
+          const distToStation = haversineM(
+            parseFloat(truck.lat), parseFloat(truck.lng),
+            parseFloat(truck.station_lat), parseFloat(truck.station_lng)
+          );
+
+          if (distToStation <= STATION_RADIUS_M || routeIndex >= route.length - 1) {
+            // Arrived at station!
+            await db.query(`
+              UPDATE trucks SET
+                lat=$1, lng=$2, speed_kmh=0, sim_state='fueling',
+                route_phase='awaiting_fueling_authorization'
+              WHERE id=$3
+            `, [parseFloat(truck.station_lat), parseFloat(truck.station_lng), truck.id]);
+            console.log(`[SIM] Truck #${truck.id} chegou ao posto: ${truck.station_name}`);
+            continue;
+          }
+        }
+        // Keep moving on temporary route toward station (fall through to movement logic below)
+      }
+
+      // ── End of route check ─────────────────────────────────────────────────
+      if (routeIndex >= route.length - 1) {
+        // Final destination reached
+        await db.query(`
+          UPDATE trucks SET route_index=$1, speed_kmh=0, status='arrived',
+          sim_state='arrived', route_phase='arrived' WHERE id=$2
+        `, [route.length - 1, truck.id]);
+
+        const { rows: existing } = await db.query(
+          "SELECT id FROM fleet_alerts WHERE truck_id=$1 AND type='destination_arrived' AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1",
           [truck.id]
         );
+        if (existing.length === 0) {
+          const { rows: alert } = await db.query(
+            "INSERT INTO fleet_alerts (truck_id,type,severity,message,plate,model) VALUES ($1,'destination_arrived','low',$2,$3,$4) RETURNING *",
+            [truck.id, `Caminhão chegou ao destino: ${truck.dest_name || "destino final"}.`, truck.plate, truck.model]
+          );
+          if (io && alert[0]) io.emit("newAlert", alert[0]);
+        }
+        console.log(`[SIM] Truck #${truck.id} chegou ao destino.`);
+        continue;
       }
 
-      // Avança na rota
-      const nextIndex = Math.min(route_index + ROUTE_JUMP, route.length - 1);
+      // ── MOVEMENT (planned or to_station) ─────────────────────────────────
+      const nextIndex   = Math.min(routeIndex + ROUTE_JUMP, route.length - 1);
       const [nextLng, nextLat] = route[nextIndex];
-      const [prevLng, prevLat] = route[route_index];
+      const [prevLng, prevLat] = route[routeIndex];
 
-      const distKm = haversineKm(prevLat, prevLng, nextLat, nextLng);
-      const speed  = Math.min(120, Math.max(5, (distKm / (TICK_MS / 3_600_000)) * 10));
+      const distKm   = haversineKm(prevLat, prevLng, nextLat, nextLng);
+      const speed    = Math.min(110, Math.max(20, (distKm / (TICK_MS / 3_600_000)) * 8));
 
-      // Consome combustível: 0.6–1.8L por tick (~90km/h médio, ~30L/100km)
-      const consumed  = Math.random() * 1.2 + 0.6;
-      const newFuel   = Math.max(0, parseFloat(current_level_liters) - consumed);
-      const fuelPct   = (newFuel / parseFloat(capacity_liters)) * 100;
+      // Realistic consumption: L per 100km, ±15% speed variation
+      const speedFactor   = 1 + (speed - 80) / 800; // faster = slightly more consumption
+      const consumedL     = (distKm * consumption / 100) * speedFactor;
+      const newFuel       = Math.max(0, fuelL - consumedL);
+      const fuelPct       = (newFuel / capacityL) * 100;
 
-      // Decide próximo estado
-      let nextState  = 'driving';
-      let nextStatus = 'ok';
+      // ── Autonomy-based fueling decision (only in 'planned' phase) ────────
+      let nextPhase  = phase;
+      let nextStatus = truck.status === "security_alert" ? "security_alert" : "ok";
+      let stationId  = truck.fuel_station_id;
 
-      if (fuelPct <= FUEL_STOP_PCT) {
-        // Para no posto
-        nextState  = 'fueling';
-        nextStatus = 'fueling';
-        console.log(`[SIM] Truck #${truck.id} parou para abastecer (${fuelPct.toFixed(0)}%)`);
-      } else if (fuelPct <= 40) {
-        nextStatus = 'low_fuel';
+      if (phase === "planned" && !stationId) {
+        const autonomyKm     = (newFuel / consumption) * 100 * (1 - SAFETY_FUEL_MARGIN);
+        const distToDestKm   = remainingRouteKm(route, nextIndex);
+
+        if (autonomyKm < distToDestKm) {
+          // Need to refuel — find station
+          nextPhase = "evaluating_station";
+          const station = await findBestStation(truck, route, nextIndex);
+
+          if (station) {
+            // Check there hasn't been a recent refuel within MIN_KM_BETWEEN_FUEL
+            const { rows: recentFuel } = await db.query(
+              "SELECT id FROM fueling_logs WHERE truck_id=$1 AND timestamp > NOW() - INTERVAL '3 hours' LIMIT 1",
+              [truck.id]
+            );
+
+            if (recentFuel.length === 0) {
+              console.log(`[SIM] Truck #${truck.id} calculando rota ao posto: ${station.name} (${station.distKm?.toFixed(1)}km)`);
+              // Calculate route to station
+              const tempRoute = await fetchOSRMRoute(
+                parseFloat(truck.lat), parseFloat(truck.lng),
+                parseFloat(station.lat), parseFloat(station.lng)
+              );
+              // Save planned route before overwriting
+              const plannedRoute = truck.planned_route_geometry
+                ? truck.planned_route_geometry
+                : route;
+
+              await db.query(`
+                UPDATE trucks SET
+                  route_geometry=$1,
+                  planned_route_geometry=$2,
+                  route_resume_index=$3,
+                  route_index=0,
+                  fuel_station_id=$4,
+                  route_phase='to_station'
+                WHERE id=$5
+              `, [
+                JSON.stringify(tempRoute),
+                typeof plannedRoute === "string" ? plannedRoute : JSON.stringify(plannedRoute),
+                nextIndex,
+                station.id,
+                truck.id
+              ]);
+              continue; // will process on next tick
+            }
+          }
+          // No suitable station found — continue driving, alert
+          nextPhase = "planned";
+        }
       }
 
-      // Atualiza posição e estado
-      await db.query(`
-        UPDATE trucks
-        SET lat = $1, lng = $2,
-            current_level_liters = $3,
-            speed_kmh = $4,
-            route_index = $5,
-            status = $6,
-            sim_state = $7,
-            fueling_ticks = 0
-        WHERE id = $8
-      `, [nextLat, nextLng, newFuel, nextState === 'fueling' ? 0 : speed,
-          nextIndex, nextStatus, nextState, truck.id]);
+      if (fuelPct <= 40 && nextStatus !== "security_alert") nextStatus = "low_fuel";
+      if (fuelPct <= 15) nextStatus = "critical_fuel";
 
-      // Telemetria
       await db.query(`
-        INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [truck.id, nextLat, nextLng, speed, newFuel]);
+        UPDATE trucks SET
+          lat=$1, lng=$2, current_level_liters=$3, speed_kmh=$4,
+          route_index=$5, status=$6, sim_state='driving',
+          route_phase=$7, fueling_ticks=0, updated_at=NOW()
+        WHERE id=$8
+      `, [nextLat, nextLng, newFuel, speed, nextIndex, nextStatus, nextPhase, truck.id]);
+
+      await db.query(
+        "INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1,$2,$3,$4,$5)",
+        [truck.id, nextLat, nextLng, speed, newFuel]
+      );
     }
 
+    // Emit fleet update to all connected clients
     if (io) {
-      const fleetDataProvider = require('./fleetDataProvider');
+      const fleetDataProvider = require("./fleetDataProvider");
       const snap = await fleetDataProvider.getFleetSnapshot();
-      io.emit('fleetUpdate', snap);
+      io.emit("fleetUpdate", snap);
       const liveEvents = await fleetDataProvider.getLiveEvents();
-      io.emit('liveEventsUpdate', liveEvents);
+      io.emit("liveEventsUpdate", liveEvents);
     }
   } catch (err) {
-
-    console.error('[SIM] Erro no simulador:', err.message);
+    console.error("[SIM] Erro:", err.message);
   }
 }
 
-const { detectFuelAnomalies } = require('./anomalyDetector');
+const { detectFuelAnomalies } = require("./anomalyDetector");
+
 function startSimulator(io) {
-  console.log('[SIM] Iniciando simulador de frota com máquina de estados...');
-  simulateFleet(io); // roda imediatamente no boot
+  console.log("[SIM] Iniciando simulador realista de frota...");
+  simulateFleet(io);
   setInterval(() => { simulateFleet(io); detectFuelAnomalies(io); }, TICK_MS);
 }
 
 module.exports = { startSimulator };
-

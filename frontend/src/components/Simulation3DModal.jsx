@@ -330,7 +330,20 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
 
   if (!isOpen) return null;
 
-  const stateLabel = { driving: 'Em trânsito', fueling: 'Abastecendo', low_fuel: 'Combustível baixo', no_signal: 'Sem sinal', ok: 'Operacional' }[liveSimState] || 'Aguardando dados';
+  const stateLabel = { 
+    driving: 'Em trânsito', 
+    fueling: 'Abastecendo', 
+    low_fuel: 'Combustível baixo', 
+    no_signal: 'Sem sinal', 
+    security_alert: 'Alerta de segurança', 
+    arrived: 'Chegou ao destino', 
+    ok: 'Operacional',
+    planned: 'Rota Original',
+    evaluating_station: 'Buscando posto',
+    to_station: 'A caminho do posto',
+    awaiting_fueling_authorization: 'Aguardando liberação',
+    returning_to_route: 'Retornando à rota'
+  }[liveTruckRef.current?.route_phase || liveSimState] || 'Aguardando dados';
   return (
     <div className="tracking-overlay">
       <section className="tracking-dialog" role="dialog" aria-modal="true" aria-labelledby="tracking-title">

@@ -6,6 +6,7 @@ exports.list = async (req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT * FROM fleet_alerts
+      WHERE resolved_at IS NULL
       ORDER BY created_at DESC
       LIMIT 50
     `);
@@ -91,5 +92,29 @@ exports.dismiss = async (req, res) => {
     res.json({ message: 'Alert dismissed' });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.resolve = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resolution_note, resolved_by } = req.body;
+    
+    const { rows } = await db.query(
+      `UPDATE fleet_alerts 
+       SET resolved_at = NOW(), resolution_note = $1, resolved_by = $2
+       WHERE id = $3 AND resolved_at IS NULL
+       RETURNING *`,
+      [resolution_note || null, resolved_by || null, id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Alerta não encontrado ou já resolvido" });
+    }
+    
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Resolve alert error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

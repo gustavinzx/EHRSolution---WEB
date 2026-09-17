@@ -42,6 +42,13 @@ async function detectFuelAnomalies(io) {
       const cap = parseFloat(row.capacity_liters);
       if (!cap || cap === 0) continue;
 
+      // Um abastecimento legítimo recupera o alerta aberto daquele caminhão.
+      if (parseFloat(row.current_level) >= cap * 0.9) {
+        await db.query(`UPDATE fleet_alerts SET resolved_at = NOW()
+          WHERE truck_id = $1 AND type = 'suspicious_fuel_drop' AND resolved_at IS NULL`, [row.truck_id]);
+        continue;
+      }
+
       const currentLvl = parseFloat(row.current_level);
       const prevLvl    = parseFloat(row.prev_level);
       const dropLiters = prevLvl - currentLvl;
@@ -52,7 +59,7 @@ async function detectFuelAnomalies(io) {
       // Check if there is a fueling_log in the time window
       const { rows: fuelLogs } = await db.query(`
         SELECT id FROM fueling_logs
-        WHERE truck_id = $1
+        WHERE truck_id = $1 AND resolved_at IS NULL
           AND timestamp BETWEEN $2 - INTERVAL '${TIME_WINDOW_MINUTES} minutes'
           AND $2 + INTERVAL '1 minute'
         LIMIT 1

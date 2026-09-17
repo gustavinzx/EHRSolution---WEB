@@ -12,6 +12,7 @@ const reportsRoutes = require('./routes/reports');
 
 const http = require('http');
 const { Server } = require('socket.io');
+const { ensureSecuritySchema } = require('./services/securityService');
 
 const app = express();
 const server = http.createServer(app);
@@ -81,5 +82,6 @@ server.listen(PORT, () => {
     .catch(console.error);
 
   startSimulator(io);
+  ensureSecuritySchema().catch(err => console.error('[SECURITY] Schema init failed:', err.message));
 
 });

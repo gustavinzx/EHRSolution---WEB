@@ -30,10 +30,21 @@ CREATE TABLE IF NOT EXISTS trucks (
   origin_name VARCHAR(255),
   dest_name VARCHAR(255),
   route_geometry JSON,
+  planned_route_geometry JSON,
+  route_phase VARCHAR(20) DEFAULT 'planned',
+  fuel_station_id INTEGER,
   route_index INTEGER DEFAULT 0,
   route_progress NUMERIC(5,4) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS fuel_stations (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  lat NUMERIC(10,7) NOT NULL,
+  lng NUMERIC(10,7) NOT NULL,
+  active BOOLEAN DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS driver_trucks (
@@ -73,8 +84,42 @@ CREATE TABLE IF NOT EXISTS fleet_alerts (
   message TEXT NOT NULL,
   plate VARCHAR(20),
   model VARCHAR(255),
+  resolved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Sessões curtas de abastecimento: a trava só é liberada durante uma sessão autorizada.
+CREATE TABLE IF NOT EXISTS fueling_sessions (
+  id SERIAL PRIMARY KEY,
+  truck_id INTEGER NOT NULL REFERENCES trucks(id) ON DELETE CASCADE,
+  driver_id INTEGER REFERENCES drivers(id),
+  status VARCHAR(20) NOT NULL DEFAULT 'requested'
+    CHECK (status IN ('requested','authorized','active','completed','expired','cancelled')),
+  release_method VARCHAR(20) CHECK (release_method IN ('facial','ble_fallback')),
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  authorized_at TIMESTAMPTZ,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_fueling_sessions_truck_status
+  ON fueling_sessions (truck_id, status, requested_at DESC);
+
+CREATE TABLE IF NOT EXISTS security_events (
+  id SERIAL PRIMARY KEY,
+  truck_id INTEGER NOT NULL REFERENCES trucks(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'high'
+    CHECK (severity IN ('low','medium','high','critical')),
+  source VARCHAR(30) NOT NULL DEFAULT 'device',
+  payload JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_truck_time
+  ON security_events (truck_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS unloading_events (
   id SERIAL PRIMARY KEY,

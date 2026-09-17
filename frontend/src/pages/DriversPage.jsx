@@ -13,7 +13,7 @@ const glass = {
 };
 
 export default function DriversPage() {
-  const { drivers, loading, createDriver, updateDriver, deactivateDriver, fetchRanking } = useDrivers();
+  const { drivers, loading, createDriver, updateDriver, deactivateDriver, fetchRanking, fetchDriverScore } = useDrivers();
   const [search,       setSearch]       = useState('');
   const [isModalOpen,  setIsModalOpen]  = useState(false);
   const [editingDriver,setEditingDriver] = useState(null);
@@ -176,6 +176,7 @@ export default function DriversPage() {
         onClose={() => { setIsModalOpen(false); setEditingDriver(null); }}
         onSave={handleSave}
         driver={editingDriver}
+        fetchDriverScore={fetchDriverScore}
       />
     </div>
   );

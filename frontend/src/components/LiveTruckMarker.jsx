@@ -96,7 +96,7 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       return null;
     }
   }, [rawGeometry]);
-  const color = { ok: '#34d399', low_fuel: '#fbbf24', no_signal: '#f87171', fueling: '#f87171' }[truck.sim_state === 'fueling' ? 'fueling' : truck.status] || '#34d399';
+  const color = { ok: '#34d399', low_fuel: '#fbbf24', no_signal: '#f87171', fueling: '#f87171', security_alert: '#fb7185', arrived: '#60a5fa' }[truck.sim_state === 'fueling' ? 'fueling' : truck.status] || '#34d399';
   const markerHtml = iconHtml ?? getTruckIcon(truck, color);
   
   const currentDistanceRef = useRef(0);

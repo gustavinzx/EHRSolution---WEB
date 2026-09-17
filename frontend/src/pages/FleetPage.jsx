@@ -16,6 +16,8 @@ const STATUS_META = {
   ok:        { label: 'OK',         color: '#34d399', glow: 'rgba(52,211,153,0.15)' },
   low_fuel:  { label: 'Comb. Baixo',color: '#fbbf24', glow: 'rgba(251,191,36,0.15)' },
   no_signal: { label: 'Sem Sinal',  color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
+  security_alert: { label: 'Alerta de segurança', color: '#fb7185', glow: 'rgba(251,113,133,0.18)' },
+  arrived: { label: 'Chegou ao destino', color: '#60a5fa', glow: 'rgba(96,165,250,0.18)' },
 };
 
 export default function FleetPage() {

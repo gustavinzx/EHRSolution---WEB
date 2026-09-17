@@ -6,7 +6,6 @@ export function useFueling(initialFilters = {}) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Use ref to avoid stale closure without recreating fetchLogs on every render
   const filtersRef = useRef(initialFilters);
 
   const fetchLogs = useCallback(async (filters) => {
@@ -29,11 +28,23 @@ export function useFueling(initialFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, []); // stable — no deps that change on every render
+  }, []);
+
+  const requestSession = useCallback((truckId, driverId, stationId, releaseMethod) =>
+    client.post('/fueling/sessions', { truck_id: truckId, driver_id: driverId, station_id: stationId, release_method: releaseMethod }).then(r => r.data), []);
+  
+  const authorizeSession = useCallback((sessionId) =>
+    client.post(`/fueling/sessions/${sessionId}/authorize`).then(r => r.data), []);
+  
+  const finishSession = useCallback((sessionId) =>
+    client.post(`/fueling/sessions/${sessionId}/finish`).then(r => r.data), []);
+    
+  const getActiveSession = useCallback((truckId) =>
+    client.get(`/fueling/sessions/${truckId}/active`).then(r => r.data), []);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
-  return { logs, loading, error, refetch: fetchLogs };
+  return { logs, loading, error, refetch: fetchLogs, requestSession, authorizeSession, finishSession, getActiveSession };
 }

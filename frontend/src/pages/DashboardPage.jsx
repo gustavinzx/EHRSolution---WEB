@@ -3,7 +3,6 @@ import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCirc
 import { Link, useNavigate } from 'react-router-dom';
 import { useFleet, useLiveEvents }   from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
-import { useAuth }    from '../hooks/useAuth';
 import useFleetState  from '../store/useFleetState';
 import MapView        from '../components/MapView';
 import FuelingTable   from '../components/FuelingTable';
@@ -62,7 +61,6 @@ function DonutRing({ value, color, label }) {
           <circle cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="7"
             strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
             transform="rotate(-90 30 30)"
-            style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
         </svg>
         <div style={{
@@ -80,7 +78,6 @@ export default function DashboardPage() {
   const { trucks, loading: fl, error, refetch } = useFleet();
   const { logs,   loading: ll }          = useFueling();
   const { fueling_now, recent_logs }     = useLiveEvents();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { selectedTruckId, setSelectedTruckId, alerts, fetchAlerts } = useFleetState();
   const [is3DOpen, setIs3DOpen] = useState(false);
@@ -131,35 +128,26 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      <div style={{
-        borderRadius: '20px',
-        background: 'linear-gradient(120deg, #1a2a5e 0%, #0f2040 40%, #1a1a3e 100%)',
-        border: '1px solid rgba(79,142,247,0.2)',
-        padding: '28px 32px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'relative', overflow: 'hidden', minHeight: '140px',
-      }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '240px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(79,142,247,0.15)', filter: 'blur(40px)' }} />
-        <div style={{ position: 'absolute', bottom: '-30px', right: '100px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(47,190,181,0.1)', filter: 'blur(30px)' }} />
+      <div className="operations-summary">
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Bem-vindo de volta</div>
+          <div className="eyebrow">CENTRAL DE OPERAÇÕES</div>
           <h1 style={{ margin: 0, fontSize: '30px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-            Olá, {(user?.name || 'Gestor').split(' ')[0]}! 
+            Visão geral da frota
           </h1>
           <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
             Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#2FBEB5' }}>{enRoute} caminhão{enRoute !== 1 ? 'ões' : ''} em rota</strong> agora.
+            <strong style={{ color: '#2FBEB5' }}>{enRoute} {enRoute === 1 ? 'caminhão' : 'caminhões'} em rota</strong> agora.
           </p>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button onClick={() => navigate('/fleet')} style={{ background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', border: 'none', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(47,190,181,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="operations-actions">
+            <button onClick={() => navigate('/fleet')} className="panel-button primary-button">
               <Truck size={14} /> Ver Frota Completa
             </button>
-            <button onClick={refetch} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={refetch} className="panel-button">
               Atualizar Dados
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '24px', position: 'relative', zIndex: 1 }}>
+        <div className="operations-rings">
           <DonutRing value={avgFuel} color="#2FBEB5" label="Combustível" />
           <DonutRing value={safeTrucks.length > 0 ? Math.round((enRoute / safeTrucks.length) * 100) : 0} color="#34d399" label="Em rota" />
           <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
@@ -168,17 +156,14 @@ export default function DashboardPage() {
 
       <div className="dashboard-stats">
         {statCards.map((s, i) => (
-          <div key={i} style={{ ...card, background: s.bg, border: `1px solid ${s.border}`, padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: '14px', transition: 'transform 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-          >
+          <div key={i} className="fleet-kpi">
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${s.color}20`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <s.icon size={20} color={s.color} />
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600 }}>{s.title}</div>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: '#fff', lineHeight: 1.1, marginTop: '4px', fontFamily: 'monospace' }}>{s.value}</div>
-              <div style={{ fontSize: '11px', color: '#475569', marginTop: '3px' }}>{s.sub}</div>
+              <div className="eyebrow">{s.title}</div>
+              <div className="fleet-kpi-value">{s.value}</div>
+              <div className="fleet-kpi-note">{s.sub}</div>
             </div>
           </div>
         ))}
@@ -186,48 +171,12 @@ export default function DashboardPage() {
 
       <div className="dashboard-columns">
         <div style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="fleet-map-header">
             <div>
               <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Mapa da Frota em Tempo Real</div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Atualiza automaticamente a cada 15s</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Posições atualizadas automaticamente</div>
             </div>
             <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-              {selectedTruckId && import.meta.env.DEV && (
-                <>
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('token');
-                        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/alerts/simulate-fuel-drop/${selectedTruckId}`, { 
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                      } catch (e) {
-                        console.error('Failed to simulate fuel drop', e);
-                      }
-                    }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid #fbbf24', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    <AlertTriangle size={12} /> Simular Queda
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('token');
-                        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/fleet/${selectedTruckId}/force-fueling`, { 
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                      } catch (e) {
-                        console.error('Failed to force fueling', e);
-                      }
-                    }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid #f87171', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    <Fuel size={12} /> Simular Abastecimento
-                  </button>
-                </>
-              )}
               {selectedTruckId && (
                 <button 
                   onClick={() => setIs3DOpen(true)}

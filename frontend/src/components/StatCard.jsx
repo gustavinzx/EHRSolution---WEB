@@ -4,6 +4,7 @@ const STATUS_META = {
   ok:        { label: 'OK',        color: '#34d399', glow: 'rgba(52,211,153,0.3)' },
   low_fuel:  { label: 'Combustível Baixo', color: '#fbbf24', glow: 'rgba(251,191,36,0.3)' },
   no_signal: { label: 'Sem Sinal', color: '#f87171', glow: 'rgba(248,113,113,0.3)' },
+  security_alert: { label: 'Alerta de segurança', color: '#fb7185', glow: 'rgba(251,113,133,0.3)' },
 };
 
 export default function StatCard({ title, value, unit, icon: Icon, color = 'teal', subtitle }) {

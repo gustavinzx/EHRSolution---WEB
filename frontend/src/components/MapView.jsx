@@ -2,9 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Popup, useMap, Polyline } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import LiveTruckMarker, { getTruckIcon } from './LiveTruckMarker';
+import StationMarker from './StationMarker';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import useFleetState from '../store/useFleetState';
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -17,6 +19,8 @@ const STATUS_COLORS = {
   low_fuel:  '#fbbf24',
   no_signal: '#f87171',
   fueling:   '#f87171',
+  security_alert: '#fb7185',
+  arrived: '#60a5fa',
 };
 
 // ─── Auto-Fit Camera Bounds around trucks ────────────────────────────────────
@@ -26,36 +30,20 @@ function AutoFitBounds({ trucks }) {
   const { selectedTruckId } = useFleetState();
 
   useEffect(() => {
-    if (trucks.length > 0 && !hasFitted.current && !selectedTruckId) {
-      const validCoords = trucks
-        .map(t => [parseFloat(t.lat), parseFloat(t.lng)])
-        .filter(([lat, lng]) => lat && lng && !isNaN(lat) && !isNaN(lng));
-
-      if (validCoords.length > 0) {
-        const bounds = L.latLngBounds(validCoords);
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 9 });
+    if (selectedTruckId && trucks.length > 0) {
+      const truck = trucks.find(t => t.id === selectedTruckId);
+      if (truck && truck.lat && truck.lng) {
+        map.flyTo([truck.lat, truck.lng], 13, { duration: 1.5 });
+      }
+    } else if (trucks.length > 0 && !hasFitted.current) {
+      const validTrucks = trucks.filter(t => t.lat && t.lng);
+      if (validTrucks.length > 0) {
+        const bounds = L.latLngBounds(validTrucks.map(t => [t.lat, t.lng]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
         hasFitted.current = true;
       }
     }
-  }, [trucks, map, selectedTruckId]);
-
-  useEffect(() => {
-    if (selectedTruckId) {
-      const t = trucks.find(tr => tr.id === selectedTruckId);
-      if (t && t.lat && t.lng) {
-        map.flyTo([parseFloat(t.lat), parseFloat(t.lng)], 13, { duration: 1.5 });
-      }
-    } else {
-      // Re-fit bounds when deselected
-      const validCoords = trucks
-        .map(t => [parseFloat(t.lat), parseFloat(t.lng)])
-        .filter(([lat, lng]) => lat && lng && !isNaN(lat) && !isNaN(lng));
-      if (validCoords.length > 0) {
-        const bounds = L.latLngBounds(validCoords);
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 9 });
-      }
-    }
-  }, [selectedTruckId, trucks, map]);
+  }, [trucks, selectedTruckId, map]);
 
   return null;
 }
@@ -67,45 +55,75 @@ export default function MapView({ trucks = [] }) {
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  const getDrivers = (t) =>
-    t.current_drivers?.length > 0 ? t.current_drivers.map(d => d.name).join(', ') : 'Sem motorista';
-
   return (
-    <div style={{ height: '100%', width: '100%', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" style={{ height: '500px' }}>
       <MapContainer 
-        center={[-22.9, -45.5]} 
-        zoom={7} 
-        minZoom={5}
-        maxBounds={[[-38, -75], [5, -30]]}
-        style={{ height: '100%', width: '100%' }}
+        center={[-15.7801, -47.9292]} // default center (Brasilia)
+        zoom={4} 
+        style={{ height: '100%', width: '100%', background: '#1a1a1a' }}
+        zoomControl={false}
       >
-        <AutoFitBounds trucks={trucks} />
         <TileLayer
           attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
           url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
           className="map-tiles"
           noWrap={true}
         />
+        <AutoFitBounds trucks={trucks} />
+
         {/* Draw Polylines for each truck route */}
         {Array.isArray(trucks) && trucks.map(truck => {
-          let route = truckRoutes[truck.id];
-          if (typeof route === 'string') {
-            try { route = JSON.parse(route); } catch(e) {}
+          let tempRoute = truckRoutes[truck.id];
+          if (typeof tempRoute === 'string') {
+            try { tempRoute = JSON.parse(tempRoute); } catch(e) {}
           }
-          if (!Array.isArray(route) || route.length < 2) return null;
-          // routeGeometry is [lng, lat], Leaflet expects [lat, lng]
-          const latLngs = route.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
+          
+          let plannedRoute = truck.planned_route_geometry;
+          if (typeof plannedRoute === 'string') {
+            try { plannedRoute = JSON.parse(plannedRoute); } catch(e) {}
+          }
+
+          const hasTempRoute = truck.route_phase === 'to_station' || truck.route_phase === 'evaluating_station' || truck.route_phase === 'returning_to_route';
           const isSelected = selectedTruckId === truck.id;
+
+          const renderPolyline = (routePoints, isTemp) => {
+            if (!Array.isArray(routePoints) || routePoints.length < 2) return null;
+            const latLngs = routePoints.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
+            
+            let color = isSelected ? '#F2A93B' : 'rgba(47, 190, 181, 0.4)';
+            if (isTemp) color = isSelected ? '#ef4444' : '#f97316'; // Red/Orange for detour
+
+            return (
+              <Polyline 
+                key={`route-${truck.id}-${isTemp ? 'temp' : 'planned'}`} 
+                positions={latLngs} 
+                pathOptions={{ 
+                  color, 
+                  weight: isSelected ? 6 : (isTemp ? 4 : 3), 
+                  opacity: isSelected ? 1 : 0.6,
+                  dashArray: isTemp ? '5, 10' : undefined
+                }} 
+              />
+            );
+          };
+
           return (
-            <Polyline 
-              key={`route-${truck.id}`} 
-              positions={latLngs} 
-              pathOptions={{ 
-                color: isSelected ? '#F2A93B' : 'rgba(47, 190, 181, 0.4)', 
-                weight: isSelected ? 6 : 3, 
-                opacity: isSelected ? 1 : 0.6 
-              }} 
-            />
+            <React.Fragment key={`routes-${truck.id}`}>
+              {/* If on a detour, render the planned route under it */}
+              {hasTempRoute && renderPolyline(plannedRoute, false)}
+              
+              {/* Render the active route (which is temp if on detour, else planned) */}
+              {renderPolyline(tempRoute, hasTempRoute)}
+
+              {/* Station marker if on a detour to a station */}
+              {hasTempRoute && truck.station_lat && truck.station_lng && (
+                <StationMarker 
+                  station_lat={parseFloat(truck.station_lat)}
+                  station_lng={parseFloat(truck.station_lng)}
+                  station_name={truck.station_name || 'Posto'}
+                />
+              )}
+            </React.Fragment>
           );
         })}
 
@@ -115,7 +133,7 @@ export default function MapView({ trucks = [] }) {
           if (!lat || !lng) return null;
           const color = STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || '#34d399';
           const pct = getLevelPct(truck);
-          const isFueling = truck.sim_state === 'fueling';
+          const isFueling = truck.route_phase === 'fueling' || truck.route_phase === 'awaiting_fueling_authorization';
 
           return (
             <LiveTruckMarker
@@ -124,48 +142,39 @@ export default function MapView({ trucks = [] }) {
               iconHtml={getTruckIcon(truck, color)}
               isFueling={isFueling}
             >
-              <Popup minWidth={210}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.7', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff' }}>
-                    🚛 {truck.plate} — {truck.model}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div><span style={{ color: '#64748b' }}>Motorista: </span><strong>{getDrivers(truck)}</strong></div>
-                    <div>
-                      <span style={{ color: '#64748b' }}>Combustível: </span>
-                      <strong style={{ color: pct < 20 ? '#f87171' : pct < 50 ? '#fbbf24' : '#34d399' }}>
-                        {pct}% · {truck.current_level_liters}L
-                      </strong>
-                    </div>
-                    <div><span style={{ color: '#64748b' }}>Velocidade: </span><strong>{truck.speed_kmh} km/h</strong></div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => navigate(`/fleet/${truck.id}`)}
-                    style={{
-                      marginTop: '4px',
-                      background: 'var(--teal)',
-                      border: 'none',
-                      color: '#0a101a',
-                      fontWeight: 700,
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      width: '100%',
-                      transition: '0.2s',
-                      boxShadow: '0 0 10px rgba(47, 190, 181, 0.3)'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                  >
-                    📍 Acompanhar Rota
-                  </button>
-                </div>
-              </Popup>
+              <div className="font-semibold">{truck.plate}</div>
+              <div className="text-xs text-gray-500 mb-2">{truck.model}</div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Velocidade:</span>
+                <span className="font-mono">{parseFloat(truck.speed_kmh).toFixed(0)} km/h</span>
+              </div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Combustível:</span>
+                <span className={`font-mono font-bold ${pct < 25 ? 'text-red-500' : 'text-emerald-500'}`}>{pct}%</span>
+              </div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Status:</span>
+                <span className="font-mono uppercase">{truck.status}</span>
+              </div>
+              <div className="flex justify-between text-xs mb-2">
+                <span>Fase da Rota:</span>
+                <span className="font-mono text-gray-700">{truck.route_phase || truck.sim_state}</span>
+              </div>
+              <button 
+                onClick={() => navigate(`/fleet/${truck.id}`)}
+                className="w-full mt-2 bg-slate-900 text-white text-xs py-1 rounded hover:bg-slate-800 transition-colors"
+              >
+                Ver Detalhes
+              </button>
             </LiveTruckMarker>
           );
         })}
       </MapContainer>
+      <div className="absolute top-4 right-4 z-[400] flex gap-2">
+        <div className="bg-slate-900/90 text-white px-3 py-1.5 rounded text-xs font-medium backdrop-blur shadow-sm border border-slate-700">
+          Frota Ativa: {trucks.length}
+        </div>
+      </div>
     </div>
   );
 }

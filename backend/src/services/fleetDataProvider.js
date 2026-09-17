@@ -45,12 +45,16 @@ async function getFleetSnapshot() {
       SELECT 
         t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, 
         t.lat, t.lng, t.speed_kmh, t.status, t.sim_state, t.route_index,
-        t.origin_name, t.dest_name, t.route_index, t.route_progress, t.created_at,
+        t.origin_name, t.dest_name, t.route_progress, t.created_at,
+        t.route_phase, t.route_resume_index, t.fuel_station_id,
+        t.planned_route_geometry,
+        fs.name AS station_name, fs.lat AS station_lat, fs.lng AS station_lng,
         json_agg(json_build_object('id', d.id, 'name', d.name)) FILTER (WHERE d.id IS NOT NULL) as current_drivers
       FROM trucks t
+      LEFT JOIN fuel_stations fs ON t.fuel_station_id = fs.id
       LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
       LEFT JOIN drivers d ON dt.driver_id = d.id AND d.is_active = true
-      GROUP BY t.id
+      GROUP BY t.id, fs.name, fs.lat, fs.lng
       ORDER BY t.created_at DESC
     `;
     const result = await db.query(query);

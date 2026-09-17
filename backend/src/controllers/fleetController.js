@@ -1,5 +1,6 @@
 const dataProvider = require('../services/fleetDataProvider');
 const db = require('../config/db');
+const security = require('../services/securityService');
 
 exports.list = async (req, res) => {
   try {
@@ -58,6 +59,18 @@ exports.forceFueling = async (req, res) => {
   }
 };
 
+// POST /api/fleet/:id/security-events — bridge for device/IoT security signals
+exports.securityEvent = async (req, res) => {
+  try {
+    const { type, severity, source, payload } = req.body || {};
+    if (!type) return res.status(400).json({ error: 'O campo type é obrigatório' });
+    const result = await security.recordSecurityEvent({ truckId: req.params.id, type, severity, source, payload, io: req.io });
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
 exports.configureRoute = async (req, res) => {
   const { id } = req.params;
   const { origin, destination } = req.body;
@@ -103,7 +116,7 @@ exports.configureRoute = async (req, res) => {
     
     await db.query(`
       UPDATE trucks 
-      SET origin_name = $1, dest_name = $2, route_geometry = $3, route_index = 0, lat = $4, lng = $5, sim_state = 'driving'
+      SET origin_name = $1, dest_name = $2, route_geometry = $3, planned_route_geometry = $3, route_phase = 'planned', fuel_station_id = NULL, route_index = 0, lat = $4, lng = $5, sim_state = 'driving', status = 'ok', fueling_ticks = 0
       WHERE id = $6
     `, [originData.name, destData.name, JSON.stringify(geometry), originData.lat, originData.lng, id]);
 
