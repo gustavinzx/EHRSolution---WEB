@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDrivers } from '../hooks/useDrivers';
 import DriverModal    from '../components/DriverModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { UserPlus, Search, Users } from 'lucide-react';
+import { UserPlus, Search, Users, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+
 
 const glass = {
   background: 'rgba(255,255,255,0.04)',
@@ -12,12 +13,28 @@ const glass = {
 };
 
 export default function DriversPage() {
-  const { drivers, loading, createDriver, updateDriver, deactivateDriver } = useDrivers();
+  const { drivers, loading, createDriver, updateDriver, deactivateDriver, fetchRanking } = useDrivers();
   const [search,       setSearch]       = useState('');
   const [isModalOpen,  setIsModalOpen]  = useState(false);
   const [editingDriver,setEditingDriver] = useState(null);
+  const [ranking, setRanking] = useState([]);
+  const [loadingRank, setLoadingRank] = useState(true);
 
-  const filtered = drivers.filter(d => (d.name || '').toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => {
+    fetchRanking().then(res => {
+      setRanking(res);
+      setLoadingRank(false);
+    });
+  }, [fetchRanking]);
+
+  const getDriverRankData = (id) => ranking.find(r => r.id === id);
+
+  const filtered = drivers.filter(d => (d.name || '').toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => {
+       const scoreA = getDriverRankData(a.id)?.score || 0;
+       const scoreB = getDriverRankData(b.id)?.score || 0;
+       return scoreB - scoreA;
+    });
 
   const handleSave = async (data) => {
     const ok = editingDriver
@@ -30,7 +47,7 @@ export default function DriversPage() {
     if (window.confirm('Desativar este motorista?')) await deactivateDriver(id);
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || loadingRank) return <LoadingSpinner />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -78,8 +95,8 @@ export default function DriversPage() {
         <table>
           <thead>
             <tr>
-              {['Nome','Telefone','Email','Status','Caminhões','Ações'].map((h,i) => (
-                <th key={h} style={{ textAlign: i===5?'right':'left' }}>{h}</th>
+              {['Posição', 'Nome/Status','Consumo','Segurança (Descargas)','Ociosidade','Score','Ações'].map((h,i) => (
+                <th key={h} style={{ textAlign: i===6?'right':'left', padding: '16px' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -90,44 +107,63 @@ export default function DriversPage() {
                 <div>Nenhum motorista encontrado</div>
               </td></tr>
             )}
-            {filtered.map(d => (
-              <tr key={d.id}>
-                <td style={{ fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img src={`https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
-                  {d.name}
+            {Array.isArray(filtered) && filtered.map(d => (
+              <tr key={d.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <td style={{ padding: '16px', fontWeight: 700, color: '#fff', fontSize: '18px', opacity: 0.8 }}>
+                  {(() => {
+                     const idx = ranking.findIndex(r => r.id === d.id);
+                     if (idx === 0) return <span style={{color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px'}}><Trophy size={18}/> 1º</span>;
+                     if (idx === 1) return <span style={{color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px'}}>2º</span>;
+                     if (idx === 2) return <span style={{color: '#b45309', display: 'flex', alignItems: 'center', gap: '4px'}}>3º</span>;
+                     return `${idx + 1}º`;
+                  })()}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  {d.phone || '—'}
+                <td style={{ padding: '16px', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src={`https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} />
+                  <div>
+                    <div style={{ fontSize: '15px' }}>{d.name}</div>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', display: 'inline-block', marginTop: '4px',
+                      background: d.is_active ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.1)',
+                      color: d.is_active ? '#34d399' : '#f87171',
+                      border: `1px solid ${d.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                    }}>
+                      {d.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
                 </td>
-                <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{d.email || '—'}</td>
-                <td>
-                  <span style={{
-                    fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px',
-                    background: d.is_active ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.1)',
-                    color: d.is_active ? '#34d399' : '#f87171',
-                    border: `1px solid ${d.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
-                  }}>
-                    {d.is_active ? '● Ativo' : '● Inativo'}
-                  </span>
+                <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: '#e2e8f0' }}>
+                  {getDriverRankData(d.id)?.metrics?.consumption || '--'} L/100km
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--teal)' }}>
-                  {d.assigned_trucks?.length > 0 ? d.assigned_trucks.map(t => t.plate).join(', ') : '—'}
+                <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: '#e2e8f0' }}>
+                  {getDriverRankData(d.id)?.metrics?.safe_unloads_pct || '0'}% Seguras
                 </td>
-                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: '#e2e8f0' }}>
+                  {getDriverRankData(d.id)?.metrics?.idle_time_pct || '0'}% Tempo
+                </td>
+                <td style={{ padding: '16px' }}>
+                  {(() => {
+                    const score = getDriverRankData(d.id)?.score || 0;
+                    let color = score >= 80 ? '#34d399' : score >= 50 ? '#fbbf24' : '#f87171';
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 800, color }}>{score}</div>
+                        <div style={{ width: '40px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                           <div style={{ width: `${score}%`, height: '100%', background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </td>
+                <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <button
                     onClick={() => { setEditingDriver(d); setIsModalOpen(true); }}
-                    style={{ background:'none', border:'none', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:500, marginRight:'12px' }}
+                    style={{ background:'rgba(47,190,181,0.1)', border:'1px solid rgba(47,190,181,0.3)', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:600, padding: '8px 16px', borderRadius: '8px', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.target.style.background = 'rgba(47,190,181,0.2)'; }}
+                    onMouseLeave={e => { e.target.style.background = 'rgba(47,190,181,0.1)'; }}
                   >
-                    Editar
+                    Detalhes do Score
                   </button>
-                  {d.is_active && (
-                    <button
-                      onClick={() => handleDeactivate(d.id)}
-                      style={{ background:'none', border:'none', color:'var(--red)', cursor:'pointer', fontSize:'13px', fontWeight:500 }}
-                    >
-                      Desativar
-                    </button>
-                  )}
                 </td>
               </tr>
             ))}

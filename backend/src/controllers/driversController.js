@@ -110,3 +110,26 @@ exports.assignTruck = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+
+const dataProvider = require('../services/fleetDataProvider');
+
+exports.ranking = async (req, res) => {
+  try {
+    const ranking = await dataProvider.getDriverRanking();
+    res.json(ranking);
+  } catch (error) {
+    console.error('Driver ranking error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getScore = async (req, res) => {
+  try {
+    const score = await dataProvider.getDriverScore(req.params.id);
+    res.json(score);
+  } catch (error) {
+    console.error('Driver score error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

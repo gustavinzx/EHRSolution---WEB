@@ -4,13 +4,21 @@ import * as turf from '@turf/turf';
 import { X } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ['pk', 'eyJ1IjoiZ3VzdGF2aW56eCIsImEiOiJjbXU0ZGR5Zm8wazN1Mnhwc3Fvdzh2cWpyIn0', 'rHkcwOwN3wgW5uK5Hpxr4w'].join('.');
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+if (MAPBOX_TOKEN) {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
+}
 
-export default function Simulation3DModal({ isOpen, onClose, truck }) {
+import useFleetState from '../store/useFleetState';
+
+export default function Simulation3DModal({ isOpen, onClose, truck: truckProp }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const animationRef = useRef(null);
   
+  // Ref always holds the latest truck data so the animation loop reads live values
+  const liveTruckRef = useRef(truckProp);
+
   const truckState = useRef({
     coord: [0, 0],
     bearing: 0,
@@ -26,30 +34,64 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [routeColor, setRouteColor] = useState('#2FBEB5');
   const [isCameraLockedUI, setIsCameraLockedUI] = useState(true);
+  // Live telemetry display state (updated from WebSocket store)
+  const [liveSpeed, setLiveSpeed] = useState(0);
+  const [liveSimState, setLiveSimState] = useState('');
+  
+  const { truckRoutes, fleet } = useFleetState();
+
+  // ── Sync liveTruckRef and UI state with the Zustand/WebSocket fleet store ──
+  useEffect(() => {
+    if (!truckProp) return;
+    const liveTruck = fleet.find(t => t.id === truckProp.id) || truckProp;
+    liveTruckRef.current = liveTruck;
+    setLiveSpeed(parseFloat(liveTruck.speed_kmh) || 0);
+    setLiveSimState(liveTruck.sim_state || liveTruck.status || '');
+
+    // In live mode, feed new GPS coord as target for fallback interpolation
+    if (!truckState.current.isPlaying && map.current && map.current.isStyleLoaded()) {
+      const lng = Number(liveTruck.lng);
+      const lat = Number(liveTruck.lat);
+      if (!Number.isNaN(lng) && !Number.isNaN(lat) && lng !== 0 && lat !== 0) {
+        truckState.current.targetCoord = [lng, lat];
+      }
+    }
+  }, [fleet, truckProp]);
 
   // Initialization and Map Lifecycle
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !truckProp || !MAPBOX_TOKEN) {
       setIsSimulating(false);
       truckState.current.isPlaying = false;
       return;
     }
     
-    const rawGeo = typeof truck?.route_geometry === 'string' ? JSON.parse(truck.route_geometry) : truck?.route_geometry;
-    const hasRoute = rawGeo && rawGeo.length > 0;
+    const liveTruck = liveTruckRef.current || truckProp;
+
+    // Check if route is already string or array, or get it from store
+    let routeData = typeof liveTruck.route_geometry === 'string' 
+      ? JSON.parse(liveTruck.route_geometry) 
+      : (liveTruck.route_geometry || truckRoutes[liveTruck.id]);
+
+    // Defensive: handle object with .geometry.coordinates
+    if (routeData && !Array.isArray(routeData) && routeData.geometry) {
+      routeData = routeData.geometry.coordinates;
+    }
+
+    const rawGeo = Array.isArray(routeData) ? routeData : null;
+    const hasRoute = rawGeo && rawGeo.length > 1;
     
     // Robust Coordinate Setup — Prioritize current truck position
-    const safeLng = Number(truck?.lng);
-    const safeLat = Number(truck?.lat);
+    const safeLng = Number(liveTruck?.lng);
+    const safeLat = Number(liveTruck?.lat);
     const hasValidTruckPos = !Number.isNaN(safeLng) && !Number.isNaN(safeLat) && safeLng !== 0 && safeLat !== 0;
 
-    const startCoord = hasValidTruckPos
+    let startCoord = hasValidTruckPos
       ? [safeLng, safeLat]
       : (hasRoute ? [rawGeo[0][0], rawGeo[0][1]] : [-46.6333, -23.5505]);
 
     if (Number.isNaN(startCoord[0]) || Number.isNaN(startCoord[1])) {
-      startCoord[0] = -46.6333;
-      startCoord[1] = -23.5505;
+      startCoord = [-46.6333, -23.5505];
     }
 
     truckState.current.coord = startCoord;
@@ -61,25 +103,32 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
       truckState.current.totalDistance = turf.length(truckState.current.routeGeometry, { units: 'meters' });
       
       // Calculate current distance along route based on route_index if available
-      const routeIdx = Math.min(truck?.route_index || 0, rawGeo.length - 1);
+      const routeIdx = Math.min(liveTruck?.route_index || 0, rawGeo.length - 1);
       if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
-        const sliced = turf.lineSlice(turf.point(rawGeo[0]), turf.point(rawGeo[routeIdx]), truckState.current.routeGeometry);
-        truckState.current.currentDistance = turf.length(sliced, { units: 'meters' });
+        try {
+          const sliced = turf.lineSlice(turf.point(rawGeo[0]), turf.point(rawGeo[routeIdx]), truckState.current.routeGeometry);
+          truckState.current.currentDistance = turf.length(sliced, { units: 'meters' });
+        } catch(e) {
+          truckState.current.currentDistance = 0;
+        }
       } else {
         truckState.current.currentDistance = 0;
       }
       
-      const nextPt = rawGeo[routeIdx + 1] || startCoord;
-      truckState.current.bearing = turf.bearing(startCoord, nextPt);
+      const nextIdx = Math.min(routeIdx + 1, rawGeo.length - 1);
+      const nextPt = rawGeo[nextIdx];
+      if (nextPt && (nextPt[0] !== startCoord[0] || nextPt[1] !== startCoord[1])) {
+        try { truckState.current.bearing = turf.bearing(startCoord, nextPt); } catch(e) {}
+      }
     }
 
     if (!map.current) {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/navigation-night-v1',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
         center: startCoord,
-        zoom: 17,
-        pitch: 65,
+        zoom: 16,
+        pitch: 55,
         bearing: truckState.current.bearing,
         antialias: true
       });
@@ -113,7 +162,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
           type: 'fill-extrusion',
           minzoom: 15,
           paint: {
-            'fill-extrusion-color': '#1E293B',
+            'fill-extrusion-color': '#cbd5e1', // Cor mais clara para contraste no satélite
             'fill-extrusion-height': ['get', 'height'],
             'fill-extrusion-base': ['get', 'min_height'],
             'fill-extrusion-opacity': 0.8
@@ -185,100 +234,77 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
     }
   }, [routeColor]);
 
-  // Live Telemetry Listener (smooth update targetCoord without resetting coord)
-  useEffect(() => {
-    if (map.current && map.current.isStyleLoaded() && truck && !truckState.current.isPlaying) {
-      const safeLng = Number(truck.lng);
-      const safeLat = Number(truck.lat);
-      if (safeLng && safeLat && !Number.isNaN(safeLng) && !Number.isNaN(safeLat)) {
-        truckState.current.targetCoord = [safeLng, safeLat];
-      }
-    }
-  }, [truck]);
-
-  // Central Animation Engine
+  // Central Animation Engine — reads liveTruckRef so it always has fresh data
   const animateTruck = () => {
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
     let lastTime = 0;
     
     const loop = (time) => {
       if (!lastTime) lastTime = time;
-      const deltaTime = time - lastTime;
+      const dt = Math.min(time - lastTime, 100); // cap to avoid huge jumps on tab focus
       lastTime = time;
 
-      // --- MODO 1: CINEMATOGRÁFICO (Simulação Rápida) ---
-      if (truckState.current.isPlaying && truckState.current.routeGeometry) {
-        if (deltaTime < 100) {
-          const step = 33 * (deltaTime / 1000);
-          truckState.current.currentDistance += step; 
-        }
+      if (!map.current) return;
 
-        if (truckState.current.currentDistance > truckState.current.totalDistance) {
+      // ── MODO DEMO: cinematic fast playback ──────────────────────────────
+      if (truckState.current.isPlaying && truckState.current.routeGeometry) {
+        truckState.current.currentDistance += 33 * (dt / 1000); // ~120 km/h
+
+        if (truckState.current.currentDistance >= truckState.current.totalDistance) {
           truckState.current.currentDistance = truckState.current.totalDistance;
           truckState.current.isPlaying = false;
           setIsSimulating(false);
-        } else {
-          const currentPt = turf.along(truckState.current.routeGeometry, truckState.current.currentDistance, { units: 'meters' });
-          const nextPoint = currentPt.geometry.coordinates;
-          const nextNextPoint = turf.along(truckState.current.routeGeometry, Math.min(truckState.current.currentDistance + 1, truckState.current.totalDistance), { units: 'meters' }).geometry.coordinates;
-          
-          const bearing = turf.bearing(nextPoint, nextNextPoint);
-
-          truckState.current.coord = nextPoint;
-          truckState.current.bearing = bearing;
         }
-
-        if (truckState.current.isCameraLocked && map.current) {
-          map.current.easeTo({
-            center: truckState.current.coord,
-            bearing: truckState.current.bearing,
-            duration: 0,
-            essential: true
-          });
-        }
-        
-        if (truckState.current.marker) {
-          truckState.current.marker.setLngLat(truckState.current.coord);
-          truckState.current.marker.setRotation(truckState.current.bearing);
-        }
-
+        moveMarkerAlongRoute(truckState.current.currentDistance);
         animationRef.current = requestAnimationFrame(loop);
         return;
       }
 
-      // --- MODO 2: TELEMETRIA AO VIVO (Movimento Suave) ---
-      if (map.current && truckState.current.targetCoord) {
-        const currentCenter = truckState.current.coord || truckState.current.targetCoord;
-        const targetCoord = truckState.current.targetCoord;
-        const distance = turf.distance(currentCenter, targetCoord, { units: 'meters' });
+      // ── MODO AO VIVO: follows backend route_index from WebSocket ─────────
+      const liveTruck = liveTruckRef.current;
 
-        let nextCoord = currentCenter;
-        let bearing = truckState.current.bearing;
-
-        if (distance > 2000) {
-          // Snap if very far (e.g. route loop reset)
-          nextCoord = targetCoord;
-        } else if (distance > 0.2) {
-          // Smooth glide towards target
-          bearing = turf.bearing(currentCenter, targetCoord);
-          const moveStep = Math.min(distance, Math.max(0.3, distance * 0.05));
-          nextCoord = turf.destination(currentCenter, moveStep, bearing, { units: 'meters' }).geometry.coordinates;
+      if (liveTruck && liveTruck.route_index !== undefined && truckState.current.routeGeometry) {
+        const rawGeo = truckState.current.routeGeometry.geometry.coordinates;
+        const idx = Math.min(Math.max(0, liveTruck.route_index), rawGeo.length - 1);
+        let targetDist = 0;
+        if (idx > 0) {
+          try {
+            const sliced = turf.lineSlice(turf.point(rawGeo[0]), turf.point(rawGeo[idx]), truckState.current.routeGeometry);
+            targetDist = turf.length(sliced, { units: 'meters' });
+          } catch(e) {}
         }
 
-        truckState.current.coord = nextCoord;
-        truckState.current.bearing = bearing;
+        let current = truckState.current.currentDistance;
+        // Detect route loop reset
+        if (targetDist < current && (current - targetDist) > 500) current = targetDist;
 
-        if (truckState.current.isCameraLocked && map.current) {
-          map.current.easeTo({
-            center: nextCoord,
-            bearing: bearing,
-            duration: 0,
-            essential: true
-          });
+        const diff = targetDist - current;
+        if (Math.abs(diff) > 0.5) {
+          let next = current + diff * (dt / 2500);
+          if (diff > 0 && next > targetDist) next = targetDist;
+          if (diff < 0 && next < targetDist) next = targetDist;
+          truckState.current.currentDistance = next;
+          moveMarkerAlongRoute(next);
+        } else {
+          truckState.current.currentDistance = targetDist;
         }
+      } else if (truckState.current.targetCoord) {
+        // Fallback: interpolate toward raw GPS coord when no route_index
+        const cur = truckState.current.coord;
+        const tgt = truckState.current.targetCoord;
+        let dist = 0;
+        try { dist = turf.distance(cur, tgt, { units: 'meters' }); } catch(e) {}
 
-        if (truckState.current.marker) {
-          truckState.current.marker.setLngLat(nextCoord);
-          truckState.current.marker.setRotation(bearing);
+        if (dist > 2000) {
+          truckState.current.coord = tgt;
+          applyMarkerPosition(tgt, truckState.current.bearing);
+        } else if (dist > 1) {
+          const bearing = turf.bearing(cur, tgt);
+          const step = Math.min(dist, Math.max(1, dist * (dt / 2500)));
+          const next = turf.destination(cur, step, bearing, { units: 'meters' }).geometry.coordinates;
+          truckState.current.coord = next;
+          truckState.current.bearing = bearing;
+          applyMarkerPosition(next, bearing);
         }
       }
 
@@ -286,6 +312,32 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
     };
 
     animationRef.current = requestAnimationFrame(loop);
+  };
+
+  // Helper: move marker to a distance along the stored route geometry
+  const moveMarkerAlongRoute = (distance) => {
+    const line = truckState.current.routeGeometry;
+    if (!line) return;
+    const d = Math.min(Math.max(0, distance), truckState.current.totalDistance);
+    try {
+      const pt = turf.along(line, d, { units: 'meters' });
+      const coord = pt.geometry.coordinates;
+      const lookAhead = turf.along(line, Math.min(d + 10, truckState.current.totalDistance), { units: 'meters' });
+      const bearing = turf.bearing(coord, lookAhead.geometry.coordinates);
+      truckState.current.coord = coord;
+      truckState.current.bearing = bearing;
+      applyMarkerPosition(coord, bearing);
+    } catch(e) {}
+  };
+
+  const applyMarkerPosition = (coord, bearing) => {
+    if (truckState.current.marker) {
+      truckState.current.marker.setLngLat(coord);
+      truckState.current.marker.setRotation(bearing);
+    }
+    if (truckState.current.isCameraLocked && map.current) {
+      map.current.easeTo({ center: coord, bearing, duration: 0, essential: true });
+    }
   };
 
   const handleCenterCamera = () => {
@@ -307,17 +359,32 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)' }}>
-      <div style={{ width: '90vw', height: '90vh', background: '#0a101a', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(47,190,181,0.3)', boxShadow: '0 0 30px rgba(47,190,181,0.2)' }}>
+      <div style={{ position: 'relative', width: '90vw', height: '90vh', background: '#0a101a', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
         
-        {/* Top Bar */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 24px', background: 'linear-gradient(180deg, rgba(0,0,0,0.8), transparent)', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {!MAPBOX_TOKEN ? (
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a101a', color: '#fff', textAlign: 'center', padding: '24px' }}>
+            <X size={48} color="#f87171" style={{ marginBottom: '16px' }} />
+            <h2 style={{ margin: '0 0 12px 0', fontSize: '24px' }}>Token do Mapbox Não Configurado</h2>
+            <p style={{ maxWidth: '500px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              Para visualizar o mapa 3D cinemático, você precisa configurar um token do Mapbox. <br/><br/>
+              Crie um arquivo <code>.env</code> na pasta <code>frontend/</code> contendo:<br/>
+              <code style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', marginTop: '8px', color: '#34d399' }}>VITE_MAPBOX_TOKEN=pk.seu_token_aqui</code>
+            </p>
+            <button onClick={onClose} style={{ marginTop: '24px', background: 'var(--teal)', color: '#000', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+              Voltar
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Top Bar */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 24px', background: 'linear-gradient(180deg, rgba(0,0,0,0.8), transparent)', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ margin: 0, color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 10px #f87171' }} className="pulse" />
               Rastreamento Cinematográfico 2.5D
             </h2>
             <div style={{ color: 'var(--teal)', fontSize: '13px', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-              Alvo: {truck.model} | {truck.plate}
+              Alvo: {truckProp?.model} | {truckProp?.plate}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
@@ -330,30 +397,28 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
         {/* Painel de Controle e Telemetria */}
         <div style={{ position: 'absolute', bottom: '24px', left: '24px', display: 'flex', gap: '16px', zIndex: 10 }}>
           
-          <div style={{ background: 'rgba(10,16,26,0.8)', backdropFilter: 'blur(10px)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Telemetria</div>
+          <div style={{ background: 'rgba(10,16,26,0.85)', backdropFilter: 'blur(10px)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', minWidth: '200px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.8px' }}>● Ao Vivo</div>
             <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Velocidade</div>
                 <div style={{ fontSize: '18px', color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                  {isSimulating ? '120.0' : truck.speed_kmh} km/h
+                  {liveSpeed.toFixed(1)} km/h
                 </div>
               </div>
-              {!isSimulating && truck.sim_state === 'fueling' && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'rgba(248,113,113,0.15)',
-                  border: '1px solid rgba(248,113,113,0.4)',
-                  borderRadius: '10px', padding: '6px 14px',
-                  animation: 'pulse-ring 1.4s ease-out infinite',
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Estado</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 
+                  liveSimState === 'fueling' ? '#f87171' :
+                  liveSimState === 'low_fuel' ? '#fbbf24' :
+                  liveSimState === 'driving' ? '#34d399' : '#94a3b8'
                 }}>
-                  <span style={{ fontSize: '16px' }}>⛽</span>
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f87171' }}>ABASTECENDO</div>
-                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>Trava eletrônica ativa</div>
-                  </div>
+                  {liveSimState === 'fueling' ? '⛽ Abastecendo' :
+                   liveSimState === 'low_fuel' ? '⚠️ Baixo' :
+                   liveSimState === 'driving' ? '🚛 Em Trânsito' :
+                   liveSimState || '—'}
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -395,26 +460,30 @@ export default function Simulation3DModal({ isOpen, onClose, truck }) {
             />
           </div>
 
-          {/* Botão de Rota Completa (Modo Cinematográfico) */}
+          {/* Botão Demo — opcional, caminhão já se move ao vivo sem clicar aqui */}
           <button 
             onClick={handleToggleSimulation}
+            title="Percorre a rota completa em velocidade acelerada (modo demo)"
             style={{ 
-              background: isSimulating ? '#E2574C' : '#2FBEB5', 
-              border: 'none', 
-              color: '#000', 
-              fontWeight: 'bold', 
+              background: isSimulating ? '#E2574C' : 'rgba(47,190,181,0.15)', 
+              border: `1px solid ${isSimulating ? '#E2574C' : '#2FBEB5'}`,
+              color: isSimulating ? '#fff' : '#2FBEB5', 
+              fontWeight: 700, 
               padding: '0 24px', 
               borderRadius: '12px', 
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              boxShadow: isSimulating ? '0 0 15px rgba(226, 87, 76, 0.5)' : '0 0 15px rgba(47, 190, 181, 0.5)'
+              gap: '8px',
+              boxShadow: isSimulating ? '0 0 15px rgba(226, 87, 76, 0.4)' : 'none'
             }}
           >
-            {isSimulating ? '⏹ Parar Simulação' : '▶️ Simular Rota Completa'}
+            {isSimulating ? '⏹ Parar Demo' : '⚡ Demo Acelerada'}
           </button>
 
         </div>
+        </>
+        )}
       </div>
     </div>
   );

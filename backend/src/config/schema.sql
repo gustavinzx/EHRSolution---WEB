@@ -25,10 +25,13 @@ CREATE TABLE IF NOT EXISTS trucks (
   lng NUMERIC(10,7),
   speed_kmh NUMERIC(5,1) DEFAULT 0,
   status VARCHAR(50) DEFAULT 'ok',
+  sim_state VARCHAR(50) DEFAULT 'driving',
+  fueling_ticks INTEGER DEFAULT 0,
   origin_name VARCHAR(255),
   dest_name VARCHAR(255),
   route_geometry JSON,
   route_index INTEGER DEFAULT 0,
+  route_progress NUMERIC(5,4) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -60,4 +63,25 @@ CREATE TABLE IF NOT EXISTS telemetry_logs (
   lng NUMERIC(10,7) NOT NULL,
   speed_kmh NUMERIC(5,1) DEFAULT 0,
   fuel_level_liters NUMERIC(10,2) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fleet_alerts (
+  id SERIAL PRIMARY KEY,
+  truck_id INTEGER REFERENCES trucks(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) DEFAULT 'high' CHECK (severity IN ('low','medium','high','critical')),
+  message TEXT NOT NULL,
+  plate VARCHAR(20),
+  model VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS unloading_events (
+  id SERIAL PRIMARY KEY,
+  truck_id INTEGER REFERENCES trucks(id) ON DELETE CASCADE,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  lat NUMERIC(10,7),
+  lng NUMERIC(10,7),
+  vibration_level NUMERIC(5,2) NOT NULL,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('safe','low','high'))
 );

@@ -7,11 +7,12 @@ export function useDrivers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchDrivers = useCallback(async () => {
+  const fetchDrivers = useCallback(async (active = null) => {
     setLoading(true);
     try {
-      const response = await client.get('/drivers');
-      setDrivers(response.data);
+      const url = active !== null ? `/drivers?active=${active}` : '/drivers';
+      const response = await client.get(url);
+      setDrivers(Array.isArray(response.data) ? response.data : []);
       setError(null);
     } catch (err) {
       const msg = err.response?.data?.error || 'Erro ao carregar motoristas';
@@ -74,6 +75,26 @@ export function useDrivers() {
     }
   };
 
+  const fetchRanking = useCallback(async () => {
+    try {
+      const response = await client.get('/drivers/ranking');
+      return response.data;
+    } catch (err) {
+      toast.error('Erro ao buscar ranking');
+      return [];
+    }
+  }, []);
+
+  const fetchDriverScore = useCallback(async (id) => {
+    try {
+      const response = await client.get(`/drivers/${id}/score`);
+      return response.data;
+    } catch (err) {
+      toast.error('Erro ao buscar score do motorista');
+      return null;
+    }
+  }, []);
+
   return { 
     drivers, 
     loading, 
@@ -82,6 +103,8 @@ export function useDrivers() {
     createDriver, 
     updateDriver, 
     deactivateDriver,
-    assignTruck 
+    assignTruck,
+    fetchRanking,
+    fetchDriverScore
   };
 }

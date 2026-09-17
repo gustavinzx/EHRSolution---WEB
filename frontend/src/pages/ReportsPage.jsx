@@ -46,6 +46,29 @@ export default function ReportsPage() {
     }
   };
 
+  
+  const handleExportPDF = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (truckId) params.append('truck_id', truckId);
+      if (start)   params.append('start', start);
+      if (end)     params.append('end', end);
+
+      const res = await client.get(`/reports/export-pdf?${params}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a   = document.createElement('a');
+      a.href = url;
+      a.download = `ehr-relatorio-${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Erro ao exportar relatório PDF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'24px' }}>
       <div>
@@ -86,7 +109,7 @@ export default function ReportsPage() {
             </label>
             <select value={truckId} onChange={e => setTruckId(e.target.value)} style={{ ...inputStyle, appearance:'none', cursor:'pointer' }}>
               <option value="">Todos os caminhões</option>
-              {trucks.map(t => (
+              {Array.isArray(trucks) && trucks.map(t => (
                 <option key={t.id} value={t.id}>{t.plate} — {t.model}</option>
               ))}
             </select>
@@ -120,6 +143,22 @@ export default function ReportsPage() {
             }}
           >
             <Download size={18}/> {loading ? 'Exportando...' : 'Exportar CSV'}
+          </button>
+          
+          <button
+            onClick={handleExportPDF} disabled={loading}
+            style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:'9px',
+              padding:'13px', borderRadius:'10px', border:'1px solid rgba(47,190,181,0.5)', marginTop:'8px',
+              background: 'transparent',
+              color:'var(--teal)', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'15px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition:'background 0.2s',
+            }}
+            onMouseEnter={e => e.target.style.background = 'rgba(47,190,181,0.1)'}
+            onMouseLeave={e => e.target.style.background = 'transparent'}
+          >
+            <FileText size={18}/> {loading ? 'Aguarde...' : 'Exportar PDF com Carimbo (Auditoria)'}
           </button>
         </div>
       </div>

@@ -20,55 +20,89 @@ const STATUS_META = {
   no_signal: { label: 'Sem Sinal',  color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
 };
 
+import useFleetState from '../store/useFleetState';
+
+import ErrorMessage from '../components/ErrorMessage';
+
 export default function TruckDetailsPage() {
   const { id } = useParams();
-  const { fetchTruckDetails } = useFleet();
-  const [truck, setTruck] = useState(null);
+  const { fetchTruckDetails, error } = useFleet();
+  const [truckDetails, setTruckDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [localError, setLocalError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSimulationOpen, setIsSimulationOpen] = useState(false);
+  
+  const { fleet, truckRoutes } = useFleetState();
 
   const loadData = () => {
     fetchTruckDetails(id).then(data => {
-      setTruck(data);
+      if (data) setTruckDetails(data);
+      else setLocalError('Não foi possível encontrar o caminhão.');
       setLoading(false);
     });
   };
 
-  // Carrega e atualiza a cada 5s para ver o movimento ao vivo
+  // Carrega apenas na montagem (para pegar dados detalhados)
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    // No more polling, live telemetry comes from useFleetState
   }, [id, fetchTruckDetails]);
 
+  // Combine live telemetry from global store with detailed data
+  const liveTruck = fleet.find(t => t.id === Number(id));
+  const truck = liveTruck && truckDetails ? { ...truckDetails, ...liveTruck } : truckDetails;
+
   if (loading && !truck) return <LoadingSpinner />;
-  if (!truck) return <div style={{ color: 'var(--text-muted)' }}>Caminhão não encontrado.</div>;
+  if (localError || error) return <ErrorMessage message={localError || error} />;
+  if (!truck) return <ErrorMessage message="Caminhão não encontrado." />;
 
   const s = STATUS_META[truck.status] || STATUS_META.ok;
   const pct = truck.capacity_liters > 0 ? Math.round((truck.current_level_liters / truck.capacity_liters) * 100) : 0;
   const levelColor = pct < 20 ? '#f87171' : pct < 50 ? '#fbbf24' : '#34d399';
   const drivers = truck.current_drivers?.length > 0 ? truck.current_drivers.map(d => d.name).join(', ') : 'Sem motorista';
 
-  // O motor de simulador já gera toda a rota. Precisamos extrair os pontos.
-  const routePoints = truck.route?.map(r => [parseFloat(r.lat), parseFloat(r.lng)]) || [];
+  // O motor de simulador já gera toda a rota via truck.route_geometry.
+  const routePoints = [];
   let currentPos = null;
   
-  if (truck.route_geometry && typeof truck.route_geometry === 'string') {
-    const geo = JSON.parse(truck.route_geometry);
-    // geometry vem no formato [lng, lat], o leaflet precisa de [lat, lng]
-    routePoints.length = 0;
-    geo.forEach(p => routePoints.push([p[1], p[0]]));
-    currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
-  } else if (routePoints.length > 0) {
-    currentPos = routePoints[routePoints.length - 1];
+  if (truck.route_geometry) {
+    try {
+      const geo = typeof truck.route_geometry === 'string' ? JSON.parse(truck.route_geometry) : truck.route_geometry;
+      if (Array.isArray(geo)) {
+        // geometry vem no formato [lng, lat], o leaflet precisa de [lat, lng]
+        geo.forEach(p => {
+          if (Array.isArray(p) && p.length >= 2) routePoints.push([p[1], p[0]]);
+        });
+      }
+    } catch (e) {
+      console.error('Failed to parse route_geometry', e);
+    }
   }
 
-  const chartData = truck.route?.map(r => ({
+  if (routePoints.length > 0) {
+    currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
+  }
+
+  // Fallback map if geometry fails
+  if (!currentPos && !isNaN(truck.lat) && !isNaN(truck.lng)) {
+    currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
+    if (routePoints.length === 0) routePoints.push(currentPos);
+  }
+
+  
+  // Combine fueling and unloading events
+  const fuelingLogs = Array.isArray(truck.recent_fueling_logs) ? truck.recent_fueling_logs.map(log => ({ ...log, type: 'fueling' })) : (Array.isArray(truck.recent_fueling) ? truck.recent_fueling.map(log => ({ ...log, type: 'fueling' })) : []);
+  const unloadingEvents = Array.isArray(truck.unloading_events) ? truck.unloading_events.map(ev => ({ ...ev, type: 'unloading' })) : [];
+  
+  const timelineEvents = [...fuelingLogs, ...unloadingEvents].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const rawTelemetry = Array.isArray(truck.telemetry) ? truck.telemetry : [];
+  const chartData = rawTelemetry.map(r => ({
     time: new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    combustivel: Number(r.fuel_level_liters),
-    velocidade: Number(r.speed_kmh)
-  })) || [];
+    combustivel: Number(r.fuel_level_liters) || 0,
+    velocidade: Number(r.speed_kmh) || 0
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -166,9 +200,10 @@ export default function TruckDetailsPage() {
               {routePoints.length > 0 ? (
                 <MapContainer bounds={routePoints} style={{ height: '100%', width: '100%' }}>
                   <TileLayer 
-                    attribution='&copy; OpenStreetMap'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                    attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+                    url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
                     className="map-tiles"
+                    noWrap={true}
                   />
                   <Polyline positions={routePoints} pathOptions={{ color: 'var(--teal)', weight: 4, opacity: 0.8 }} />
                   {/* Posição atual (último ponto) */}
@@ -274,29 +309,56 @@ export default function TruckDetailsPage() {
              </div>
           </div>
 
-          {/* Recent Fueling Logs */}
+          {/* Timeline de Eventos */}
           <div style={{ ...glass, display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>
-              Últimos Abastecimentos
+              Linha do Tempo
             </div>
             <div style={{ flex: 1, padding: '12px' }}>
-              {truck.recent_fueling_logs?.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {truck.recent_fueling_logs.map(log => (
-                    <div key={log.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(log.timestamp).toLocaleDateString('pt-BR')}</span>
-                        <span style={{ fontSize: '11px', color: 'var(--teal)', background: 'rgba(47,190,181,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{log.release_method === 'facial' ? 'Facial' : 'BLE'}</span>
+              {timelineEvents.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '20px', top: '10px', bottom: '10px', width: '2px', background: 'rgba(255,255,255,0.1)' }} />
+                  {timelineEvents.map((ev, i) => {
+                    const isFueling = ev.type === 'fueling';
+                    
+                    let bg = 'rgba(0,0,0,0.2)';
+                    let borderColor = 'rgba(255,255,255,0.03)';
+                    let iconColor = 'var(--blue)';
+                    
+                    if (!isFueling) {
+                       if (ev.status === 'low') { borderColor = 'rgba(251,191,36,0.3)'; iconColor = '#fbbf24'; }
+                       else if (ev.status === 'high') { borderColor = 'rgba(248,113,113,0.3)'; iconColor = '#f87171'; }
+                       else { borderColor = 'rgba(52,211,153,0.3)'; iconColor = '#34d399'; }
+                    }
+
+                    return (
+                    <div key={ev.type + ev.id} style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1 }}>
+                      <div style={{ width: '40px', display: 'flex', justifyContent: 'center', paddingTop: '12px' }}>
+                         <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: iconColor, border: '2px solid #0a101a', boxShadow: `0 0 8px ${iconColor}` }} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>{log.driver_name}</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: '#34d399', fontWeight: 600 }}>+{log.level_after - log.level_before}L</span>
+                      <div style={{ flex: 1, background: bg, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${borderColor}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
+                          {isFueling ? (
+                             <span style={{ fontSize: '11px', color: 'var(--blue)', background: 'rgba(79,142,247,0.1)', padding: '2px 8px', borderRadius: '12px' }}>Abastecimento ({ev.release_method})</span>
+                          ) : (
+                             <span style={{ fontSize: '11px', color: iconColor, background: `${iconColor}22`, padding: '2px 8px', borderRadius: '12px' }}>Descarga (Dump Pro)</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                            {isFueling ? (ev.driver_name || 'Desconhecido') : (ev.status === 'safe' ? 'Segura' : ev.status === 'low' ? 'Risco Tombamento' : 'Vibração Excessiva')}
+                          </span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: iconColor, fontWeight: 600 }}>
+                            {isFueling ? `+${ev.level_after - ev.level_before}L` : `${ev.vibration_level}%`}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               ) : (
-                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Nenhum abastecimento recente.</div>
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Nenhum evento recente.</div>
               )}
             </div>
           </div>

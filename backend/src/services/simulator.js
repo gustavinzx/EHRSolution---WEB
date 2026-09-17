@@ -23,7 +23,7 @@ const FUELING_TICKS = 4;     // quantos ticks fica parado abastecendo (~12s)
 // 'fueling'  → parou no posto, velocidade=0, conta ticks
 // 'resuming' → tick de transição, registra o fueling_log e volta a 'driving'
 
-async function simulateFleet() {
+async function simulateFleet(io) {
   try {
     const { rows: trucks } = await db.query(`
       SELECT id, current_level_liters, capacity_liters,
@@ -153,15 +153,25 @@ async function simulateFleet() {
         VALUES ($1, $2, $3, $4, $5)
       `, [truck.id, nextLat, nextLng, speed, newFuel]);
     }
+
+    if (io) {
+      const fleetDataProvider = require('./fleetDataProvider');
+      const snap = await fleetDataProvider.getFleetSnapshot();
+      io.emit('fleetUpdate', snap);
+      const liveEvents = await fleetDataProvider.getLiveEvents();
+      io.emit('liveEventsUpdate', liveEvents);
+    }
   } catch (err) {
+
     console.error('[SIM] Erro no simulador:', err.message);
   }
 }
 
-function startSimulator() {
+const { detectFuelAnomalies } = require('./anomalyDetector');
+function startSimulator(io) {
   console.log('[SIM] Iniciando simulador de frota com máquina de estados...');
-  simulateFleet(); // roda imediatamente no boot
-  setInterval(simulateFleet, TICK_MS);
+  simulateFleet(io); // roda imediatamente no boot
+  setInterval(() => { simulateFleet(io); detectFuelAnomalies(io); }, TICK_MS);
 }
 
 module.exports = { startSimulator };

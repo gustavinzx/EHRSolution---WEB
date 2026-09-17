@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Save, Trophy, Activity, Fuel, AlertTriangle } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useDrivers } from '../hooks/useDrivers';
 
 export default function DriverModal({ isOpen, onClose, onSave, driver }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const [scoreData, setScoreData] = useState(null);
+  const [loadingScore, setLoadingScore] = useState(false);
+  const { fetchDriverScore } = useDrivers();
 
   useEffect(() => {
-    setForm(driver ? { name: driver.name||'', phone: driver.phone||'', email: driver.email||'' } : { name:'', phone:'', email:'' });
-  }, [driver, isOpen]);
+    if (driver) {
+      setFormData({
+        name: driver.name || '',
+        phone: driver.phone || '',
+        email: driver.email || ''
+      });
+      setLoadingScore(true);
+      fetchDriverScore(driver.id).then(data => {
+        setScoreData(data);
+        setLoadingScore(false);
+      });
+    } else {
+      setFormData({ name: '', phone: '', email: '' });
+      setScoreData(null);
+    }
+  }, [driver, fetchDriverScore]);
 
   if (!isOpen) return null;
 

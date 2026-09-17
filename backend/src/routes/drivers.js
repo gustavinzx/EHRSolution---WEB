@@ -6,6 +6,8 @@ const driversController = require('../controllers/driversController');
 const router = express.Router();
 
 router.get('/', driversController.list);
+router.get('/ranking', driversController.ranking);
+router.get('/:id/score', driversController.getScore);
 
 router.post('/', [
   body('name').notEmpty().withMessage('Name is required'),

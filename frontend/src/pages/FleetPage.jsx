@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import { RefreshCw, MapPin, Users, Gauge, Droplets } from 'lucide-react';
 import MapView from '../components/MapView';
 const glass = {
@@ -18,9 +19,10 @@ const STATUS_META = {
 };
 
 export default function FleetPage() {
-  const { trucks, loading, refetch } = useFleet();
+  const { trucks, loading, error, refetch } = useFleet();
 
   if (loading && trucks.length === 0) return <LoadingSpinner />;
+  if (error && trucks.length === 0) return <ErrorMessage message={error} />;
 
   const pct = t => t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
   const counts = {
@@ -88,7 +90,7 @@ export default function FleetPage() {
 
       {/* Grid */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'16px' }}>
-        {trucks.map(truck => {
+        {Array.isArray(trucks) && trucks.map(truck => {
           const levelPct = pct(truck);
           const levelColor = levelPct < 20 ? '#f87171' : levelPct < 50 ? '#fbbf24' : '#34d399';
           const s = STATUS_META[truck.status] || STATUS_META.ok;

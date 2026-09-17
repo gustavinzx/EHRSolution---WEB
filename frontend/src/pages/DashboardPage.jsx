@@ -1,12 +1,15 @@
-import React from 'react';
-import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap, Map } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFleet, useLiveEvents }   from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
 import { useAuth }    from '../hooks/useAuth';
+import useFleetState  from '../store/useFleetState';
 import MapView        from '../components/MapView';
 import FuelingTable   from '../components/FuelingTable';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage   from '../components/ErrorMessage';
+import Simulation3DModal from '../components/Simulation3DModal';
 
 const card = {
   background: 'rgba(255,255,255,0.04)',
@@ -74,39 +77,56 @@ function DonutRing({ value, color, label }) {
 }
 
 export default function DashboardPage() {
-  const { trucks, loading: fl, refetch } = useFleet();
+  const { trucks, loading: fl, error, refetch } = useFleet();
   const { logs,   loading: ll }          = useFueling();
   const { fueling_now, recent_logs }     = useLiveEvents();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { selectedTruckId, setSelectedTruckId, alerts, fetchAlerts } = useFleetState();
+  const [is3DOpen, setIs3DOpen] = useState(false);
 
+  useEffect(() => {
+    if (fetchAlerts) fetchAlerts();
+  }, [fetchAlerts]);
+
+  const handleSelectTruck = (id) => {
+    if (selectedTruckId === id) setSelectedTruckId(null);
+    else setSelectedTruckId(id);
+  };
+
+  const selectedTruck = trucks?.find(t => t.id === selectedTruckId);
 
   const pct = (t) => t.capacity_liters > 0
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  if (fl && trucks.length === 0) return <LoadingSpinner />;
+  if (fl && (!trucks || trucks.length === 0)) return <LoadingSpinner />;
+  if (error && (!trucks || trucks.length === 0)) return <ErrorMessage message={error} />;
+
+  const safeTrucks = Array.isArray(trucks) ? trucks : [];
+  const safeLogs = Array.isArray(logs) ? logs : [];
 
   const today    = new Date().toISOString().split('T')[0];
-  const enRoute  = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
-  const critical = trucks.filter(t => pct(t) < 20).length;
-  const todayFuel= logs.filter(l => l.timestamp?.startsWith(today)).length;
+  const enRoute  = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
+  const critical = safeTrucks.filter(t => pct(t) < 20).length;
+  const todayFuel= safeLogs.filter(l => l.timestamp?.startsWith(today)).length;
   const statuses = {
-    ok:  trucks.filter(t => t.status === 'ok').length,
-    low: trucks.filter(t => t.status === 'low_fuel').length,
-    off: trucks.filter(t => t.status === 'no_signal').length,
+    ok:  safeTrucks.filter(t => t.status === 'ok').length,
+    low: safeTrucks.filter(t => t.status === 'low_fuel').length,
+    off: safeTrucks.filter(t => t.status === 'no_signal').length,
   };
-  const avgFuel = trucks.length > 0
-    ? Math.round(trucks.reduce((acc, t) => acc + pct(t), 0) / trucks.length) : 0;
+  const avgFuel = safeTrucks.length > 0
+    ? Math.round(safeTrucks.reduce((acc, t) => acc + pct(t), 0) / safeTrucks.length) : 0;
 
   const statCards = [
-    { title: 'Total Caminhoes', value: trucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#2FBEB5', bg: 'rgba(47,190,181,0.1)', border: 'rgba(47,190,181,0.2)' },
-    { title: 'Em Rota', value: enRoute, sub: `${trucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
-    { title: 'Tanques Criticos', value: critical, sub: 'Abaixo de 20%', icon: Fuel, color: critical > 0 ? '#f87171' : '#34d399', bg: critical > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', border: critical > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' },
+    { title: 'Total Caminhões', value: safeTrucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#2FBEB5', bg: 'rgba(47,190,181,0.1)', border: 'rgba(47,190,181,0.2)' },
+    { title: 'Em Rota', value: enRoute, sub: `${safeTrucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
+    { title: 'Tanques Críticos', value: critical, sub: 'Abaixo de 20%', icon: Fuel, color: critical > 0 ? '#f87171' : '#34d399', bg: critical > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', border: critical > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' },
     { title: 'Abastecimentos Hoje', value: todayFuel, sub: 'registros hoje', icon: FileText, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)' },
   ];
 
-  const alertTrucks  = trucks.filter(t => t.status !== 'ok').slice(0, 4);
-  const activeTrucks = trucks.filter(t => parseFloat(t.speed_kmh) > 0).slice(0, 4);
+  const alertTrucks  = safeTrucks.filter(t => t.status !== 'ok').slice(0, 4);
+  const activeTrucks = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).slice(0, 4);
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -124,11 +144,11 @@ export default function DashboardPage() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Bem-vindo de volta</div>
           <h1 style={{ margin: 0, fontSize: '30px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-            Ola, {(user?.name || 'Gestor').split(' ')[0]}! 
+            Olá, {(user?.name || 'Gestor').split(' ')[0]}! 
           </h1>
           <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
-            Voce tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} critico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#2FBEB5' }}>{enRoute} caminhao{enRoute !== 1 ? 'es' : ''} em rota</strong> agora.
+            Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
+            <strong style={{ color: '#2FBEB5' }}>{enRoute} caminhão{enRoute !== 1 ? 'ões' : ''} em rota</strong> agora.
           </p>
           <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
             <button onClick={() => navigate('/fleet')} style={{ background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', border: 'none', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(47,190,181,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -140,9 +160,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '24px', position: 'relative', zIndex: 1 }}>
-          <DonutRing value={avgFuel} color="#2FBEB5" label="Combustivel" />
-          <DonutRing value={trucks.length > 0 ? Math.round((enRoute / trucks.length) * 100) : 0} color="#34d399" label="Em rota" />
-          <DonutRing value={trucks.length > 0 ? Math.round((statuses.ok / trucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
+          <DonutRing value={avgFuel} color="#2FBEB5" label="Combustível" />
+          <DonutRing value={safeTrucks.length > 0 ? Math.round((enRoute / safeTrucks.length) * 100) : 0} color="#34d399" label="Em rota" />
+          <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
         </div>
       </div>
 
@@ -165,7 +185,6 @@ export default function DashboardPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px', alignItems: 'start' }}>
-
         <div style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -173,28 +192,65 @@ export default function DashboardPage() {
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Atualiza automaticamente a cada 15s</div>
             </div>
             <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-              {[['#34d399','OK',statuses.ok],['#fbbf24','Baixo',statuses.low],['#f87171','Off',statuses.off]].map(([c,l,n]) => (
-                <span key={l} style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8' }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: c, boxShadow: `0 0 5px ${c}`, flexShrink: 0 }} />
-                  {l} ({n})
-                </span>
-              ))}
+              {selectedTruckId && import.meta.env.DEV && (
+                <>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('token');
+                        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/alerts/simulate-fuel-drop/${selectedTruckId}`, { 
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                      } catch (e) {
+                        console.error('Failed to simulate fuel drop', e);
+                      }
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid #fbbf24', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <AlertTriangle size={12} /> Simular Queda
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('token');
+                        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/fleet/${selectedTruckId}/force-fueling`, { 
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                      } catch (e) {
+                        console.error('Failed to force fueling', e);
+                      }
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid #f87171', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <Fuel size={12} /> Simular Abastecimento
+                  </button>
+                </>
+              )}
+              {selectedTruckId && (
+                <button 
+                  onClick={() => setIs3DOpen(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--teal)', color: '#000', border: 'none', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Map size={12} /> Ver no 3D
+                </button>
+              )}
             </div>
           </div>
           <div style={{ height: '300px' }}>
-            <MapView trucks={trucks} />
+            <MapView trucks={safeTrucks} />
           </div>
           <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Nivel de Combustivel por Veiculo</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Nível de Combustível por Veículo</span>
               <Link to="/fleet" style={{ fontSize: '12px', color: '#2FBEB5', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
             </div>
-            <MiniBarChart trucks={trucks} />
+            <MiniBarChart trucks={safeTrucks} />
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
           <div style={card}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
@@ -205,12 +261,10 @@ export default function DashboardPage() {
             </div>
             <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {activeTrucks.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', padding: '20px 0' }}>Nenhum caminhao em rota</div>
+                <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', padding: '20px 0' }}>Nenhum caminhão em rota</div>
               ) : activeTrucks.map(t => (
-                <div key={t.id} onClick={() => navigate(`/fleet/${t.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(47,190,181,0.08)'; e.currentTarget.style.borderColor = 'rgba(47,190,181,0.2)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                <div key={t.id} onClick={() => handleSelectTruck(t.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(47,190,181,0.15)' : 'rgba(255,255,255,0.03)', border: '1px solid', borderColor: selectedTruckId === t.id ? 'var(--teal)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
                 >
                   <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(47,190,181,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(47,190,181,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Truck size={16} color="#2FBEB5" />
@@ -233,38 +287,56 @@ export default function DashboardPage() {
               <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <AlertTriangle size={15} color="#fbbf24" /> Alertas
               </div>
-              {alertTrucks.length > 0 && (
-                <span style={{ fontSize: '11px', color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{alertTrucks.length} atencao</span>
+              {(alertTrucks.length > 0 || safeAlerts.length > 0) && (
+                <span style={{ fontSize: '11px', color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{alertTrucks.length + safeAlerts.length} atenção</span>
               )}
             </div>
             <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {alertTrucks.length === 0 ? (
+              {alertTrucks.length === 0 && safeAlerts.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 12px', color: '#34d399', fontSize: '13px' }}>
-                  <CheckCircle size={16} /> Todos os veiculos estao OK
+                  <CheckCircle size={16} /> Todos os veículos estão OK
                 </div>
-              ) : alertTrucks.map(t => {
-                const isLow = t.status === 'low_fuel';
-                const color = isLow ? '#fbbf24' : '#f87171';
-                return (
-                  <div key={t.id} onClick={() => navigate(`/fleet/${t.id}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: `${color}0d`, border: `1px solid ${color}33`, cursor: 'pointer' }}
-                  >
-                    <AlertTriangle size={15} color={color} style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
-                      <div style={{ fontSize: '11px', color }}>{isLow ? 'Combustivel Baixo' : 'Sem Sinal'}</div>
+              ) : (
+                <>
+                  {safeAlerts.map(a => (
+                    <div key={`alert-${a.id}`} onClick={() => handleSelectTruck(a.truck_id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(248,113,113,0.15)', border: '1px solid #f87171', cursor: 'pointer' }}
+                    >
+                      <Fuel size={15} color="#f87171" style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{a.plate}</div>
+                        <div style={{ fontSize: '11px', color: '#f87171' }}>{a.message}</div>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                        {new Date(a.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{pct(t)}%</div>
-                  </div>
-                );
-              })}
+                  ))}
+                  {alertTrucks.map(t => {
+                    const isLow = t.status === 'low_fuel';
+                    const color = isLow ? '#fbbf24' : '#f87171';
+                    return (
+                      <div key={`status-${t.id}`} onClick={() => handleSelectTruck(t.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? `${color}22` : `${color}0d`, border: `1px solid`, borderColor: selectedTruckId === t.id ? color : `${color}33`, cursor: 'pointer' }}
+                      >
+                        <AlertTriangle size={15} color={color} style={{ flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
+                          <div style={{ fontSize: '11px', color }}>{isLow ? 'Combustível Baixo' : 'Sem Sinal'}</div>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{pct(t)}%</div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Eventos ao Vivo ── */}
-      {(fueling_now?.length > 0 || recent_logs?.length > 0) && (
+      {(Array.isArray(fueling_now) && fueling_now.length > 0) || (Array.isArray(recent_logs) && recent_logs.length > 0) ? (
         <div style={card}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -274,18 +346,11 @@ export default function DashboardPage() {
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Abastecimentos em andamento e recentes</div>
               </div>
             </div>
-            <span style={{ fontSize: '11px', color: '#2FBEB5', background: 'rgba(47,190,181,0.1)', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
-              Atualiza a cada 6s
-            </span>
           </div>
           <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-            {/* Caminhões abastecendo agora */}
-            {fueling_now?.map(t => (
-              <div key={t.id} onClick={() => navigate(`/fleet/${t.id}`)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(248,113,113,0.08)'}
+            {Array.isArray(fueling_now) && fueling_now.map(t => (
+              <div key={t.id} onClick={() => handleSelectTruck(t.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.08)', border: '1px solid', borderColor: selectedTruckId === t.id ? '#f87171' : 'rgba(248,113,113,0.3)', cursor: 'pointer', transition: 'all 0.2s' }}
               >
                 <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(248,113,113,0.15)', border: '2px solid rgba(248,113,113,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse-ring 1.2s infinite' }}>
                   <Fuel size={16} color="#f87171" />
@@ -306,8 +371,7 @@ export default function DashboardPage() {
               </div>
             ))}
 
-            {/* Logs recentes */}
-            {recent_logs?.map(log => {
+            {Array.isArray(recent_logs) && recent_logs.map(log => {
               const mins = Math.round((Date.now() - new Date(log.timestamp).getTime()) / 60000);
               const timeStr = mins < 1 ? 'agora' : mins < 60 ? `${mins}min atrás` : `${Math.floor(mins/60)}h atrás`;
               const liters = (parseFloat(log.level_after) - parseFloat(log.level_before)).toFixed(0);
@@ -322,38 +386,22 @@ export default function DashboardPage() {
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontFamily: 'monospace' }}>{log.plate}</span>
                       <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>+{liters}L</span>
-                      <span style={{ fontSize: '10px', background: log.release_method === 'facial' ? 'rgba(79,142,247,0.2)' : 'rgba(251,191,36,0.2)', color: log.release_method === 'facial' ? '#4F8EF7' : '#fbbf24', padding: '1px 6px', borderRadius: '8px', fontWeight: 600 }}>
-                        {log.release_method === 'facial' ? '👤 Facial' : '📡 BLE'}
-                      </span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                      {log.driver_name || 'Motorista não identificado'} · {log.model}
-                    </div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{log.model} • {log.driver_name || 'Desconhecido'}</div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#475569', flexShrink: 0 }}>{timeStr}</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, fontSize: '11px', color: '#64748b' }}>
+                    {timeStr}
+                  </div>
                 </div>
               );
             })}
-
           </div>
         </div>
+      ) : null}
+
+      {is3DOpen && selectedTruck && (
+        <Simulation3DModal truck={selectedTruck} onClose={() => setIs3DOpen(false)} />
       )}
-
-      <div style={card}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Ultimos Abastecimentos</div>
-            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Registros mais recentes da frota</div>
-          </div>
-          <Link to="/fueling" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: '#2FBEB5', fontWeight: 600 }}>Ver todos <ArrowRight size={14} /></Link>
-        </div>
-        <div>
-          {ll
-            ? <div style={{ padding: '40px', display: 'flex', justifyContent: 'center' }}><LoadingSpinner /></div>
-            : <FuelingTable logs={logs.slice(0, 5)} />}
-        </div>
-      </div>
-
     </div>
   );
 }

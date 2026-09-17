@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
+import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-
+import useFleetState from '../store/useFleetState';
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -22,9 +23,10 @@ const STATUS_COLORS = {
 function AutoFitBounds({ trucks }) {
   const map = useMap();
   const hasFitted = useRef(false);
+  const { selectedTruckId } = useFleetState();
 
   useEffect(() => {
-    if (trucks.length > 0 && !hasFitted.current) {
+    if (trucks.length > 0 && !hasFitted.current && !selectedTruckId) {
       const validCoords = trucks
         .map(t => [parseFloat(t.lat), parseFloat(t.lng)])
         .filter(([lat, lng]) => lat && lng && !isNaN(lat) && !isNaN(lng));
@@ -35,7 +37,25 @@ function AutoFitBounds({ trucks }) {
         hasFitted.current = true;
       }
     }
-  }, [trucks, map]);
+  }, [trucks, map, selectedTruckId]);
+
+  useEffect(() => {
+    if (selectedTruckId) {
+      const t = trucks.find(tr => tr.id === selectedTruckId);
+      if (t && t.lat && t.lng) {
+        map.flyTo([parseFloat(t.lat), parseFloat(t.lng)], 13, { duration: 1.5 });
+      }
+    } else {
+      // Re-fit bounds when deselected
+      const validCoords = trucks
+        .map(t => [parseFloat(t.lat), parseFloat(t.lng)])
+        .filter(([lat, lng]) => lat && lng && !isNaN(lat) && !isNaN(lng));
+      if (validCoords.length > 0) {
+        const bounds = L.latLngBounds(validCoords);
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 9 });
+      }
+    }
+  }, [selectedTruckId, trucks, map]);
 
   return null;
 }
@@ -117,8 +137,116 @@ function getTruckIcon(truck, color) {
     </div>`;
 }
 
+
+
+function AnimatedTruckMarker({ truck, iconHtml, isFueling, children }) {
+  const markerRef = useRef(null);
+  const { truckRoutes } = useFleetState();
+  const routeGeometry = truckRoutes[truck.id];
+  
+  const currentDistanceRef = useRef(0);
+  const targetDistanceRef = useRef(0);
+  const animationRef = useRef(null);
+  const totalDistRef = useRef(0);
+  const lineRef = useRef(null);
+
+  // Initialize line and total distance when route loads
+  useEffect(() => {
+    if (routeGeometry && routeGeometry.length > 1) {
+      lineRef.current = turf.lineString(routeGeometry);
+      totalDistRef.current = turf.length(lineRef.current, { units: 'meters' });
+    }
+  }, [routeGeometry]);
+
+  // Calculate target distance using turf whenever route_index updates
+  useEffect(() => {
+    if (!lineRef.current || truck.route_index === undefined || !routeGeometry) return;
+    
+    const idx = Math.min(truck.route_index, routeGeometry.length - 1);
+    let dist = 0;
+    if (idx > 0) {
+      const sliced = turf.lineSlice(
+        turf.point(routeGeometry[0]), 
+        turf.point(routeGeometry[idx]), 
+        lineRef.current
+      );
+      dist = turf.length(sliced, { units: 'meters' });
+    }
+
+    if (dist < currentDistanceRef.current && (currentDistanceRef.current - dist) > 500) {
+      // Loop reset
+      currentDistanceRef.current = dist;
+    }
+    targetDistanceRef.current = dist;
+  }, [truck.route_index, routeGeometry]);
+
+  // Animation Loop
+  useEffect(() => {
+    if (!markerRef.current || !lineRef.current) return;
+    
+    let lastTime = performance.now();
+
+    const animate = (time) => {
+      const dt = time - lastTime;
+      lastTime = time;
+
+      const current = currentDistanceRef.current;
+      const target = targetDistanceRef.current;
+      
+      if (Math.abs(target - current) > 0.1) {
+        // Move at constant speed to reach target in ~2.8s
+        const step = (target - current) * (dt / 2500); 
+        let next = current + step;
+        
+        // Prevent overshooting
+        if ((target > current && next > target) || (target < current && next < target)) {
+          next = target;
+        }
+
+        currentDistanceRef.current = next;
+
+        const point = turf.along(lineRef.current, next, { units: 'meters' });
+        const [lng, lat] = point.geometry.coordinates;
+        
+        markerRef.current.setLatLng([lat, lng]);
+      }
+      
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [routeGeometry, truck.id]); // Re-run if route changes
+
+  // Snap position if fueling or no route
+  useEffect(() => {
+    if ((isFueling || !routeGeometry) && markerRef.current) {
+      markerRef.current.setLatLng([parseFloat(truck.lat), parseFloat(truck.lng)]);
+    }
+  }, [isFueling, truck.lat, truck.lng, routeGeometry]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[parseFloat(truck.lat), parseFloat(truck.lng)]}
+      icon={L.divIcon({
+        html: iconHtml,
+        className: 'route-truck',
+        iconSize: isFueling ? [34, 34] : [28, 28],
+        iconAnchor: isFueling ? [17, 17] : [14, 14],
+      })}
+    >
+      {children}
+    </Marker>
+  );
+}
+
 export default function MapView({ trucks = [] }) {
   const navigate = useNavigate();
+  const { truckRoutes, selectedTruckId } = useFleetState();
   
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
@@ -137,12 +265,35 @@ export default function MapView({ trucks = [] }) {
       >
         <AutoFitBounds trucks={trucks} />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+          url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
           className="map-tiles"
           noWrap={true}
         />
-        {trucks.map(truck => {
+        {/* Draw Polylines for each truck route */}
+        {Array.isArray(trucks) && trucks.map(truck => {
+          let route = truckRoutes[truck.id];
+          if (typeof route === 'string') {
+            try { route = JSON.parse(route); } catch(e) {}
+          }
+          if (!Array.isArray(route) || route.length < 2) return null;
+          // routeGeometry is [lng, lat], Leaflet expects [lat, lng]
+          const latLngs = route.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
+          const isSelected = selectedTruckId === truck.id;
+          return (
+            <Polyline 
+              key={`route-${truck.id}`} 
+              positions={latLngs} 
+              pathOptions={{ 
+                color: isSelected ? '#F2A93B' : 'rgba(47, 190, 181, 0.4)', 
+                weight: isSelected ? 6 : 3, 
+                opacity: isSelected ? 1 : 0.6 
+              }} 
+            />
+          );
+        })}
+
+        {Array.isArray(trucks) && trucks.map(truck => {
           const lat = parseFloat(truck.lat);
           const lng = parseFloat(truck.lng);
           if (!lat || !lng) return null;
@@ -151,15 +302,11 @@ export default function MapView({ trucks = [] }) {
           const isFueling = truck.sim_state === 'fueling';
 
           return (
-            <Marker
+            <AnimatedTruckMarker 
               key={truck.id}
-              position={[lat, lng]}
-              icon={L.divIcon({
-                html: getTruckIcon(truck, color),
-                className: isFueling ? 'fueling-truck' : 'animated-truck',
-                iconSize: isFueling ? [34, 34] : [28, 28],
-                iconAnchor: isFueling ? [17, 17] : [14, 14],
-              })}
+              truck={truck}
+              iconHtml={getTruckIcon(truck, color)}
+              isFueling={isFueling}
             >
               <Popup minWidth={210}>
                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.7', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -199,7 +346,7 @@ export default function MapView({ trucks = [] }) {
                   </button>
                 </div>
               </Popup>
-            </Marker>
+            </AnimatedTruckMarker>
           );
         })}
       </MapContainer>

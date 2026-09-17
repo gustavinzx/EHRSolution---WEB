@@ -19,8 +19,8 @@ export function useFueling(initialFilters = {}) {
       if (activeFilters.start) params.append('start', activeFilters.start);
       if (activeFilters.end) params.append('end', activeFilters.end);
 
-      const response = await client.get(`/fueling?${params.toString()}`);
-      setLogs(response.data);
+      const response = await client.get('/fueling', { params });
+      setLogs(Array.isArray(response.data) ? response.data : []);
       setError(null);
     } catch (err) {
       const msg = err.response?.data?.error || 'Erro ao carregar log de abastecimento';
