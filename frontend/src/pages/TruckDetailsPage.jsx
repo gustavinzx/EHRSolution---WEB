@@ -58,7 +58,25 @@ export default function TruckDetailsPage() {
 
   if (loading && !truck) return <LoadingSpinner />;
   if (localError || error) return <ErrorMessage message={localError || error} />;
-  if (!truck) return <ErrorMessage message="Caminhão não encontrado." />;
+  const handleCancelRoute = async () => {
+    if (!window.confirm('Deseja realmente cancelar esta viagem? O caminhão irá parar imediatamente.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const res = await fetch(`${API_URL}/fleet/${truck.id}/cancel-route`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        refetch();
+        fetchTruckRoute(truck.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (!truck) return <div style={{ color: '#fff', padding: '40px' }}>Caminhão não encontrado.</div>;
 
   const s = STATUS_META[truck.status] || STATUS_META.ok;
   const pct = truck.capacity_liters > 0 ? Math.round((truck.current_level_liters / truck.capacity_liters) * 100) : 0;
@@ -138,15 +156,28 @@ export default function TruckDetailsPage() {
                </div>
             </div>
             
-            <button onClick={() => setIsModalOpen(true)} style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '0 20px', borderRadius: '12px', border: 'none',
-              background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
-              color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)',
-            }}>
-              <Map size={16} /> Nova Rota
-            </button>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              {(truck.sim_state === 'driving' || truck.route_phase !== 'arrived') && (
+                <button onClick={handleCancelRoute} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(248,113,113,0.4)',
+                  background: 'rgba(248,113,113,0.1)',
+                  color: '#f87171', fontFamily: 'var(--font-display)', fontWeight: 700,
+                  fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
+                }}>
+                  Cancelar Viagem
+                </button>
+              )}
+              <button onClick={() => setIsModalOpen(true)} style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '0 20px', borderRadius: '12px', border: 'none',
+                background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+                color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
+                fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)',
+              }}>
+                <Map size={16} /> Nova Rota
+              </button>
+            </div>
           </div>
         </div>
       </div>
