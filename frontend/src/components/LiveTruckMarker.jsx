@@ -172,12 +172,9 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
     const idx = Math.min(Math.max(0, truck.route_index), routeGeometry.length - 1);
     let dist = 0;
     if (idx > 0) {
-      const sliced = turf.lineSlice(
-        turf.point(routeGeometry[0]), 
-        turf.point(routeGeometry[idx]), 
-        lineRef.current
-      );
-      dist = turf.length(sliced, { units: 'meters' });
+      for (let i = 0; i < idx; i++) {
+        dist += turf.distance(turf.point(routeGeometry[i]), turf.point(routeGeometry[i+1]), { units: 'meters' });
+      }
     }
 
     if (!routeInitializedRef.current || (dist < currentDistanceRef.current && (currentDistanceRef.current - dist) > 500)) {

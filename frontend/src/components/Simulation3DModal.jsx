@@ -122,14 +122,13 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       
       // Calculate current distance along route based on route_index if available
       const routeIdx = Math.min(liveTruck?.route_index || 0, rawGeo.length - 1);
-      if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
-        try {
-          const sliced = turf.lineSlice(turf.point(rawGeo[0]), turf.point(rawGeo[routeIdx]), truckState.current.routeGeometry);
-          truckState.current.currentDistance = turf.length(sliced, { units: 'meters' });
-        } catch(e) {
-          truckState.current.currentDistance = 0;
-        }
-      } else {
+        if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
+          let dist = 0;
+          for (let i = 0; i < routeIdx; i++) {
+            dist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
+          }
+          truckState.current.currentDistance = dist;
+        } else {
         truckState.current.currentDistance = 0;
       }
       
@@ -222,7 +221,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           <img 
             src="/images/caminhao-Photoroom.png" 
             alt="Truck" 
-            style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(4px 10px 10px rgba(0,0,0,0.5));" 
+            style="width: 100%; height: 100%; object-fit: contain; " 
           />
         `;
 
@@ -231,7 +230,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           el.innerHTML = '<div style="width:34px;height:54px;border-radius:10px;background:#2fbeb5;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:22px">🚛</div>';
         };
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'viewport' })
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'map' })
           .setLngLat(startCoord)
           .setRotation(truckState.current.bearing)
           .addTo(map.current);
@@ -285,12 +284,11 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         const rawGeo = truckState.current.routeGeometry.geometry.coordinates;
         const idx = Math.min(Math.max(0, liveTruck.route_index), rawGeo.length - 1);
         let targetDist = 0;
-        if (idx > 0) {
-          try {
-            const sliced = turf.lineSlice(turf.point(rawGeo[0]), turf.point(rawGeo[idx]), truckState.current.routeGeometry);
-            targetDist = turf.length(sliced, { units: 'meters' });
-          } catch(e) {}
-        }
+          if (idx > 0) {
+            for (let i = 0; i < idx; i++) {
+              targetDist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
+            }
+          }
 
         let current = truckState.current.currentDistance;
         // Detect route loop reset
