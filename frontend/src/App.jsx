@@ -13,6 +13,7 @@ import FuelingPage from './pages/FuelingPage';
 import ReportsPage from './pages/ReportsPage';
 import Sidebar     from './components/Sidebar';
 import TopBar from './components/TopBar';
+import useFleetState from './store/useFleetState';
 
 const ProtectedLayout = ({ children }) => {
   const { isAuthenticated } = useAuth();

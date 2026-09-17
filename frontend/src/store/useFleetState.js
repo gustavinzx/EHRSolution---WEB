@@ -2,41 +2,54 @@ import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import client from '../api/client';
 
-const socket = io('http://localhost:3001');
+let socket = null;
 
-const useFleetState = create((set, get) => {
-  socket.on('fleetUpdate', (data) => {
-    const fleetData = Array.isArray(data) ? data : [];
-    
-    // Check for route phase changes to re-fetch geometry
-    const currentRoutes = get().truckRoutes;
-    const previousPhases = get().truckPhases || {};
-    const newPhases = {};
-    
-    fleetData.forEach(truck => {
-      newPhases[truck.id] = truck.route_phase;
-      
-      // Need to fetch route if we don't have it, OR if the phase changed (e.g. planned -> to_station)
-      const phaseChanged = previousPhases[truck.id] && previousPhases[truck.id] !== truck.route_phase;
-      
-      if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
-        get().fetchTruckRoute(truck.id);
-      }
+const useFleetState = create((set, get) => ({
+  fleet: [],
+  truckRoutes: {},
+  truckPhases: {},
+  liveEvents: { fueling_now: [], recent_logs: [] },
+  alerts: [],
+  loading: true,
+  error: null,
+  selectedTruckId: null,
+
+  connectSocket: () => {
+    if (socket) return;
+    const token = localStorage.getItem('token');
+    const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+    socket = io(url, { auth: { token } });
+
+    socket.on('fleetUpdate', (data) => {
+      const fleetData = Array.isArray(data) ? data : [];
+      const currentRoutes = get().truckRoutes;
+      const previousPhases = get().truckPhases || {};
+      const newPhases = {};
+      fleetData.forEach(truck => {
+        newPhases[truck.id] = truck.route_phase;
+        const phaseChanged = previousPhases[truck.id] && previousPhases[truck.id] !== truck.route_phase;
+        if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
+          get().fetchTruckRoute(truck.id);
+        }
+      });
+      set({ fleet: fleetData, loading: false, truckPhases: newPhases });
     });
 
-    set({ fleet: fleetData, loading: false, truckPhases: newPhases });
-  });
+    socket.on('liveEventsUpdate', (data) => {
+      set({ liveEvents: data });
+    });
 
-  socket.on('liveEventsUpdate', (data) => {
-    set({ liveEvents: data });
-  });
+    socket.on('newAlert', (alert) => {
+      set((state) => ({ alerts: [alert, ...state.alerts] }));
+    });
+  },
 
-  socket.on('newAlert', (alert) => {
-    set((state) => ({ alerts: [alert, ...state.alerts] }));
-  });
-
-  return {
-    fleet: [],
+  disconnectSocket: () => {
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+  },
     truckRoutes: {}, 
     truckPhases: {},
     liveEvents: { fueling_now: [], recent_logs: [] },
@@ -106,7 +119,6 @@ const useFleetState = create((set, get) => {
         console.error('Erro ao resolver alerta:', error);
       }
     }
-  };
-});
+}));
 
 export default useFleetState;

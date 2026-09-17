@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS trucks (
   lat NUMERIC(10,7),
   lng NUMERIC(10,7),
   speed_kmh NUMERIC(5,1) DEFAULT 0,
+  consumption_per_100km NUMERIC(5,2) DEFAULT 32.0,
   status VARCHAR(50) DEFAULT 'ok',
   sim_state VARCHAR(50) DEFAULT 'driving',
   fueling_ticks INTEGER DEFAULT 0,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS trucks (
   planned_route_geometry JSON,
   route_phase VARCHAR(20) DEFAULT 'planned',
   fuel_station_id INTEGER,
+  route_resume_index INTEGER DEFAULT 0,
   route_index INTEGER DEFAULT 0,
   route_progress NUMERIC(5,4) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -42,9 +44,13 @@ CREATE TABLE IF NOT EXISTS trucks (
 CREATE TABLE IF NOT EXISTS fuel_stations (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
+  brand VARCHAR(100),
+  address TEXT,
   lat NUMERIC(10,7) NOT NULL,
   lng NUMERIC(10,7) NOT NULL,
-  active BOOLEAN DEFAULT true
+  active BOOLEAN DEFAULT true,
+  source VARCHAR(50) DEFAULT 'seed',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS driver_trucks (
@@ -64,6 +70,8 @@ CREATE TABLE IF NOT EXISTS fueling_logs (
   level_before NUMERIC(10,2),
   level_after NUMERIC(10,2),
   release_method VARCHAR(20) DEFAULT 'facial' CHECK (release_method IN ('facial','ble_fallback'))
+  ,station_id INTEGER REFERENCES fuel_stations(id), station_name VARCHAR(255), started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ, duration_minutes NUMERIC(5,1), volume_liters NUMERIC(10,2)
 );
 
 CREATE TABLE IF NOT EXISTS telemetry_logs (
@@ -101,6 +109,8 @@ CREATE TABLE IF NOT EXISTS fueling_sessions (
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ,
+  station_id INTEGER REFERENCES fuel_stations(id),
+  duration_minutes INTEGER DEFAULT 15,
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
@@ -115,6 +125,7 @@ CREATE TABLE IF NOT EXISTS security_events (
     CHECK (severity IN ('low','medium','high','critical')),
   source VARCHAR(30) NOT NULL DEFAULT 'device',
   payload JSONB DEFAULT '{}'::jsonb,
+  lat NUMERIC(10,7), lng NUMERIC(10,7),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/seed/seed.js", "migrate": "node runMigration.js"
+    "seed": "node src/seed/seed.js",
+    "migrate": "node runMigration.js"
   },
   "dependencies": {
+    "axios": "^1.20.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "csv-stringify": "^6.4.4",

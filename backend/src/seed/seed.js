@@ -11,6 +11,8 @@ const runSeed = async () => {
     console.log('Running schema...');
     const schema = fs.readFileSync(path.join(__dirname, '../config/schema.sql'), 'utf-8');
     await client.query(schema);
+    const migration = fs.readFileSync(path.join(__dirname, '../config/migration.sql'), 'utf-8');
+    await client.query(migration);
 
     console.log('Inserting demo users...');
     // DADOS DEMO — substituir por dados reais
@@ -69,6 +71,20 @@ const runSeed = async () => {
     // Reset sequence
     await client.query("SELECT setval('trucks_id_seq', (SELECT MAX(id) FROM trucks))");
 
+    console.log('Inserting fuel stations...');
+    const stations = [
+      ['Posto EHR São Paulo', 'EHR Fuel', 'São Paulo, SP', -23.5505, -46.6333],
+      ['Posto EHR Rio', 'EHR Fuel', 'Rio de Janeiro, RJ', -22.9068, -43.1729],
+      ['Posto EHR Brasília', 'EHR Fuel', 'Brasília, DF', -15.7942, -47.8822],
+      ['Posto EHR Curitiba', 'EHR Fuel', 'Curitiba, PR', -25.4284, -49.2733],
+      ['Posto EHR Salvador', 'EHR Fuel', 'Salvador, BA', -12.9714, -38.5014],
+      ['Posto EHR Fortaleza', 'EHR Fuel', 'Fortaleza, CE', -3.7319, -38.5267],
+      ['Posto EHR Porto Alegre', 'EHR Fuel', 'Porto Alegre, RS', -30.0346, -51.2177]
+    ];
+    for (const [name, brand, address, lat, lng] of stations) {
+      await client.query(`INSERT INTO fuel_stations (name, brand, address, lat, lng, source) VALUES ($1,$2,$3,$4,$5,'seed') ON CONFLICT DO NOTHING`, [name, brand, address, lat, lng]);
+    }
+
     console.log('Fetching route geometries from OSRM...');
     const routes_list = [
       { origin: 'São Paulo, SP', dest: 'Rio de Janeiro, RJ' },
@@ -107,7 +123,7 @@ const runSeed = async () => {
         
         if (originData && destData) {
           const osrmUrl = 'http://router.project-osrm.org/route/v1/driving/' + originData.lng + ',' + originData.lat + ';' + destData.lng + ',' + destData.lat + '?overview=full&geometries=geojson';
-          const osrmRes = await fetch(osrmUrl);
+          const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(10000) });
           const osrmData = await osrmRes.json();
           
           if (osrmData.code === 'Ok' && osrmData.routes.length > 0) {

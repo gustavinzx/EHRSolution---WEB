@@ -19,7 +19,7 @@ export function useFleet() {
       ]);
       return { 
         ...truckRes.data,
-        route: routeRes.data,
+        telemetry: routeRes.data,
         unloading_events: unloadingRes.data
       };
     } catch (err) {
