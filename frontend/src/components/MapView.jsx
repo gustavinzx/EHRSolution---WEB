@@ -142,30 +142,35 @@ export default function MapView({ trucks = [] }) {
               iconHtml={getTruckIcon(truck, color)}
               isFueling={isFueling}
             >
-              <div className="font-semibold">{truck.plate}</div>
-              <div className="text-xs text-gray-500 mb-2">{truck.model}</div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Velocidade:</span>
-                <span className="font-mono">{parseFloat(truck.speed_kmh).toFixed(0)} km/h</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Combustível:</span>
-                <span className={`font-mono font-bold ${pct < 25 ? 'text-red-500' : 'text-emerald-500'}`}>{pct}%</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1">
-                <span>Status:</span>
-                <span className="font-mono uppercase">{truck.status}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-2">
-                <span>Fase da Rota:</span>
-                <span className="font-mono text-gray-700">{truck.route_phase || truck.sim_state}</span>
-              </div>
-              <button 
-                onClick={() => navigate(`/fleet/${truck.id}`)}
-                className="w-full mt-2 bg-slate-900 text-white text-xs py-1 rounded hover:bg-slate-800 transition-colors"
-              >
-                Ver Detalhes
-              </button>
+              <Popup minWidth={210} className="custom-popup">
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.7', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="font-semibold text-white">🚛 {truck.plate} — {truck.model}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Velocidade:</span>
+                      <span className="font-mono text-white">{parseFloat(truck.speed_kmh).toFixed(0)} km/h</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Combustível:</span>
+                      <span className={`font-mono font-bold ${pct < 25 ? 'text-red-500' : 'text-emerald-500'}`}>{pct}% · {parseFloat(truck.current_level_liters).toFixed(0)}L</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Status:</span>
+                      <span className="font-mono uppercase text-white">{truck.status}</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-slate-400">Fase da Rota:</span>
+                      <span className="font-mono text-slate-300">{truck.route_phase || truck.sim_state}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => navigate(`/fleet/${truck.id}`)}
+                    className="w-full mt-2 bg-slate-900 text-white text-xs py-1.5 rounded hover:bg-slate-800 transition-colors border border-slate-700 font-semibold"
+                  >
+                    Ver Detalhes
+                  </button>
+                </div>
+              </Popup>
             </LiveTruckMarker>
           );
         })}
