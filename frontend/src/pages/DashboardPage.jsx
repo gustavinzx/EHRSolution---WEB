@@ -29,7 +29,7 @@ function MiniBarChart({ trucks }) {
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '80px', padding: '0 4px' }}>
       {vals.map((v, i) => (
         <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '9px', color: '#64748b', fontFamily: 'monospace' }}>{v.value}%</span>
+          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace', fontWeight: 600 }}>{v.value}%</span>
           <div style={{
             width: '100%', borderRadius: '4px 4px 0 0',
             background: `${v.color}22`,
@@ -42,7 +42,7 @@ function MiniBarChart({ trucks }) {
               background: `linear-gradient(to top, ${v.color}88, transparent)`,
             }} />
           </div>
-          <span style={{ fontSize: '8px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textOverflow: 'ellipsis', textAlign: 'center' }}>{v.label}</span>
+          <span style={{ fontSize: '9px', color: '#8BA3BC', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textOverflow: 'ellipsis', textAlign: 'center', fontWeight: 500 }}>{v.label}</span>
         </div>
       ))}
     </div>
@@ -75,6 +75,7 @@ function DonutRing({ value, color, label }) {
 }
 
 export default function DashboardPage() {
+  const [alertFilter, setAlertFilter] = useState('all');
   const { trucks, loading: fl, error, refetch } = useFleet();
   const { logs,   loading: ll }          = useFueling();
   const { fueling_now, recent_logs }     = useLiveEvents();
@@ -255,7 +256,7 @@ export default function DashboardPage() {
                 <>
                   {safeAlerts.map(a => (
                     <div key={`alert-${a.id}`} onClick={() => handleSelectTruck(a.truck_id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(248,113,113,0.15)', border: '1px solid #f87171', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: a.type === 'destination_arrived' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.15)', border: `1px solid ${a.type === 'destination_arrived' ? 'rgba(52,211,153,0.3)' : '#f87171'}`, cursor: 'pointer' }}
                     >
                       <Fuel size={15} color="#f87171" style={{ flexShrink: 0 }} />
                       <div style={{ flex: 1 }}>

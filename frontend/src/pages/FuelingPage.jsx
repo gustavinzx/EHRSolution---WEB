@@ -32,6 +32,10 @@ export default function FuelingPage() {
   const { drivers } = useDrivers();
 
   const [truckId, setTruckId] = useState('');
+  useEffect(() => {
+    const awaiting = trucks.find(t => t.route_phase === 'awaiting_fueling_authorization');
+    if (awaiting && !truckId) setTruckId(String(awaiting.id));
+  }, [trucks, truckId]);
   const [session, setSession] = useState(null);
   const [sessionBusy, setSessionBusy] = useState(false);
 
