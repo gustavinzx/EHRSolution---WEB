@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import client from '../api/client';
+import { normalizeRoute } from '../utils/routeGeometry';
+const routeRequests = new Map();
 
 let socket = null;
 
 const useFleetState = create((set, get) => ({
   fleet: [],
+  routeErrors: {},
   truckRoutes: {},
   truckPhases: {},
   liveEvents: { fueling_now: [], recent_logs: [] },
@@ -83,21 +86,32 @@ const useFleetState = create((set, get) => ({
       }
     },
 
-    fetchTruckRoute: async (id) => {
-      try {
-        const response = await client.get(`/fleet/${id}/route`);
-        const data = response.data;
-        if (data.route_geometry) {
-          set(state => ({
-            truckRoutes: {
-              ...state.truckRoutes,
-              [id]: data.route_geometry
+    fetchTruckRoute: (id) => {
+      if (routeRequests.has(id)) return routeRequests.get(id);
+      set(state => ({ routeErrors: { ...state.routeErrors, [id]: null } }));
+      const request = (async () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const response = await client.get(`/fleet/${id}/route`, { timeout: 10000 });
+            const route = normalizeRoute(response.data.route_geometry);
+            if (!route) throw new Error('Rota indisponível ou inválida');
+            set(state => ({
+              truckRoutes: { ...state.truckRoutes, [id]: route },
+              routeErrors: { ...state.routeErrors, [id]: null }
+            }));
+            return route;
+          } catch (error) {
+            const status = error.response?.status;
+            if (attempt === 2 || (status >= 400 && status < 500 && status !== 429)) {
+              set(state => ({ routeErrors: { ...state.routeErrors, [id]: error.message } }));
+              return null;
             }
-          }));
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
         }
-      } catch (error) {
-        console.error(`Erro ao buscar rota do caminhão ${id}:`, error);
-      }
+      })().finally(() => routeRequests.delete(id));
+      routeRequests.set(id, request);
+      return request;
     },
 
     fetchLiveEvents: async () => {

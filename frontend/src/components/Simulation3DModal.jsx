@@ -10,6 +10,7 @@ if (MAPBOX_TOKEN) {
 }
 
 import useFleetState from '../store/useFleetState';
+import { normalizeRoute, routeDistance } from '../utils/routeGeometry';
 
 export default function Simulation3DModal({ isOpen, onClose, truck: truckProp }) {
   const mapContainer = useRef(null);
@@ -31,13 +32,23 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     isCameraLocked: true
   });
 
+  const [mapReady, setMapReady] = useState(false);
+  const [routeReady, setRouteReady] = useState(false);
   const [routeColor, setRouteColor] = useState('#2FBEB5');
   const [isCameraLockedUI, setIsCameraLockedUI] = useState(true);
   // Live telemetry display state (updated from WebSocket store)
   const [liveSpeed, setLiveSpeed] = useState(0);
   const [liveSimState, setLiveSimState] = useState('');
   
-  const { truckRoutes, fleet } = useFleetState();
+  const { truckRoutes, fleet, routeErrors } = useFleetState();
+  const liveTruck = fleet.find(t => t.id === truckProp?.id) || truckProp;
+  const activeRoute = truckRoutes[truckProp?.id] ?? liveTruck?.route_geometry;
+
+  useEffect(() => {
+    if (isOpen && truckProp?.id != null) {
+      useFleetState.getState().fetchTruckRoute(truckProp.id);
+    }
+  }, [isOpen, truckProp?.id]);
 
   // ── Sync liveTruckRef and UI state with the Zustand/WebSocket fleet store ──
   useEffect(() => {
@@ -86,20 +97,6 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     
     const liveTruck = liveTruckRef.current || truckProp;
 
-    // Check if route is already string or array, or get it from store
-    // O store recebe a rota recém-configurada; ele tem prioridade sobre o
-    // snapshot antigo que abriu o modal.
-    const currentRoute = truckRoutes[liveTruck.id] ?? liveTruck.route_geometry;
-    let routeData = typeof currentRoute === 'string' ? JSON.parse(currentRoute) : currentRoute;
-
-    // Defensive: handle object with .geometry.coordinates
-    if (routeData && !Array.isArray(routeData) && routeData.geometry) {
-      routeData = routeData.geometry.coordinates;
-    }
-
-    const rawGeo = Array.isArray(routeData) ? routeData : null;
-    const hasRoute = rawGeo && rawGeo.length > 1;
-    
     // Robust Coordinate Setup — Prioritize current truck position
     const safeLng = Number(liveTruck?.lng);
     const safeLat = Number(liveTruck?.lat);
@@ -107,7 +104,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
 
     let startCoord = hasValidTruckPos
       ? [safeLng, safeLat]
-      : (hasRoute ? [rawGeo[0][0], rawGeo[0][1]] : [-46.6333, -23.5505]);
+      : [-46.6333, -23.5505];
 
     if (Number.isNaN(startCoord[0]) || Number.isNaN(startCoord[1])) {
       startCoord = [-46.6333, -23.5505];
@@ -117,35 +114,13 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     truckState.current.targetCoord = startCoord;
     truckState.current.bearing = 0;
     
-    if (hasRoute) {
-      truckState.current.routeGeometry = turf.lineString(rawGeo);
-      truckState.current.totalDistance = turf.length(truckState.current.routeGeometry, { units: 'meters' });
-      
-      // Calculate current distance along route based on route_index if available
-      const routeIdx = Math.min(liveTruck?.route_index || 0, rawGeo.length - 1);
-      const isArrived = liveTruck?.route_phase === 'arrived' || liveTruck?.sim_state === 'arrived' || liveTruck?.status === 'arrived';
-      if (isArrived || routeIdx >= rawGeo.length - 1) {
-        // Viagem já concluída: abrir o 3D diretamente no destino, sem
-        // reproduzir todo o trajeto histórico como uma animação.
-        truckState.current.currentDistance = truckState.current.totalDistance;
-        truckState.current.coord = rawGeo[rawGeo.length - 1];
-        startCoord = rawGeo[rawGeo.length - 1];
-      } else if (routeIdx > 0 && routeIdx < rawGeo.length - 1) {
-          let dist = 0;
-          for (let i = 0; i < routeIdx; i++) {
-            dist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
-          }
-          truckState.current.currentDistance = dist;
-        } else {
-        truckState.current.currentDistance = 0;
-      }
-      
-      const nextIdx = Math.min(routeIdx + 1, rawGeo.length - 1);
-      const nextPt = rawGeo[nextIdx];
-      if (nextPt && (nextPt[0] !== startCoord[0] || nextPt[1] !== startCoord[1])) {
-        try { truckState.current.bearing = turf.bearing(startCoord, nextPt); } catch(e) {}
-      }
-    }
+    truckState.current.routeGeometry = null;
+    truckState.current.totalDistance = 0;
+    truckState.current.currentDistance = 0;
+    truckState.current.isCameraLocked = true;
+    setIsCameraLockedUI(true);
+    setRouteReady(false);
+    setMapReady(false);
 
     if (!map.current) {
       map.current = new mapboxgl.Map({
@@ -194,22 +169,6 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           }
         });
 
-        // GeoJSON Route
-        if (hasRoute) {
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: truckState.current.routeGeometry
-          });
-
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': routeColor, 'line-width': 10, 'line-opacity': 0.9, 'line-emissive-strength': 0.35 }
-          });
-        }
-
         // -------------------------------------------------------------
         // ESTILO UBER (MARKER 2D - IMAGEM DO USUÁRIO)
         // -------------------------------------------------------------
@@ -247,6 +206,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         map.current.resize();
         map.current.jumpTo({ center: startCoord, zoom: Math.max(map.current.getZoom(), 14.5), pitch: 48, bearing: truckState.current.bearing });
 
+        setMapReady(true);
         animateTruck();
       });
     }
@@ -258,10 +218,38 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       if (map.current) {
         map.current.remove();
         map.current = null;
+        truckState.current.marker = null;
+        truckState.current.stationMarker = null;
+        truckState.current.routeGeometry = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, truckProp?.id]);
+
+  // Route data and the Mapbox style can become ready in either order.
+  // Telemetry ticks do not reset interpolation; only a geometry change does.
+  useEffect(() => {
+    if (!isOpen || !mapReady || !map.current?.isStyleLoaded()) return;
+    const coordinates = normalizeRoute(activeRoute);
+    const geometry = coordinates ? turf.lineString(coordinates) : null;
+    const state = truckState.current;
+    state.routeGeometry = geometry;
+    state.totalDistance = geometry ? turf.length(geometry, { units: 'meters' }) : 0;
+    state.currentDistance = geometry ? routeDistance(coordinates, liveTruckRef.current) : 0;
+    const data = geometry || { type: 'FeatureCollection', features: [] };
+    const source = map.current.getSource('route');
+    if (source) source.setData(data);
+    else if (geometry) map.current.addSource('route', { type: 'geojson', data });
+    if (geometry && !map.current.getLayer('route')) {
+      map.current.addLayer({
+        id: 'route', type: 'line', source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': routeColor, 'line-width': 10, 'line-opacity': 0.9 }
+      });
+    }
+    setRouteReady(Boolean(geometry));
+    if (geometry) moveMarkerAlongRoute(state.currentDistance);
+  }, [isOpen, truckProp?.id, activeRoute, mapReady]);
 
   // Dynamic Route Color Listener
   useEffect(() => {
@@ -294,16 +282,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           animationRef.current = requestAnimationFrame(loop);
           return;
         }
-        const idx = Math.min(Math.max(0, liveTruck.route_index), rawGeo.length - 1);
-        let targetDist = 0;
-          if (idx > 0) {
-            for (let i = 0; i < idx; i++) {
-              targetDist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
-            }
-          }
-          if (idx < rawGeo.length - 1 && liveTruck.lat && liveTruck.lng) {
-            targetDist += turf.distance(turf.point(rawGeo[idx]), turf.point([parseFloat(liveTruck.lng), parseFloat(liveTruck.lat)]), { units: 'meters' });
-          }
+        const targetDist = routeDistance(rawGeo, liveTruck);
 
         let current = truckState.current.currentDistance;
         // Detect route loop reset
@@ -324,7 +303,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         } else {
           truckState.current.currentDistance = targetDist;
         }
-      } else if (truckState.current.targetCoord) {
+      } else if (liveTruck?.route_index == null && truckState.current.targetCoord) {
         // Fallback: interpolate toward raw GPS coord when no route_index
         const cur = truckState.current.coord;
         const tgt = truckState.current.targetCoord;
@@ -408,7 +387,13 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           </div>
           <button className="icon-button" aria-label="Fechar rastreamento" onClick={onClose}><X size={20} /></button>
         </header>
-        {MAPBOX_TOKEN ? <div ref={mapContainer} className="tracking-map" /> : <div className="tracking-empty"><Route size={32}/><h3>Mapa indisponível</h3><p>Configure o token do Mapbox para visualizar o rastreamento.</p></div>}
+        {MAPBOX_TOKEN ? <div className="tracking-map" style={{ position: 'relative' }}>
+          <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+          {!routeReady && liveTruck?.route_index != null && <div role="status" style={{ position: 'absolute', top: 16, left: 16, zIndex: 2, padding: '10px 16px', borderRadius: 8, background: '#101c2eee', color: '#fff' }}>
+            {routeErrors?.[truckProp?.id] ? 'Não foi possível carregar a rota.' : 'Carregando rota…'}
+            {routeErrors?.[truckProp?.id] && <button className="panel-button" onClick={() => useFleetState.getState().fetchTruckRoute(truckProp.id)}>Tentar novamente</button>}
+          </div>}
+        </div> : <div className="tracking-empty"><Route size={32}/><h3>Mapa indisponível</h3><p>Configure o token do Mapbox para visualizar o rastreamento.</p></div>}
         <footer className="tracking-toolbar">
           <div className="tracking-metric"><span className="eyebrow"><Gauge size={14}/> VELOCIDADE</span><strong>{liveSpeed.toFixed(0)} <small>km/h</small></strong></div>
           <div className="tracking-metric"><span className="eyebrow">SITUAÇÃO DO VEÍCULO</span><span className={`vehicle-status ${liveSimState === 'no_signal' || liveSimState === 'low_fuel' ? 'vehicle-status-warning' : ''}`}><i/>{stateLabel}</span></div>
