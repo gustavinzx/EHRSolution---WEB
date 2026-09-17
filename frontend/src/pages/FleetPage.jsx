@@ -82,21 +82,12 @@ export default function FleetPage() {
         ))}
       </div>
       
-      {/* Map */}
-      <div style={{ ...glass, height: '350px' }}>
-        <div style={{
-          padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Visão Global da Frota</span>
-        </div>
-        <div style={{ height: 'calc(100% - 49px)' }}>
-          <MapView trucks={trucks} />
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'16px' }}>
+      {/* Split Screen Layout */}
+      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: '650px', alignItems: 'stretch' }}>
+        
+        {/* Left Column: Truck List */}
+        <div style={{ flex: '1 1 45%', display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingRight: '4px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:'16px' }}>
         {Array.isArray(trucks) && trucks.map(truck => {
           const levelPct = pct(truck);
           const levelColor = levelPct < 20 ? '#f87171' : levelPct < 50 ? '#fbbf24' : '#34d399';
@@ -189,7 +180,23 @@ export default function FleetPage() {
               </div>
             </Link>
           );
-      })}
+        })}
+          </div>
+        </div>
+
+        {/* Right Column: Tall Map */}
+        <div style={{ flex: '1 1 55%', ...glass, display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            background: 'var(--bg-panel)'
+          }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Visão Global da Frota</span>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <MapView trucks={trucks} />
+          </div>
+        </div>
       </div>
       <RouteModal isOpen={Boolean(routeTruckId)} truckId={routeTruckId} onClose={()=>setRouteTruckId(null)} onConfigured={(id)=>{ refetch(); fetchTruckRoute(id); }} />
     </div>
