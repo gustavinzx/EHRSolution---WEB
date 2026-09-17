@@ -13,6 +13,7 @@ import FuelingPage from './pages/FuelingPage';
 import ReportsPage from './pages/ReportsPage';
 import Sidebar     from './components/Sidebar';
 import TopBar from './components/TopBar';
+import FuelUnlockModal from './components/FuelUnlockModal';
 import useFleetState from './store/useFleetState';
 
 export const ProtectedLayout = ({ children }) => {
@@ -26,6 +27,7 @@ export const ProtectedLayout = ({ children }) => {
 
   return (
     <div className="app-shell">
+      <FuelUnlockModal />
       <Sidebar />
       <div className="app-content">
         <TopBar />

@@ -51,7 +51,7 @@ exports.getRoute = async (req, res) => {
 exports.forceFueling = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query(`UPDATE trucks SET sim_state = 'fueling' WHERE id = $1`, [id]);
+    await db.query(`UPDATE trucks SET sim_state = 'fueling', route_phase = 'fueling' WHERE id = $1`, [id]);
     res.json({ success: true, message: 'Simulação de abastecimento forçada para o caminhão ' + id });
   } catch (error) {
     console.error('Force fueling error:', error);
