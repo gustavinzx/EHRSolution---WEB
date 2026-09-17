@@ -26,6 +26,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     totalDistance: 0,
     currentDistance: 0,
     marker: null,
+    stationMarker: null,
     targetCoord: null,
     isCameraLocked: true
   });
@@ -53,6 +54,27 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
       if (!Number.isNaN(lng) && !Number.isNaN(lat) && lng !== 0 && lat !== 0) {
         truckState.current.targetCoord = [lng, lat];
       }
+    }
+  }, [fleet, truckProp]);
+
+  // Mantém o posto visível no Mapbox 3D quando o simulador entra em desvio.
+  useEffect(() => {
+    const liveTruck = truckProp && (fleet.find(t => t.id === truckProp.id) || truckProp);
+    if (!map.current || !liveTruck || !map.current.isStyleLoaded()) return;
+    const lat = Number(liveTruck.station_lat);
+    const lng = Number(liveTruck.station_lng);
+    const hasStation = Number.isFinite(lat) && Number.isFinite(lng) && liveTruck.route_phase && liveTruck.route_phase !== 'planned' && liveTruck.route_phase !== 'arrived';
+    if (!hasStation) {
+      if (truckState.current.stationMarker) { truckState.current.stationMarker.remove(); truckState.current.stationMarker = null; }
+      return;
+    }
+    if (!truckState.current.stationMarker) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:30px;height:30px;border-radius:50%;background:#f59e0b;border:3px solid #fff;box-shadow:0 0 0 6px rgba(245,158,11,.25),0 4px 12px rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-size:15px';
+      el.textContent = '⛽';
+      truckState.current.stationMarker = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(map.current);
+    } else {
+      truckState.current.stationMarker.setLngLat([lng, lat]);
     }
   }, [fleet, truckProp]);
 
@@ -177,7 +199,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
             type: 'line',
             source: 'route',
             layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': routeColor, 'line-width': 8, 'line-opacity': 0.6 }
+            paint: { 'line-color': routeColor, 'line-width': 10, 'line-opacity': 0.9, 'line-emissive-strength': 0.35 }
           });
         }
 
@@ -188,7 +210,10 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         el.className = 'uber-truck-marker';
         el.style.width = '64px';
         el.style.height = '140px';
-        el.style.background = 'transparent';
+        
+        
+        el.style.borderRadius = '12px';
+        
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
@@ -201,12 +226,22 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
           />
         `;
 
-        const marker = new mapboxgl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' })
+        const truckImage = el.querySelector('img');
+        truckImage.onerror = () => {
+          el.innerHTML = '<div style="width:34px;height:54px;border-radius:10px;background:#2fbeb5;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:22px">🚛</div>';
+        };
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'viewport' })
           .setLngLat(startCoord)
           .setRotation(truckState.current.bearing)
           .addTo(map.current);
 
         truckState.current.marker = marker;
+
+        // Garante que a câmera comece na posição viva do caminhão e que o mapa
+        // tenha dimensões corretas mesmo quando o modal acabou de abrir.
+        map.current.resize();
+        map.current.jumpTo({ center: startCoord, zoom: Math.max(map.current.getZoom(), 15), pitch: 55, bearing: truckState.current.bearing });
 
         animateTruck();
       });
@@ -215,6 +250,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (truckState.current.marker) truckState.current.marker.remove();
+      if (truckState.current.stationMarker) truckState.current.stationMarker.remove();
       if (map.current) {
         map.current.remove();
         map.current = null;
