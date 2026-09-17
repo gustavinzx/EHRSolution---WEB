@@ -170,13 +170,13 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
       dist += turf.distance(turf.point(nodePos), turf.point(truckPos), { units: 'meters' });
     }
 
-    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 5000) {
+    if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 20000) {
       // Start at the current route position, or reset when a new trip starts.
       currentDistanceRef.current = dist;
       routeInitializedRef.current = true;
     }
     targetDistanceRef.current = dist;
-  }, [truck.route_index, routeGeometry]);
+  }, [truck.route_index, truck.lat, truck.lng, routeGeometry]);
 
   // Animation Loop
   useEffect(() => {
