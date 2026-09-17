@@ -289,6 +289,9 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
               targetDist += turf.distance(turf.point(rawGeo[i]), turf.point(rawGeo[i+1]), { units: 'meters' });
             }
           }
+          if (idx < rawGeo.length - 1 && liveTruck.lat && liveTruck.lng) {
+            targetDist += turf.distance(turf.point(rawGeo[idx]), turf.point([parseFloat(liveTruck.lng), parseFloat(liveTruck.lat)]), { units: 'meters' });
+          }
 
         let current = truckState.current.currentDistance;
         // Detect route loop reset

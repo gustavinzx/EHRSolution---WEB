@@ -163,6 +163,12 @@ export default function LiveTruckMarker({ truck, iconHtml, isFueling = truck.sim
         dist += turf.distance(turf.point(routeGeometry[i]), turf.point(routeGeometry[i+1]), { units: 'meters' });
       }
     }
+    // Adiciona a distância do último nó até a posição física atual (evita travamento do marcador)
+    if (idx < routeGeometry.length - 1 && truck.lat && truck.lng) {
+      const nodePos = routeGeometry[idx];
+      const truckPos = [parseFloat(truck.lng), parseFloat(truck.lat)];
+      dist += turf.distance(turf.point(nodePos), turf.point(truckPos), { units: 'meters' });
+    }
 
     if (!routeInitializedRef.current || Math.abs(dist - currentDistanceRef.current) > 5000) {
       // Start at the current route position, or reset when a new trip starts.
