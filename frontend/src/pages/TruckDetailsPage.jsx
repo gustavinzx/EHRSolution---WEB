@@ -9,7 +9,7 @@ import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet'
 function CenterOnTruck({ lat, lng }) {
   const map = useMap();
   React.useEffect(() => {
-    if(lat && lng) map.setView([lat, lng], 15, { animate: true });
+    if(lat && lng) { map.setView([parseFloat(lat), parseFloat(lng)], 15, { animate: true }); setTimeout(() => map.invalidateSize(), 200); }
   }, [lat, lng, map]);
   return null;
 }
@@ -241,7 +241,7 @@ export default function TruckDetailsPage() {
             </div>
             <div style={{ flex: 1, background: '#0a101a' }}>
               {routePoints.length > 0 ? (
-                <MapContainer center={[truck.lat, truck.lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                <MapContainer center={[parseFloat(truck.lat), parseFloat(truck.lng)]} zoom={15} style={{ height: '100%', width: '100%' }}>
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 
                     attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'

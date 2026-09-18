@@ -25,17 +25,19 @@ const STATUS_COLORS = {
 
 // ─── Auto-Fit Camera Bounds around trucks ────────────────────────────────────
 function AutoFitBounds({ trucks }) {
+  const lastTargetId = React.useRef(null);
   const map = useMap();
   const hasFitted = useRef(false);
   const { selectedTruckId } = useFleetState();
 
   useEffect(() => {
-    if (selectedTruckId && trucks.length > 0) {
+    if (selectedTruckId && selectedTruckId !== lastTargetId.current && trucks.length > 0) {
       const truck = trucks.find(t => t.id === selectedTruckId);
       if (truck && truck.lat && truck.lng) {
+        lastTargetId.current = selectedTruckId;
         map.flyTo([parseFloat(truck.lat), parseFloat(truck.lng)], 15, { duration: 1.5 });
       }
-    } else if (trucks.length > 0 && !hasFitted.current) {
+    } else if (!selectedTruckId && trucks.length > 0 && !hasFitted.current) {
       const validTrucks = trucks.filter(t => t.lat && t.lng);
       if (validTrucks.length > 0) {
         const bounds = L.latLngBounds(validTrucks.map(t => [t.lat, t.lng]));
