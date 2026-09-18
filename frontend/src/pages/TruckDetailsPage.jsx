@@ -4,7 +4,15 @@ import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
 import Simulation3DModal from '../components/Simulation3DModal';
-import { MapContainer, TileLayer, Polyline, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
+
+function CenterOnTruck({ lat, lng }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if(lat && lng) map.setView([lat, lng], 15, { animate: true });
+  }, [lat, lng, map]);
+  return null;
+}
 import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map } from 'lucide-react';
@@ -233,7 +241,8 @@ export default function TruckDetailsPage() {
             </div>
             <div style={{ flex: 1, background: '#0a101a' }}>
               {routePoints.length > 0 ? (
-                <MapContainer bounds={routePoints} style={{ height: '100%', width: '100%' }}>
+                <MapContainer center={[truck.lat, truck.lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                    <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 
                     attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
                     url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
