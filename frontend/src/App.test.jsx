@@ -4,7 +4,11 @@ import { it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 const calls = vi.hoisted(() => ({ connectSocket: vi.fn(), disconnectSocket: vi.fn(), auth: true }));
 vi.mock('./hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: calls.auth }) }));
-vi.mock('./store/useFleetState', () => ({ default: { getState: () => calls } }));
+vi.mock('./store/useFleetState', () => {
+  const fn = () => [];
+  fn.getState = () => calls;
+  return { default: fn };
+});
 vi.mock('react-router-dom', () => ({ Navigate: () => null, BrowserRouter: () => null, Routes: () => null, Route: () => null }));
 vi.mock('./pages/LoginPage', () => ({ default: () => null }));
 vi.mock('./pages/DashboardPage', () => ({ default: () => null }));

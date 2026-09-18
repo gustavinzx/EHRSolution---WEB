@@ -16,7 +16,19 @@ export default [
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         localStorage: "readonly",
-        process: "readonly"
+        process: "readonly",
+        performance: "readonly",
+        URLSearchParams: "readonly",
+        URL: "readonly",
+        Blob: "readonly",
+        alert: "readonly",
+        AbortController: "readonly",
+        Event: "readonly"
+      },
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true
+        }
       }
     },
     rules: {

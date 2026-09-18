@@ -9,8 +9,13 @@ import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet'
 
 function CenterOnTruck({ lat, lng }) {
   const map = useMap();
+  const hasCentered = React.useRef(false);
   React.useEffect(() => {
-    if(lat && lng) { map.setView([parseFloat(lat), parseFloat(lng)], 15, { animate: true }); setTimeout(() => map.invalidateSize(), 200); }
+    if(lat && lng && !hasCentered.current) { 
+      hasCentered.current = true;
+      map.setView([parseFloat(lat), parseFloat(lng)], 15, { animate: true }); 
+      setTimeout(() => map.invalidateSize(), 200); 
+    }
   }, [lat, lng, map]);
   return null;
 }
