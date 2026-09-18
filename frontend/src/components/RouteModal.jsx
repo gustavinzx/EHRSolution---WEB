@@ -78,7 +78,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
             padding: '12px', borderRadius: '8px', marginTop: '12px', marginBottom: '16px',
             fontSize: '12px', color: '#bae6fd', lineHeight: 1.5
           }}>
-            <strong>Dica de Pesquisa:</strong> Você pode buscar por quadras, bairros, endereços completos, nomes de condomínios, CEPs ou cidades (ex: <i>"Recanto das Emas, Quadra 112"</i> ou <i>"Residencial Villa Malbec"</i>).
+            <strong>Dica de Pesquisa:</strong> Você pode buscar por quadras, bairros, endereços completos, nomes de condomínios, CEPs ou cidades (ex: <i>"Avenida Paulista, 1000"</i> ou <i>"Condomínio Sol Nascente"</i>).
             O sistema autocompleta usando GPS para máxima precisão.
           </div>
         )}

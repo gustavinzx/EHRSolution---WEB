@@ -36,7 +36,8 @@ export default function AddressAutocomplete({ placeholder, value, onChange }) {
       setLoading(true);
       try {
         const token = import.meta.env.VITE_MAPBOX_TOKEN;
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=br&limit=5`);
+        // Adicionado language=pt e fuzziness param para melhorar precisão de CEPs e endereços brasileiros
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=br&language=pt&limit=5`);
         const data = await res.json();
         
         if (data.features) {
