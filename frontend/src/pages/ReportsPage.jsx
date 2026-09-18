@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useFleet } from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
 import { Download, FileText, Calendar, Truck } from 'lucide-react';
+import toast from 'react-hot-toast';
 import client from '../api/client';
 
 const glass = {
@@ -40,7 +41,7 @@ export default function ReportsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert('Erro ao exportar relatório');
+      toast.error('Erro ao exportar relatório');
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function ReportsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert('Erro ao exportar relatório PDF');
+      toast.error('Erro ao exportar relatório PDF');
     } finally {
       setLoading(false);
     }

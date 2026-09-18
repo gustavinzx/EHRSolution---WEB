@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const { login }  = useAuth();
   const navigate   = useNavigate();
 
@@ -166,15 +167,26 @@ export default function LoginPage() {
         </form>
 
         {/* Demo hint */}
-        <div style={{
-          marginTop: '32px', padding: '14px 16px',
-          background: 'rgba(56,189,248,0.06)',
-          border: '1px solid rgba(56,189,248,0.15)',
-          borderRadius: '10px', fontSize: '12px', color: '#64748b', lineHeight: 1.7,
-        }}>
-          <div style={{ fontWeight: 600, color: '#38BDF8', marginBottom: '4px' }}>🔑 Acesso Demo</div>
-          <div>gestor@ehr.com</div>
-          <div>Demo@1234</div>
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowDemo(!showDemo)}
+            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {showDemo ? 'Ocultar credenciais de teste' : 'Mostrar credenciais de teste'}
+          </button>
+          {showDemo && (
+            <div style={{
+              marginTop: '12px', padding: '12px',
+              background: 'rgba(56,189,248,0.06)',
+              border: '1px solid rgba(56,189,248,0.15)',
+              borderRadius: '8px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.6, textAlign: 'left'
+            }}>
+              <div style={{ fontWeight: 600, color: '#38BDF8', marginBottom: '4px' }}>🔑 Acesso Demo</div>
+              <div>E-mail: gestor@ehr.com</div>
+              <div>Senha: Demo@1234</div>
+            </div>
+          )}
         </div>
       </div>
     </div>

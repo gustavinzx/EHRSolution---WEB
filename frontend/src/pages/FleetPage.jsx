@@ -68,6 +68,9 @@ export default function FleetPage() {
     ok:    trucks.filter(t => t.status === 'ok').length,
     low:   trucks.filter(t => t.status === 'low_fuel').length,
     off:   trucks.filter(t => t.status === 'no_signal').length,
+    critical: trucks.filter(t => t.status === 'critical_fuel').length,
+    security: trucks.filter(t => t.status === 'security_alert').length,
+    arrived:  trucks.filter(t => t.status === 'arrived').length,
   };
 
   return (
@@ -96,7 +99,10 @@ export default function FleetPage() {
           ['Total',       counts.total, '#38BDF8'],
           ['Operacional', counts.ok,    '#34d399'],
           ['Comb. Baixo', counts.low,   '#fbbf24'],
-          ['Sem Sinal',   counts.off,   '#f87171'],
+          ['S/ Autonomia', counts.critical, '#f87171'],
+          ['Sem Sinal',   counts.off,   '#64748b'],
+          ['Alerta Seg.', counts.security, '#fb7185'],
+          ['Chegou',      counts.arrived,  '#60a5fa'],
         ].map(([label, val, color]) => (
           <div key={label} style={{
             display:'flex', alignItems:'center', gap:'10px',

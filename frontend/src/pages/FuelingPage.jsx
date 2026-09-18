@@ -45,13 +45,15 @@ export default function FuelingPage() {
 
   // When truck is selected, check for active session
   useEffect(() => {
-    if (truckId) {
-      getActiveSession(truckId).then(sess => {
-        setSession(sess);
-      });
-    } else {
+    if (!truckId) {
       setSession(null);
+      return;
     }
+    let active = true;
+    getActiveSession(truckId).then(sess => {
+      if (active) setSession(sess);
+    });
+    return () => { active = false; };
   }, [truckId, getActiveSession]);
 
   const activeTruck = trucks.find(t => t.id === parseInt(truckId));
