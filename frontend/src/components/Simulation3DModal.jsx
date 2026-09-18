@@ -231,7 +231,6 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         truckState.current.routeGeometry = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, truckProp?.id]);
 
   // Route data and the Mapbox style can become ready in either order.
