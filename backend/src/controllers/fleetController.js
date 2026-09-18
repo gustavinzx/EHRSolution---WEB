@@ -75,49 +75,22 @@ exports.configureRoute = async (req, res) => {
   const { id } = req.params;
   const { origin, destination } = req.body;
 
-  if (!origin || !destination) {
-    return res.status(400).json({ error: 'Os campos origin e destination são obrigatórios' });
+  if (!origin || !origin.lat || !origin.lng || !destination || !destination.lat || !destination.lng) {
+    return res.status(400).json({ error: 'Origem e destino incompletos. Por favor, pesquise e selecione um endereço válido.' });
   }
-  if (!String(origin).includes(',') || !String(destination).includes(',')) {
-    return res.status(400).json({ error: 'Informe origem e destino no formato Cidade, UF (ex.: Brasília, DF)' });
-  }
-  const normalizePlace = (value) => {
-    const [city, ...stateParts] = String(value).split(',');
-    const state = stateParts.join(',').trim();
-    if (!city.trim() || !state || state.length < 2) return null;
-    return `${city.trim()}, ${state.length === 2 ? state.toUpperCase() : state}`;
-  };
-  const normalizedOrigin = normalizePlace(origin);
-  const normalizedDestination = normalizePlace(destination);
-  if (!normalizedOrigin || !normalizedDestination) {
-    return res.status(400).json({ error: 'Use o padrão Cidade, UF ou Cidade, Estado para qualquer local do Brasil' });
-  }
-
-  const getCoords = async (address) => {
-    try {
-      const response = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(address) + '&format=json&limit=1', {
-        headers: { 'User-Agent': 'EHR-Fleet-Platform/1.0' },
-        signal: AbortSignal.timeout(8000)
-      });
-      const data = await response.json();
-      if (!data || data.length === 0) return null;
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: data[0].display_name };
-    } catch (e) {
-      console.error('Geocoding failed:', e);
-      return null;
-    }
-  };
 
   try {
-    const originData = await getCoords(normalizedOrigin);
-    if (!originData) {
-      return res.status(400).json({ error: `Não foi possível encontrar as coordenadas para a origem: ${origin}` });
-    }
-
-    const destData = await getCoords(normalizedDestination);
-    if (!destData) {
-      return res.status(400).json({ error: `Não foi possível encontrar as coordenadas para o destino: ${destination}` });
-    }
+    const originData = {
+      lat: parseFloat(origin.lat),
+      lng: parseFloat(origin.lng),
+      name: origin.name || 'Origem'
+    };
+    
+    const destData = {
+      lat: parseFloat(destination.lat),
+      lng: parseFloat(destination.lng),
+      name: destination.name || 'Destino'
+    };
 
     const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${originData.lng},${originData.lat};${destData.lng},${destData.lat}?overview=full&geometries=geojson`;
     const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
@@ -133,7 +106,7 @@ exports.configureRoute = async (req, res) => {
       UPDATE trucks 
       SET origin_name = $1, dest_name = $2, route_geometry = $3, planned_route_geometry = $3, route_phase = 'planned', fuel_station_id = NULL, route_index = 0, lat = $4, lng = $5, sim_state = 'driving', status = 'ok', fueling_ticks = 0, updated_at = NOW()
       WHERE id = $6
-    `, [normalizedOrigin, normalizedDestination, JSON.stringify(geometry), originData.lat, originData.lng, id]);
+    `, [originData.name, destData.name, JSON.stringify(geometry), originData.lat, originData.lng, id]);
 
     res.json({ 
       message: 'Rota configurada com sucesso', 
