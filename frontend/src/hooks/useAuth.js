@@ -32,6 +32,8 @@ export function useAuth() {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    // Force redirect to login and flush all React states/sockets cleanly
+    window.location.href = '/login';
   }, []);
 
   return {
