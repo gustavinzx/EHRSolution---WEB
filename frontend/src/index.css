@@ -112,7 +112,8 @@ input, select, textarea { font-family: var(--font-body); }
 
 /* ── OSM Dark Mode Trick ── */
 .map-tiles {
-  /* filter removed because CartoDB is already dark */}
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
 
 /* ── Table base ── */
 table { width: 100%; border-collapse: collapse; }

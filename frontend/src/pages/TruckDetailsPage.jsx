@@ -9,7 +9,7 @@ import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet'
 function CenterOnTruck({ lat, lng }) {
   const map = useMap();
   React.useEffect(() => {
-    if(lat && lng) map.setView([parseFloat(lat), parseFloat(lng)], 15, { animate: true });
+    if(lat && lng) map.setView([lat, lng], 15, { animate: true });
   }, [lat, lng, map]);
   return null;
 }
@@ -241,11 +241,11 @@ export default function TruckDetailsPage() {
             </div>
             <div style={{ flex: 1, background: '#0a101a' }}>
               {routePoints.length > 0 ? (
-                <MapContainer center={[parseFloat(truck.lat), parseFloat(truck.lng)]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                <MapContainer center={[truck.lat, truck.lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+                    url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
                     className="map-tiles"
                     noWrap={true}
                   />
