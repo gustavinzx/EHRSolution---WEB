@@ -109,9 +109,10 @@ export default function TruckDetailsPage() {
   // O motor de simulador já gera toda a rota via truck.route_geometry.
   const routePoints = [];
   let currentPos = null;
+  const isArrived = truck.status === 'arrived' || truck.sim_state === 'arrived' || truck.route_phase === 'arrived' || truck.sim_state === 'idle';
   
   const routeGeometry = truckRoutes[truck.id] ?? truck.route_geometry;
-  if (routeGeometry) {
+  if (routeGeometry && !isArrived) {
     try {
       const geo = typeof routeGeometry === 'string' ? JSON.parse(routeGeometry) : routeGeometry;
       if (Array.isArray(geo)) {

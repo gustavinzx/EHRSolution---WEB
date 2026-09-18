@@ -133,19 +133,14 @@ export default function MapView({ trucks = [], onOpen3D }) {
         {/* Draw Polylines for each truck route */}
         {Array.isArray(trucks) && trucks.map(truck => {
           let tempRoute = truckRoutes[truck.id];
-          if (typeof tempRoute === 'string') {
-            try { tempRoute = JSON.parse(tempRoute); } catch(e) {}
-          }
-          
           let plannedRoute = truck.planned_route_geometry;
-          if (typeof plannedRoute === 'string') {
-            try { plannedRoute = JSON.parse(plannedRoute); } catch(e) {}
-          }
 
           const hasTempRoute = truck.route_phase === 'to_station' || truck.route_phase === 'evaluating_station' || truck.route_phase === 'returning_to_route';
           const isSelected = selectedTruckId === truck.id;
+          const isArrived = truck.status === 'arrived' || truck.sim_state === 'arrived' || truck.route_phase === 'arrived' || truck.sim_state === 'idle';
 
           const renderPolyline = (routePoints, isTemp) => {
+            if (isArrived) return null;
             if (!Array.isArray(routePoints) || routePoints.length < 2) return null;
             const latLngs = routePoints.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
             

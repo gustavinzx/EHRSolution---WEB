@@ -28,7 +28,15 @@ const useFleetState = create((set, get) => ({
     socket = io(url, { auth: { token } });
 
     socket.on('fleetUpdate', (data) => {
-      const fleetData = Array.isArray(data) ? data : [];
+      const fleetData = (Array.isArray(data) ? data : []).map(truck => {
+        if (typeof truck.planned_route_geometry === 'string') {
+          try { truck.planned_route_geometry = JSON.parse(truck.planned_route_geometry); } catch(e) { truck.planned_route_geometry = []; }
+        }
+        if (typeof truck.route_geometry === 'string') {
+          try { truck.route_geometry = JSON.parse(truck.route_geometry); } catch(e) { truck.route_geometry = []; }
+        }
+        return truck;
+      });
       const currentRoutes = get().truckRoutes;
       const previousPhases = get().truckPhases || {};
       const newPhases = {};
@@ -63,7 +71,15 @@ const useFleetState = create((set, get) => ({
     try {
       const response = await client.get('/fleet');
       const data = response.data;
-      const fleetData = Array.isArray(data) ? data : [];
+      const fleetData = (Array.isArray(data) ? data : []).map(truck => {
+        if (typeof truck.planned_route_geometry === 'string') {
+          try { truck.planned_route_geometry = JSON.parse(truck.planned_route_geometry); } catch(e) { truck.planned_route_geometry = []; }
+        }
+        if (typeof truck.route_geometry === 'string') {
+          try { truck.route_geometry = JSON.parse(truck.route_geometry); } catch(e) { truck.route_geometry = []; }
+        }
+        return truck;
+      });
       
       const currentRoutes = get().truckRoutes;
       const newPhases = {};
