@@ -33,7 +33,7 @@ function AutoFitBounds({ trucks }) {
     if (selectedTruckId && trucks.length > 0) {
       const truck = trucks.find(t => t.id === selectedTruckId);
       if (truck && truck.lat && truck.lng) {
-        map.flyTo([truck.lat, truck.lng], 13, { duration: 1.5 });
+        map.flyTo([truck.lat, truck.lng], 15, { duration: 1.5 });
       }
     } else if (trucks.length > 0 && !hasFitted.current) {
       const validTrucks = trucks.filter(t => t.lat && t.lng);
