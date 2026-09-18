@@ -9,11 +9,11 @@ const STATUS_META = {
 
 export default function StatCard({ title, value, unit, icon: Icon, color = 'teal', subtitle }) {
   const colorMap = {
-    teal:   { main: '#2FBEB5', glow: 'rgba(47,190,181,0.2)',  bg: 'rgba(47,190,181,0.1)',  grad: 'linear-gradient(135deg,#2FBEB5,#4F8EF7)' },
-    green:  { main: '#34d399', glow: 'rgba(52,211,153,0.2)',  bg: 'rgba(52,211,153,0.1)',  grad: 'linear-gradient(135deg,#34d399,#2FBEB5)' },
+    teal:   { main: '#38BDF8', glow: 'rgba(56,189,248,0.2)',  bg: 'rgba(56,189,248,0.1)',  grad: 'linear-gradient(135deg,#38BDF8,#60A5FA)' },
+    green:  { main: '#34d399', glow: 'rgba(52,211,153,0.2)',  bg: 'rgba(52,211,153,0.1)',  grad: 'linear-gradient(135deg,#34d399,#38BDF8)' },
     amber:  { main: '#fbbf24', glow: 'rgba(251,191,36,0.2)',  bg: 'rgba(251,191,36,0.1)',  grad: 'linear-gradient(135deg,#fbbf24,#f97316)' },
     red:    { main: '#f87171', glow: 'rgba(248,113,113,0.2)', bg: 'rgba(248,113,113,0.1)', grad: 'linear-gradient(135deg,#f87171,#e11d48)' },
-    purple: { main: '#a78bfa', glow: 'rgba(167,139,250,0.2)', bg: 'rgba(167,139,250,0.1)', grad: 'linear-gradient(135deg,#a78bfa,#4F8EF7)' },
+    purple: { main: '#a78bfa', glow: 'rgba(167,139,250,0.2)', bg: 'rgba(167,139,250,0.1)', grad: 'linear-gradient(135deg,#a78bfa,#60A5FA)' },
   };
   const c = colorMap[color] || colorMap.teal;
 

@@ -54,7 +54,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg,#2FBEB5,#4F8EF7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg,#38BDF8,#60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Map size={18} color="#fff" />
           </div>
           <div>
@@ -67,7 +67,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Origem</label>
             <input required pattern="[^,]+,.+" title="Informe qualquer cidade brasileira e UF/estado, por exemplo: Brasília, DF" placeholder="Ex: Brasília, DF" value={origin} onChange={e => setOrigin(e.target.value)} style={inputStyle}
-              onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
+              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />
           </div>
@@ -75,7 +75,7 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Destino</label>
             <input required pattern="[^,]+,.+" title="Informe qualquer cidade brasileira e UF/estado, por exemplo: Rio de Janeiro, RJ" placeholder="Ex: Rio de Janeiro, RJ" value={destination} onChange={e => setDestination(e.target.value)} style={inputStyle}
-              onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
+              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />
           </div>
@@ -86,9 +86,9 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
 
           <button type="submit" disabled={loading} style={{
             padding: '14px', borderRadius: '10px', border: 'none',
-            background: loading ? 'rgba(47,190,181,0.5)' : 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+            background: loading ? 'rgba(56,189,248,0.5)' : 'linear-gradient(135deg, #38BDF8, #60A5FA)',
             color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)', marginTop: '8px'
+            cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)', marginTop: '8px'
           }}>
             {loading ? 'Traçando...' : 'Iniciar Viagem'}
           </button>

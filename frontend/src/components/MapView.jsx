@@ -68,7 +68,7 @@ const MemoizedTruckRoute = React.memo(({ truck, tempRouteRaw, plannedRouteRaw, i
     if (!Array.isArray(routePoints) || routePoints.length < 2) return null;
     const latLngs = routePoints.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
     
-    let color = isSelected ? '#F2A93B' : 'rgba(47, 190, 181, 0.4)';
+    let color = isSelected ? '#F2A93B' : 'rgba(56, 189, 248, 0.4)';
     if (isTemp) color = isSelected ? '#ef4444' : '#f97316'; // Red/Orange for detour
 
     return (
@@ -149,7 +149,7 @@ export default function MapView({ trucks = [], onOpen3D }) {
             if (!Array.isArray(routePoints) || routePoints.length < 2) return null;
             const latLngs = routePoints.map(coord => (Array.isArray(coord) && coord.length >= 2) ? [coord[1], coord[0]] : null).filter(Boolean);
             
-            let color = isSelected ? '#F2A93B' : 'rgba(47, 190, 181, 0.4)';
+            let color = isSelected ? '#F2A93B' : 'rgba(56, 189, 248, 0.4)';
             if (isTemp) color = isSelected ? '#ef4444' : '#f97316'; // Red/Orange for detour
 
             return (
@@ -244,7 +244,7 @@ export default function MapView({ trucks = [], onOpen3D }) {
                     {onOpen3D && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); onOpen3D(truck); }}
-                        style={{ flex: 1, padding: '8px', background: 'rgba(47,190,181,0.1)', color: 'var(--teal)', border: '1px solid rgba(47,190,181,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
+                        style={{ flex: 1, padding: '8px', background: 'rgba(56,189,248,0.1)', color: 'var(--teal)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
                       >
                         Ver no 3D
                       </button>

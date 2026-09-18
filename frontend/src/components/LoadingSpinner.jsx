@@ -9,7 +9,7 @@ export default function LoadingSpinner() {
       <div style={{
         width: '48px', height: '48px', borderRadius: '50%',
         border: '3px solid rgba(255,255,255,0.07)',
-        borderTopColor: '#2FBEB5',
+        borderTopColor: '#38BDF8',
         animation: 'spin 0.8s linear infinite',
       }} />
       <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Carregando...</span>

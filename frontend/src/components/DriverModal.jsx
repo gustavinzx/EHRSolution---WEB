@@ -44,7 +44,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
     transition: 'border-color 0.2s, box-shadow 0.2s',
   };
 
-  const focus = e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; };
+  const focus = e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; };
   const blur  = e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; };
 
   return (
@@ -142,9 +142,9 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
             </button>
             <button type="submit" style={{
               flex: 1, padding: '12px', borderRadius: '10px', border: 'none',
-              background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+              background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
               color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)',
+              fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
             }}>
               Salvar
             </button>

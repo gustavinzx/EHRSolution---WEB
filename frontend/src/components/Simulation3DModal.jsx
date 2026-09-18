@@ -35,7 +35,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
 
   const [mapReady, setMapReady] = useState(false);
   const [routeReady, setRouteReady] = useState(false);
-  const [routeColor, setRouteColor] = useState('#2FBEB5');
+  const [routeColor, setRouteColor] = useState('#38BDF8');
   const [isCameraLockedUI, setIsCameraLockedUI] = useState(true);
   // Live telemetry display state (updated from WebSocket store)
   const [liveSpeed, setLiveSpeed] = useState(0);
@@ -196,7 +196,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
         const truckImage = el.querySelector('img');
         truckImage.onerror = () => {
           console.warn('[3D] Falha ao carregar imagem do caminhão');
-          el.innerHTML = '<span role="img" aria-label="Caminhão — imagem indisponível" style="display:block;width:24px;height:24px;border-radius:50%;background:#2fbeb5;border:3px solid white;box-shadow:0 2px 8px #0008"></span>';
+          el.innerHTML = '<span role="img" aria-label="Caminhão — imagem indisponível" style="display:block;width:24px;height:24px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 2px 8px #0008"></span>';
         };
 
         truckImage.src = '/images/caminhao-Photoroom.png';
@@ -385,6 +385,7 @@ export default function Simulation3DModal({ isOpen, onClose, truck: truckProp })
     ok: 'Operacional',
     planned: 'Rota Original',
     evaluating_station: 'Buscando posto',
+      returning_to_base: 'Retornando à base',
     to_station: 'A caminho do posto',
     awaiting_fueling_authorization: 'Aguardando liberação',
     returning_to_route: 'Retornando à rota'

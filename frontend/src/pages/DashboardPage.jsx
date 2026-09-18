@@ -22,7 +22,7 @@ function MiniBarChart({ trucks }) {
     label: t.plate,
     value: t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0,
     color: (t.current_level_liters / t.capacity_liters) < 0.2 ? '#f87171' :
-           (t.current_level_liters / t.capacity_liters) < 0.5 ? '#fbbf24' : '#2FBEB5',
+           (t.current_level_liters / t.capacity_liters) < 0.5 ? '#fbbf24' : '#38BDF8',
   }));
   const max = Math.max(...vals.map(v => v.value), 1);
   return (
@@ -116,7 +116,7 @@ export default function DashboardPage() {
     ? Math.round(safeTrucks.reduce((acc, t) => acc + pct(t), 0) / safeTrucks.length) : 0;
 
   const statCards = [
-    { title: 'Total Caminhões', value: safeTrucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#2FBEB5', bg: 'rgba(47,190,181,0.1)', border: 'rgba(47,190,181,0.2)' },
+    { title: 'Total Caminhões', value: safeTrucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#38BDF8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.2)' },
     { title: 'Em Rota', value: enRoute, sub: `${safeTrucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
     { title: 'Tanques Críticos', value: critical, sub: 'Abaixo de 20%', icon: Fuel, color: critical > 0 ? '#f87171' : '#34d399', bg: critical > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', border: critical > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' },
     { title: 'Abastecimentos Hoje', value: todayFuel, sub: 'registros hoje', icon: FileText, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)' },
@@ -137,7 +137,7 @@ export default function DashboardPage() {
           </h1>
           <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
             Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#2FBEB5' }}>{enRoute} {enRoute === 1 ? 'caminhão' : 'caminhões'} em rota</strong> agora.
+            <strong style={{ color: '#38BDF8' }}>{enRoute} {enRoute === 1 ? 'caminhão' : 'caminhões'} em rota</strong> agora.
           </p>
           <div className="operations-actions">
             <button onClick={() => navigate('/fleet')} className="panel-button primary-button">
@@ -149,9 +149,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="operations-rings">
-          <DonutRing value={avgFuel} color="#2FBEB5" label="Combustível" />
+          <DonutRing value={avgFuel} color="#38BDF8" label="Combustível" />
           <DonutRing value={safeTrucks.length > 0 ? Math.round((enRoute / safeTrucks.length) * 100) : 0} color="#34d399" label="Em rota" />
-          <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
+          <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#60A5FA" label="Operacional" />
         </div>
       </div>
 
@@ -200,7 +200,7 @@ export default function DashboardPage() {
           <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Nível de Combustível por Veículo</span>
-              <Link to="/fleet" style={{ fontSize: '12px', color: '#2FBEB5', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
+              <Link to="/fleet" style={{ fontSize: '12px', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
             </div>
             <MiniBarChart trucks={safeTrucks} />
           </div>
@@ -213,17 +213,17 @@ export default function DashboardPage() {
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399' }} />
                 Rotas Ativas
               </div>
-              <span style={{ fontSize: '11px', color: '#2FBEB5', background: 'rgba(47,190,181,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{enRoute} em rota</span>
+              <span style={{ fontSize: '11px', color: '#38BDF8', background: 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{enRoute} em rota</span>
             </div>
             <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {activeTrucks.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', padding: '20px 0' }}>Nenhum caminhão em rota</div>
               ) : activeTrucks.map(t => (
                 <div key={t.id} onClick={() => handleSelectTruck(t.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(47,190,181,0.15)' : 'rgba(255,255,255,0.03)', border: '1px solid', borderColor: selectedTruckId === t.id ? 'var(--teal)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)', border: '1px solid', borderColor: selectedTruckId === t.id ? 'var(--teal)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
                 >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(47,190,181,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(47,190,181,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Truck size={16} color="#2FBEB5" />
+                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Truck size={16} color="#38BDF8" />
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
@@ -342,10 +342,10 @@ export default function DashboardPage() {
               const liters = (parseFloat(log.level_after) - parseFloat(log.level_before)).toFixed(0);
               return (
                 <div key={log.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(47,190,181,0.05)', border: '1px solid rgba(47,190,181,0.15)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)' }}
                 >
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(47,190,181,0.1)', border: '1px solid rgba(47,190,181,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Zap size={14} color="#2FBEB5" />
+                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Zap size={14} color="#38BDF8" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>

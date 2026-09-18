@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useParams, Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -179,9 +180,9 @@ export default function TruckDetailsPage() {
               <button onClick={() => setIsModalOpen(true)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: 'none',
-                background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+                background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
                 color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-                fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)',
+                fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
               }}>
                 <Map size={16} /> Nova Rota
               </button>
@@ -195,13 +196,13 @@ export default function TruckDetailsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* DRIVER PROFILE FOR SECURITY MONITORING */}
-          <div style={{ ...glass, padding: '20px', display: 'flex', gap: '24px', alignItems: 'center', background: 'linear-gradient(90deg, rgba(47,190,181,0.05), transparent)' }}>
+          <div style={{ ...glass, padding: '20px', display: 'flex', gap: '24px', alignItems: 'center', background: 'linear-gradient(90deg, rgba(56,189,248,0.05), transparent)' }}>
             {truck.current_drivers?.length > 0 ? (
               <>
                 <img 
                   src={`https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} 
                   alt="Driver" 
-                  style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', objectFit: 'cover', boxShadow: '0 4px 15px rgba(47,190,181,0.2)' }} 
+                  style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', objectFit: 'cover', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }} 
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '11px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '4px' }}>Motorista Ativo</div>
@@ -220,7 +221,7 @@ export default function TruckDetailsPage() {
                   style={{
                     background: 'var(--teal)', border: 'none', padding: '12px 24px', borderRadius: '12px', color: '#0a101a',
                     fontWeight: 800, fontSize: '13px', cursor: 'pointer', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '8px',
-                    boxShadow: '0 4px 15px rgba(47,190,181,0.3)', transition: 'transform 0.2s'
+                    boxShadow: '0 4px 15px rgba(56,189,248,0.3)', transition: 'transform 0.2s'
                   }}
                   onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
                   onMouseLeave={e => e.target.style.transform = 'scale(1)'}

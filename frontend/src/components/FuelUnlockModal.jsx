@@ -82,7 +82,7 @@ export default function FuelUnlockModal() {
             background: 'var(--teal)', border: 'none', padding: '16px 32px', borderRadius: '12px',
             color: '#0a101a', fontWeight: 800, fontSize: '16px', cursor: 'pointer', fontFamily: 'var(--font-display)',
             display: 'flex', alignItems: 'center', gap: '12px', width: '100%', justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(47,190,181,0.3)', opacity: authorizing ? 0.7 : 1
+            boxShadow: '0 4px 15px rgba(56,189,248,0.3)', opacity: authorizing ? 0.7 : 1
           }}
         >
           {authorizing ? (

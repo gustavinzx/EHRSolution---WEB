@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -81,7 +82,7 @@ export default function FleetPage() {
       {/* Summary pills */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
         {[
-          ['Total',       counts.total, '#2FBEB5'],
+          ['Total',       counts.total, '#38BDF8'],
           ['Operacional', counts.ok,    '#34d399'],
           ['Comb. Baixo', counts.low,   '#fbbf24'],
           ['Sem Sinal',   counts.off,   '#f87171'],
@@ -150,7 +151,7 @@ export default function FleetPage() {
                   {(truck.sim_state === 'driving' || truck.route_phase !== 'arrived') && (
                     <button type="button" onClick={e => handleCancelRoute(e, truck.id)} style={{ padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(248,113,113,.45)', background:'rgba(248,113,113,.12)', color:'#f87171', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Cancelar</button>
                   )}
-                  <button type="button" onClick={e=>{e.preventDefault();e.stopPropagation();setRouteTruckId(truck.id);}} style={{ padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(47,190,181,.45)', background:'rgba(47,190,181,.12)', color:'var(--teal)', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Definir viagem</button>
+                  <button type="button" onClick={e=>{e.preventDefault();e.stopPropagation();setRouteTruckId(truck.id);}} style={{ padding:'5px 8px', borderRadius:'7px', border:'1px solid rgba(56,189,248,.45)', background:'rgba(56,189,248,.12)', color:'var(--teal)', cursor:'pointer', fontSize:'10px', fontWeight:700 }}>Definir viagem</button>
                 </div>
               </div>
 

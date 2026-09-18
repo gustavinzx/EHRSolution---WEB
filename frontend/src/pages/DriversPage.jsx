@@ -80,9 +80,9 @@ export default function DriversPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 18px', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+            background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
             color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-            fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(47,190,181,0.3)',
+            fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
           }}
         >
           <UserPlus size={16} /> Novo Motorista
@@ -174,13 +174,13 @@ export default function DriversPage() {
                       <option value="">Vincular veículo</option>
                       {trucks.map(t=><option key={t.id} value={t.id}>{t.plate}</option>)}
                     </select>
-                    <button onClick={()=>handleAssign(d.id)} disabled={!assigning?.[d.id]} style={{ background:'rgba(47,190,181,0.1)', border:'1px solid rgba(47,190,181,0.3)', color:'var(--teal)', cursor:assigning?.[d.id]?'pointer':'not-allowed', padding:'7px', borderRadius:'7px' }} title="Vincular caminhão"><UserCheck size={14}/></button>
+                    <button onClick={()=>handleAssign(d.id)} disabled={!assigning?.[d.id]} style={{ background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.3)', color:'var(--teal)', cursor:assigning?.[d.id]?'pointer':'not-allowed', padding:'7px', borderRadius:'7px' }} title="Vincular caminhão"><UserCheck size={14}/></button>
                   </div>
                   <button
                     onClick={() => { setEditingDriver(d); setIsModalOpen(true); }}
-                    style={{ background:'rgba(47,190,181,0.1)', border:'1px solid rgba(47,190,181,0.3)', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:600, padding: '8px 16px', borderRadius: '8px', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { e.target.style.background = 'rgba(47,190,181,0.2)'; }}
-                    onMouseLeave={e => { e.target.style.background = 'rgba(47,190,181,0.1)'; }}
+                    style={{ background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.3)', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:600, padding: '8px 16px', borderRadius: '8px', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.target.style.background = 'rgba(56,189,248,0.2)'; }}
+                    onMouseLeave={e => { e.target.style.background = 'rgba(56,189,248,0.1)'; }}
                   >
                     Detalhes do Score
                   </button>

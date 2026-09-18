@@ -22,7 +22,7 @@ const inputStyle = {
 
 const primaryButton = {
   display:'inline-flex', alignItems:'center', gap:'7px', padding:'10px 16px', borderRadius:'10px', border:'none', cursor:'pointer',
-  background:'linear-gradient(135deg,#2FBEB5,#4F8EF7)', color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'12px'
+  background:'linear-gradient(135deg,#38BDF8,#60A5FA)', color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'12px'
 };
 
 export default function FuelingPage() {
@@ -147,8 +147,8 @@ export default function FuelingPage() {
           )}
 
           {session && (
-            <div style={{ background: 'rgba(47, 190, 181, 0.05)', border: '1px solid rgba(47, 190, 181, 0.2)', padding: '20px', borderRadius: '12px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'8px', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'16px', color: '#2FBEB5', marginBottom: '16px' }}>
+            <div style={{ background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '20px', borderRadius: '12px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'16px', color: '#38BDF8', marginBottom: '16px' }}>
                 <LockKeyhole size={18} /> Sessão Ativa
               </div>
               

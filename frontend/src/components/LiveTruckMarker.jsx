@@ -14,7 +14,7 @@ export function getTruckIcon(truck, color) {
       transform: translateX(-50%);
       white-space: nowrap;
       background: rgba(11, 20, 36, 0.92);
-      border: 1px solid rgba(47, 190, 181, 0.4);
+      border: 1px solid rgba(56, 189, 248, 0.4);
       box-shadow: 0 4px 14px rgba(0,0,0,0.6);
       padding: 3px 9px;
       border-radius: 20px;

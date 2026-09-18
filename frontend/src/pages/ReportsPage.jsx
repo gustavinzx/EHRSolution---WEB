@@ -85,9 +85,9 @@ export default function ReportsPage() {
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'24px' }}>
           <div style={{
             width:'40px', height:'40px', borderRadius:'10px',
-            background:'linear-gradient(135deg,#2FBEB5,#4F8EF7)',
+            background:'linear-gradient(135deg,#38BDF8,#60A5FA)',
             display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 4px 16px rgba(47,190,181,0.3)',
+            boxShadow:'0 4px 16px rgba(56,189,248,0.3)',
           }}>
             <FileText size={20} color="#fff" />
           </div>
@@ -135,10 +135,10 @@ export default function ReportsPage() {
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:'9px',
               padding:'13px', borderRadius:'10px', border:'none', marginTop:'8px',
-              background: loading ? 'rgba(47,190,181,0.4)' : 'linear-gradient(135deg,#2FBEB5,#4F8EF7)',
+              background: loading ? 'rgba(56,189,248,0.4)' : 'linear-gradient(135deg,#38BDF8,#60A5FA)',
               color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'15px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow:'0 8px 32px rgba(47,190,181,0.25)',
+              boxShadow:'0 8px 32px rgba(56,189,248,0.25)',
               transition:'opacity 0.2s',
             }}
           >
@@ -149,13 +149,13 @@ export default function ReportsPage() {
             onClick={handleExportPDF} disabled={loading}
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:'9px',
-              padding:'13px', borderRadius:'10px', border:'1px solid rgba(47,190,181,0.5)', marginTop:'8px',
+              padding:'13px', borderRadius:'10px', border:'1px solid rgba(56,189,248,0.5)', marginTop:'8px',
               background: 'transparent',
               color:'var(--teal)', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'15px',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition:'background 0.2s',
             }}
-            onMouseEnter={e => e.target.style.background = 'rgba(47,190,181,0.1)'}
+            onMouseEnter={e => e.target.style.background = 'rgba(56,189,248,0.1)'}
             onMouseLeave={e => e.target.style.background = 'transparent'}
           >
             <FileText size={18}/> {loading ? 'Aguarde...' : 'Exportar PDF com Carimbo (Auditoria)'}

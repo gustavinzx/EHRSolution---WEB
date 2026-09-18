@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
-      background: 'radial-gradient(ellipse at 20% 50%, rgba(47,190,181,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(79,142,247,0.08) 0%, transparent 50%), #070d1a',
+      background: 'radial-gradient(ellipse at 20% 50%, rgba(56,189,248,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(79,142,247,0.08) 0%, transparent 50%), #070d1a',
     }}>
       {/* Left: branding */}
       <div style={{
@@ -50,7 +50,7 @@ export default function LoginPage() {
         padding: '60px', position: 'relative', overflow: 'hidden',
       }}>
         {/* decorative circles */}
-        {[['-100px','-100px','300px','rgba(47,190,181,0.08)'],[null,'-80px','200px','rgba(79,142,247,0.1)',0,'60%']].map(([t,l,s,bg,b,r],i) => (
+        {[['-100px','-100px','300px','rgba(56,189,248,0.08)'],[null,'-80px','200px','rgba(79,142,247,0.1)',0,'60%']].map(([t,l,s,bg,b,r],i) => (
           <div key={i} style={{
             position:'absolute', top: i===0?'-60px':'auto', bottom: i===1?'-60px':'auto',
             left: i===0?'-60px':'auto', right: i===1?'-60px':'auto',
@@ -62,9 +62,9 @@ export default function LoginPage() {
           {/* Logo */}
           <div style={{
             width: '80px', height: '80px', borderRadius: '20px', margin: '0 auto 28px',
-            background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+            background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 40px rgba(47,190,181,0.4)',
+            boxShadow: '0 0 40px rgba(56,189,248,0.4)',
           }}>
             <img src="/images/ehr-logo.webp" alt="" style={{ width: '60px', height: '60px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
           </div>
@@ -73,7 +73,7 @@ export default function LoginPage() {
             fontFamily: 'Outfit, sans-serif', fontSize: '40px', fontWeight: 800,
             color: '#fff', margin: '0 0 12px', lineHeight: 1.1,
           }}>
-            EHR <span style={{ background: 'linear-gradient(135deg,#2FBEB5,#4F8EF7)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Solutions</span>
+            EHR <span style={{ background: 'linear-gradient(135deg,#38BDF8,#60A5FA)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Solutions</span>
           </h1>
 
           <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, marginBottom: '40px' }}>
@@ -90,7 +90,7 @@ export default function LoginPage() {
               }}>
                 <div style={{
                   width: '32px', height: '32px', borderRadius: '8px',
-                  background: 'linear-gradient(135deg,#2FBEB5,#4F8EF7)',
+                  background: 'linear-gradient(135deg,#38BDF8,#60A5FA)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
                   <Icon size={15} color="#fff" />
@@ -130,7 +130,7 @@ export default function LoginPage() {
               type="email" required autoComplete="email" placeholder="gestor@ehr.com"
               value={email} onChange={e => setEmail(e.target.value)}
               style={input}
-              onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
+              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />
           </div>
@@ -143,7 +143,7 @@ export default function LoginPage() {
               type="password" required autoComplete="current-password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)}
               style={input}
-              onFocus={e => { e.target.style.borderColor='rgba(47,190,181,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(47,190,181,0.1)'; }}
+              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
               onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
             />
           </div>
@@ -153,10 +153,10 @@ export default function LoginPage() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               padding: '14px', borderRadius: '10px', border: 'none',
-              background: loading ? 'rgba(47,190,181,0.5)' : 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+              background: loading ? 'rgba(56,189,248,0.5)' : 'linear-gradient(135deg, #38BDF8, #60A5FA)',
               color: '#fff', fontFamily: 'Outfit, sans-serif', fontWeight: 700,
               fontSize: '15px', cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 8px 32px rgba(47,190,181,0.3)',
+              boxShadow: '0 8px 32px rgba(56,189,248,0.3)',
               transition: 'opacity 0.2s, transform 0.1s',
               marginTop: '8px',
             }}
@@ -168,11 +168,11 @@ export default function LoginPage() {
         {/* Demo hint */}
         <div style={{
           marginTop: '32px', padding: '14px 16px',
-          background: 'rgba(47,190,181,0.06)',
-          border: '1px solid rgba(47,190,181,0.15)',
+          background: 'rgba(56,189,248,0.06)',
+          border: '1px solid rgba(56,189,248,0.15)',
           borderRadius: '10px', fontSize: '12px', color: '#64748b', lineHeight: 1.7,
         }}>
-          <div style={{ fontWeight: 600, color: '#2FBEB5', marginBottom: '4px' }}>🔑 Acesso Demo</div>
+          <div style={{ fontWeight: 600, color: '#38BDF8', marginBottom: '4px' }}>🔑 Acesso Demo</div>
           <div>gestor@ehr.com</div>
           <div>Demo@1234</div>
         </div>
