@@ -149,7 +149,47 @@ const useFleetState = create((set, get) => ({
     } catch (error) {
       console.error('Erro ao resolver alerta:', error);
     }
-  }
+  },
+
+  // Cancels an active trip: calls API, immediately patches the truck in the
+  // Zustand fleet so the UI responds instantly (no waiting for the 3-second
+  // WebSocket tick), then fetches the new return route.
+  cancelTruckRoute: async (truckId) => {
+    const token = localStorage.getItem('token');
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+    // 1. Optimistic update — reflect cancellation in UI immediately
+    set(state => ({
+      fleet: state.fleet.map(t =>
+        t.id === truckId
+          ? { ...t, sim_state: 'driving', route_phase: 'returning_to_base', speed_kmh: 0 }
+          : t
+      ),
+      // Invalidate cached route so the new return route is fetched fresh
+      truckRoutes: { ...state.truckRoutes, [String(truckId)]: null },
+    }));
+
+    try {
+      const res = await fetch(`${API_URL}/fleet/${truckId}/cancel-route`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        // Rollback optimistic update by forcing a full refresh
+        get().fetchFleet();
+        return { ok: false };
+      }
+
+      // 2. Fetch the new return route so the map line updates right away
+      get().fetchTruckRoute(String(truckId), { force: true });
+      return { ok: true };
+    } catch (err) {
+      console.error('[cancelTruckRoute]', err);
+      get().fetchFleet();
+      return { ok: false };
+    }
+  },
 }));
 
 export default useFleetState;

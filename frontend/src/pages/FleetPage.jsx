@@ -27,60 +27,39 @@ const STATUS_META = {
 export default function FleetPage() {
   const { trucks, loading, error, refetch } = useFleet();
   const fetchTruckRoute = useFleetState(state => state.fetchTruckRoute);
+  const cancelTruckRoute = useFleetState(state => state.cancelTruckRoute);
   const [routeTruckId, setRouteTruckId] = useState(null);
 
   if (loading && trucks.length === 0) return <LoadingSpinner />;
   if (error && trucks.length === 0) return <ErrorMessage message={error} />;
 
-  const handleCancelRoute = async (e, id) => {
+  const handleCancelRoute = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
     toast((t) => (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <span style={{ fontWeight: 600, color: '#333' }}>Deseja cancelar esta viagem?</span>
-        <span style={{ fontSize: '13px', color: '#666' }}>O caminhão retornará para a base.</span>
+        <span style={{ fontWeight: 600, color: '#333' }}>Cancelar esta viagem?</span>
+        <span style={{ fontSize: '13px', color: '#666' }}>O caminhão retornará para a base imediatamente.</span>
         <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-          <button 
-            style={{ flex: 1, padding: '6px', background: '#f87171', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          <button
+            style={{ flex: 1, padding: '8px', background: '#f87171', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
             onClick={async () => {
               toast.dismiss(t.id);
-              try {
-                const token = localStorage.getItem('token');
-                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-                const res = await fetch(`${API_URL}/fleet/${id}/cancel-route`, {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                  refetch();
-                  
-                }
-              } catch (err) {
-                console.error(err);
+              const result = await cancelTruckRoute(id);
+              if (result.ok) {
+                toast.success('Viagem cancelada — caminhão retornando à base!', { duration: 3000 });
+              } else {
+                toast.error('Não foi possível cancelar. Tente novamente.', { duration: 4000 });
               }
             }}
           >Sim, cancelar</button>
-          <button 
-            style={{ flex: 1, padding: '6px', background: '#e2e8f0', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          <button
+            style={{ flex: 1, padding: '8px', background: '#e2e8f0', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
             onClick={() => toast.dismiss(t.id)}
           >Não</button>
         </div>
       </div>
     ), { duration: 10000 });
-    return; // PREVENT the rest of the function from running synchronously!
-    try {
-      const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const res = await fetch(`${API_URL}/fleet/${id}/cancel-route`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        refetch();
-      }
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   const pct = t => t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
