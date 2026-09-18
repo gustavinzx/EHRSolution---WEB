@@ -96,7 +96,8 @@ exports.configureRoute = async (req, res) => {
   const getCoords = async (address) => {
     try {
       const response = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(address) + '&format=json&limit=1', {
-        headers: { 'User-Agent': 'EHR-Fleet-Platform/1.0' }
+        headers: { 'User-Agent': 'EHR-Fleet-Platform/1.0' },
+        signal: AbortSignal.timeout(8000)
       });
       const data = await response.json();
       if (!data || data.length === 0) return null;
@@ -119,7 +120,7 @@ exports.configureRoute = async (req, res) => {
     }
 
     const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${originData.lng},${originData.lat};${destData.lng},${destData.lat}?overview=full&geometries=geojson`;
-    const osrmRes = await fetch(osrmUrl);
+    const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(8000) });
     const osrmData = await osrmRes.json();
 
     if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {

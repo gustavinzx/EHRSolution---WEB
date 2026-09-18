@@ -1,6 +1,7 @@
 const db = require('../config/db');
 
 exports.list = async (req, res) => {
+  // TODO: paginar se a frota crescer muito
   try {
     const { active } = req.query;
     let query = `
@@ -52,14 +53,19 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
+  // FIX 1.1: truck_id is NOT sent by DriverModal on edit — truck reassignment uses POST /:id/trucks.
+  // Removing the stray DELETE FROM driver_trucks call that was referencing undeclared truck_id.
   try {
     const { id } = req.params;
     const { name, phone, email } = req.body;
-    
-    await db.query('DELETE FROM driver_trucks WHERE truck_id = $1 AND driver_id <> $2', [truck_id, id]);
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'O campo nome é obrigatório' });
+    }
+
     const result = await db.query(
       'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING *',
-      [name, phone, email, id]
+      [name.trim(), phone || null, email || null, id]
     );
     
     if (result.rows.length === 0) {
@@ -121,7 +127,7 @@ exports.assignTruck = async (req, res) => {
       return res.status(404).json({ error: 'Truck not found' });
     }
     
-    const result = await db.query(
+    await db.query(
       'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
       [id, truck_id]
     );

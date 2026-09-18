@@ -85,7 +85,7 @@ export default function TruckDetailsPage() {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
-                  refetch();
+                  get().fetchFleet?.();
                   fetchTruckRoute(truck.id);
                 }
               } catch (err) {
@@ -100,21 +100,6 @@ export default function TruckDetailsPage() {
         </div>
       </div>
     ), { duration: 10000 });
-    return; // PREVENT the rest of the function from running synchronously!
-    try {
-      const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const res = await fetch(`${API_URL}/fleet/${truck.id}/cancel-route`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        refetch();
-        fetchTruckRoute(truck.id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   if (!truck) return <div style={{ color: '#fff', padding: '40px' }}>Caminhão não encontrado.</div>;
@@ -147,9 +132,11 @@ export default function TruckDetailsPage() {
     currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
   }
 
-  // Fallback map if geometry fails
-  if (!currentPos && !isNaN(truck.lat) && !isNaN(truck.lng)) {
-    currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
+  // FIX 1.4: Use Number.isFinite(parseFloat()) instead of !isNaN() — isNaN('') === false which lets empty strings through.
+  const safeLat = parseFloat(truck.lat);
+  const safeLng = parseFloat(truck.lng);
+  if (!currentPos && Number.isFinite(safeLat) && Number.isFinite(safeLng)) {
+    currentPos = [safeLat, safeLng];
     if (routePoints.length === 0) routePoints.push(currentPos);
   }
 

@@ -143,3 +143,10 @@ CREATE TABLE IF NOT EXISTS unloading_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_telemetry_truck_time ON telemetry_logs (truck_id, timestamp DESC);
+
+-- FIX 3.1: Performance indexes for frequently filtered/sorted tables
+CREATE INDEX IF NOT EXISTS idx_fueling_logs_truck_time ON fueling_logs (truck_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_fueling_logs_driver ON fueling_logs (driver_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_alerts_truck_time ON fleet_alerts (truck_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fleet_alerts_resolved ON fleet_alerts (resolved_at) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_unloading_events_truck_time ON unloading_events (truck_id, timestamp DESC);
