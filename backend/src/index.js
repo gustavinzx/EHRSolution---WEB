@@ -1,4 +1,4 @@
-const { startSimulator } = require('./services/simulator');
+const { startSimulator } = require(''./services/simulator''); const { startAnomalyEngine } = require(''./services/anomalyDetector'');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -115,7 +115,7 @@ server.listen(PORT, () => {
     })
     .catch(console.error);
 
-  startSimulator(io);
+  startSimulator(io); startAnomalyEngine(io);
   ensureSecuritySchema().catch(err => console.error('[SECURITY] Schema init failed:', err.message));
 
 });

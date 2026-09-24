@@ -145,4 +145,12 @@ async function detectUnauthorizedStationFueling(io) {
   }
 }
 
-module.exports = { detectFuelAnomalies, detectUnauthorizedStationFueling };
+function startAnomalyEngine(io) {
+  console.log("[SECURITY] Iniciando Motor de Anomalias em background (24/7)...");
+  setInterval(async () => {
+    await detectFuelAnomalies(io);
+    await detectUnauthorizedStationFueling(io);
+  }, 5000); // Roda a cada 5 segundos
+}
+
+module.exports = { detectFuelAnomalies, detectUnauthorizedStationFueling, startAnomalyEngine };

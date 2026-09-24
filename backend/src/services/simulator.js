@@ -375,7 +375,7 @@ function startSimulator(io) {
   const tick = async () => {
     if (running) return;
     running = true;
-    try { await simulateFleet(io); await detectFuelAnomalies(io); await detectUnauthorizedStationFueling(io); }
+    try { await simulateFleet(io); }
     finally { running = false; }
   };
   tick();
