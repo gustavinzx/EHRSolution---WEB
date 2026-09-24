@@ -98,4 +98,51 @@ async function detectFuelAnomalies(io) {
   }
 }
 
-module.exports = { detectFuelAnomalies };
+async function detectUnauthorizedStationFueling(io) {
+  try {
+    // Verifica se coluna is_authorized existe em fuel_stations
+    const { rows: cols } = await db.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name='fuel_stations' AND column_name='is_authorized'`
+    );
+    if (cols.length === 0) return; // Coluna não existe ainda, pula
+
+    const { rows: logs } = await db.query(`
+      SELECT f.id, f.truck_id, f.station_id, f.timestamp,
+             t.plate, t.model, fs.name AS station_name, fs.is_authorized
+      FROM fueling_logs f
+      JOIN trucks t ON t.id = f.truck_id
+      LEFT JOIN fuel_stations fs ON fs.id = f.station_id
+      WHERE f.station_id IS NOT NULL
+        AND f.timestamp > NOW() - INTERVAL '24 hours'
+        AND fs.is_authorized = false
+    `);
+
+    for (const log of logs) {
+      // Dedup — não criar alerta se já existe um para esse log nas últimas 2h
+      const { rows: existing } = await db.query(`
+        SELECT id FROM fleet_alerts
+        WHERE truck_id = $1 AND type = 'unauthorized_station'
+          AND created_at > NOW() - INTERVAL '2 hours'
+        LIMIT 1
+      `, [log.truck_id]);
+      if (existing.length > 0) continue;
+
+      const message = `Abastecimento em posto NÃO autorizado: ${log.station_name || 'Desconhecido'}. Veículo: ${log.plate}.`;
+      const { rows: inserted } = await db.query(`
+        INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
+        VALUES ($1, 'unauthorized_station', 'critical', $2, $3, $4)
+        RETURNING *
+      `, [log.truck_id, message, log.plate, log.model]);
+
+      console.log(`[ALERT] Posto não autorizado: ${log.plate} — ${log.station_name}`);
+      if (io && inserted.length > 0) {
+        io.emit('newAlert', inserted[0]);
+      }
+    }
+  } catch (err) {
+    console.error('[ANOMALY] Erro no detector de posto não autorizado:', err.message);
+  }
+}
+
+module.exports = { detectFuelAnomalies, detectUnauthorizedStationFueling };

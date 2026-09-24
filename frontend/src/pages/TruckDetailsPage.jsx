@@ -21,7 +21,7 @@ function CenterOnTruck({ lat, lng }) {
 }
 import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map } from 'lucide-react';
+import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert } from 'lucide-react';
 
 const glass = {
   background: 'var(--bg-panel)',
@@ -194,6 +194,16 @@ export default function TruckDetailsPage() {
                   Cancelar Viagem
                 </button>
               )}
+              <Link to={`/investigation/${id}`} style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.4)',
+                background: 'rgba(251,191,36,0.08)',
+                color: '#fbbf24', fontFamily: 'var(--font-display)', fontWeight: 700,
+                fontSize: '14px', cursor: 'pointer', textDecoration: 'none',
+                height: '44px', transition: 'all 0.2s'
+              }}>
+                <ShieldAlert size={16} /> Investigar
+              </Link>
               <button onClick={() => setIsModalOpen(true)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: 'none',

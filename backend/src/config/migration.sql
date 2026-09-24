@@ -45,3 +45,8 @@ ALTER TABLE fleet_alerts ADD COLUMN IF NOT EXISTS resolution_note TEXT;
 
 ALTER TABLE security_events ADD COLUMN IF NOT EXISTS lat NUMERIC(10,7);
 ALTER TABLE security_events ADD COLUMN IF NOT EXISTS lng NUMERIC(10,7);
+
+-- v3: campos de investigação
+ALTER TABLE fuel_stations ADD COLUMN IF NOT EXISTS is_authorized BOOLEAN DEFAULT true;
+ALTER TABLE fleet_alerts ADD COLUMN IF NOT EXISTS resolution_note TEXT;
+ALTER TABLE fleet_alerts ADD COLUMN IF NOT EXISTS resolved_by VARCHAR(255);

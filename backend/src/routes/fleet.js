@@ -16,4 +16,6 @@ router.post("/:id/force-fueling", fleetController.forceFueling);
 router.post("/:id/security-events", fleetController.securityEvent);
 router.patch("/alerts/:id/resolve", alertsController.resolve);
 
+router.get('/:id/investigation', fleetController.getInvestigation);
+
 module.exports = router;

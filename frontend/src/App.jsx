@@ -11,6 +11,7 @@ import FleetPage   from './pages/FleetPage';
 import TruckDetailsPage from './pages/TruckDetailsPage';
 import FuelingPage from './pages/FuelingPage';
 import ReportsPage from './pages/ReportsPage';
+import InvestigationPage from './pages/InvestigationPage';
 import Sidebar     from './components/Sidebar';
 import TopBar from './components/TopBar';
 import FuelUnlockModal from './components/FuelUnlockModal';
@@ -65,7 +66,7 @@ export default function App() {
         <Route path="/"        element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
         <Route path="/drivers" element={<ProtectedLayout><DriversPage  /></ProtectedLayout>} />
         <Route path="/fleet"   element={<ProtectedLayout><FleetPage    /></ProtectedLayout>} />
-        <Route path="/fleet/:id" element={<ProtectedLayout><TruckDetailsPage /></ProtectedLayout>} />
+        <Route path="/investigation/:id" element={<ProtectedLayout><InvestigationPage /></ProtectedLayout>} />`n        <Route path="/fleet/:id" element={<ProtectedLayout><TruckDetailsPage /></ProtectedLayout>} />
         <Route path="/fueling" element={<ProtectedLayout><FuelingPage  /></ProtectedLayout>} />
         <Route path="/reports" element={<ProtectedLayout><ReportsPage  /></ProtectedLayout>} />
         <Route path="*"        element={<Navigate to="/" replace />} />

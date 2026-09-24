@@ -186,3 +186,53 @@ exports.cancelRoute = async (req, res) => {
     res.status(500).json({ error: 'Erro ao cancelar a rota' });
   }
 };
+
+exports.getInvestigation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows: truckRows } = await db.query(
+      `SELECT t.*, d.name AS driver_name, d.phone AS driver_phone
+       FROM trucks t
+       LEFT JOIN driver_trucks dt ON dt.truck_id = t.id
+       LEFT JOIN drivers d ON d.id = dt.driver_id AND d.is_active = true
+       WHERE t.id = $1 LIMIT 1`, [id]
+    );
+    if (!truckRows.length) return res.status(404).json({ error: 'Truck not found' });
+    const truck = truckRows[0];
+
+    const { rows: telemetry } = await db.query(
+      `SELECT timestamp, fuel_level_liters, lat, lng, speed_kmh
+       FROM telemetry_logs WHERE truck_id = $1
+       ORDER BY timestamp DESC LIMIT 20`, [id]
+    );
+
+    const { rows: fuelingLogs } = await db.query(
+      `SELECT f.*, fs.name AS station_name, fs.lat AS station_lat, fs.lng AS station_lng,
+              d.name AS driver_name
+       FROM fueling_logs f
+       LEFT JOIN fuel_stations fs ON f.station_id = fs.id
+       LEFT JOIN drivers d ON f.driver_id = d.id
+       WHERE f.truck_id = $1
+       ORDER BY f.timestamp DESC LIMIT 10`, [id]
+    );
+
+    const { rows: sessions } = await db.query(
+      `SELECT s.*, d.name AS driver_name, fs.name AS station_name
+       FROM fueling_sessions s
+       LEFT JOIN drivers d ON s.driver_id = d.id
+       LEFT JOIN fuel_stations fs ON s.station_id = fs.id
+       WHERE s.truck_id = $1
+       ORDER BY s.requested_at DESC LIMIT 10`, [id]
+    );
+
+    const { rows: alerts } = await db.query(
+      `SELECT * FROM fleet_alerts WHERE truck_id = $1
+       ORDER BY created_at DESC LIMIT 20`, [id]
+    );
+
+    res.json({ truck, telemetry, fuelingLogs, sessions, alerts });
+  } catch (error) {
+    console.error('Investigation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

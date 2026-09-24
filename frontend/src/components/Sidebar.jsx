@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Truck, Fuel, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Truck, Fuel, FileText, LogOut, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 const links = [
   {to:'/',icon:LayoutDashboard,label:'Visão geral'},

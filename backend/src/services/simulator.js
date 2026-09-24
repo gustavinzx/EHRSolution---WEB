@@ -367,7 +367,7 @@ async function simulateFleet(io) {
   }
 }
 
-const { detectFuelAnomalies } = require("./anomalyDetector");
+const { detectFuelAnomalies, detectUnauthorizedStationFueling } = require("./anomalyDetector");
 
 function startSimulator(io) {
   console.log("[SIM] Iniciando simulador realista de frota...");
@@ -375,7 +375,7 @@ function startSimulator(io) {
   const tick = async () => {
     if (running) return;
     running = true;
-    try { await simulateFleet(io); await detectFuelAnomalies(io); }
+    try { await simulateFleet(io); await detectFuelAnomalies(io); await detectUnauthorizedStationFueling(io); }
     finally { running = false; }
   };
   tick();
