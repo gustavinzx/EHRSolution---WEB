@@ -59,7 +59,7 @@ async function detectFuelAnomalies(io) {
       // Check if there is a fueling_log in the time window
       const { rows: fuelLogs } = await db.query(`
         SELECT id FROM fueling_logs
-        WHERE truck_id = $1 AND resolved_at IS NULL
+        WHERE truck_id = $1
           AND timestamp BETWEEN $2 - INTERVAL '${TIME_WINDOW_MINUTES} minutes'
           AND $2 + INTERVAL '1 minute'
         LIMIT 1

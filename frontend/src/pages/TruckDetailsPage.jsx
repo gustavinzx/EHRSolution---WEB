@@ -183,17 +183,20 @@ export default function TruckDetailsPage() {
             </div>
             
             <div style={{ display: 'flex', gap: '16px' }}>
+              {/* Cancelar Viagem Button */}
               {(truck.sim_state === 'driving' || truck.route_phase !== 'arrived') && (
                 <button onClick={handleCancelRoute} style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(248,113,113,0.4)',
                   background: 'rgba(248,113,113,0.1)',
                   color: '#f87171', fontFamily: 'var(--font-display)', fontWeight: 700,
-                  fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s'
+                  fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s',
+                  height: '44px'
                 }}>
                   Cancelar Viagem
                 </button>
               )}
+              {/* Investigar Button */}
               <Link to={`/investigation/${id}`} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.4)',
@@ -204,12 +207,14 @@ export default function TruckDetailsPage() {
               }}>
                 <ShieldAlert size={16} /> Investigar
               </Link>
+              {/* Nova Rota Button */}
               <button onClick={() => setIsModalOpen(true)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: 'none',
                 background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
                 color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
                 fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
+                height: '44px'
               }}>
                 <Map size={16} /> Nova Rota
               </button>
