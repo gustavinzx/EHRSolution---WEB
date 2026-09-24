@@ -1,12 +1,14 @@
 const db = require('../config/db');
 
 exports.list = async (req, res) => {
-  // TODO: paginar se a frota crescer muito
   try {
     const { active } = req.query;
     let query = `
-      SELECT d.*, 
-        json_agg(json_build_object('id', t.id, 'plate', t.plate, 'model', t.model)) FILTER (WHERE t.id IS NOT NULL) as assigned_trucks
+      SELECT 
+        d.*, 
+        json_agg(DISTINCT jsonb_build_object('id', t.id, 'plate', t.plate, 'model', t.model)) FILTER (WHERE t.id IS NOT NULL) as assigned_trucks,
+        (SELECT COUNT(*) FROM fueling_logs f WHERE f.driver_id = d.id) as fueling_count,
+        (SELECT COALESCE(SUM(volume_liters), 0) FROM fueling_logs f WHERE f.driver_id = d.id) as fueling_volume
       FROM drivers d
       LEFT JOIN driver_trucks dt ON d.id = dt.driver_id
       LEFT JOIN trucks t ON dt.truck_id = t.id

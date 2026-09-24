@@ -1,39 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trophy, Activity, Fuel, AlertTriangle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { X, Save } from 'lucide-react';
 
-export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriverScore }) {
+export default function DriverModal({ isOpen, onClose, onSave, driver }) {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', truckPlate: '', truckModel: '', truckCapacity: '' });
-  const [scoreData, setScoreData] = useState(null);
-  const [loadingScore, setLoadingScore] = useState(false);
-  const [tab, setTab] = useState('score');
-  const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    if (isOpen) setTab(driver ? 'score' : 'profile');
-  }, [isOpen, driver?.id]);
 
   useEffect(() => {
     if (!isOpen) return;
-    let active = true;
     if (driver) {
       setFormData({
         name: driver.name || '',
         phone: driver.phone || '',
         email: driver.email || ''
       });
-      setLoadingScore(true);
-      setScoreData(null);
-      Promise.resolve().then(() => fetchDriverScore(driver.id)).then(data => {
-        if (active) setScoreData(data);
-      }).catch(() => { if (active) setScoreData(null); })
-        .finally(() => { if (active) setLoadingScore(false); });
     } else {
       setFormData({ name: '', phone: '', email: '', truckPlate: '', truckModel: '', truckCapacity: '' });
-      setScoreData(null);
     }
-    return () => { active = false; };
-  }, [isOpen, driver, fetchDriverScore, retry]);
+  }, [isOpen, driver]);
 
   if (!isOpen) return null;
 
@@ -56,7 +38,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
       <div role="dialog" aria-modal="true" aria-labelledby="driver-modal-title" style={{
         background: 'rgba(11,20,36,0.98)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
         border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px',
-        width: '100%', maxWidth: driver ? '760px' : '440px', padding: '24px',
+        width: '100%', maxWidth: '440px', padding: '24px',
         maxHeight: 'calc(100dvh - 48px)', overflowY: 'auto',
         boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
         position: 'relative',
@@ -75,37 +57,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
           {driver ? driver.name : 'Novo Motorista'}
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '28px' }}>
-          {driver ? 'Desempenho e informações do motorista' : 'Preencha os dados para cadastrar'}
+          {driver ? 'Atualize os dados cadastrais' : 'Preencha os dados para cadastrar'}
         </p>
 
-        {driver && <nav className="driver-score-tabs" aria-label="Seções do motorista">
-          <button className="panel-button" aria-pressed={tab === 'score'} onClick={() => setTab('score')}>Detalhes do score</button>
-          <button className="panel-button" aria-pressed={tab === 'profile'} onClick={() => setTab('profile')}>Dados cadastrais</button>
-        </nav>}
-        {driver && tab === 'score' ? (
-          loadingScore ? <p role="status">Carregando score do motorista…</p> : !scoreData ? <div role="alert">
-            <p>Não foi possível carregar o score deste motorista.</p>
-            <button className="panel-button" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button>
-          </div> : <>
-            <div className="driver-score-summary"><span className="eyebrow">SCORE GERAL</span><strong>{scoreData.score ?? '—'}<small> / 100</small></strong><p>Consumo: 40% · Segurança nas descargas: 30% · Tempo ocioso: 30%</p></div>
-            <div className="driver-score-metrics">
-              <div><span>Consumo médio</span><strong>{scoreData.metrics?.consumption ?? '—'} L/100 km</strong><small>Quanto menor, melhor</small></div>
-              <div><span>Descargas seguras</span><strong>{scoreData.metrics?.safe_unloads_pct ?? '—'}%</strong><small>Quanto maior, melhor</small></div>
-              <div><span>Tempo ocioso</span><strong>{scoreData.metrics?.idle_time_pct ?? '—'}%</strong><small>Quanto menor, melhor</small></div>
-            </div>
-            <p className="driver-score-note">Dados de demonstração: consumo e histórico são simulados nesta versão.</p>
-            <h3>Histórico do score</h3>
-            {Array.isArray(scoreData.history) && scoreData.history.length > 0 ? <div style={{ height: '220px', marginTop: '16px' }}>
-              <ResponsiveContainer width="100%" height="100%"><AreaChart data={scoreData.history} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-                <XAxis dataKey="date" tickFormatter={value => value.slice(5).split('-').reverse().join('/')} stroke="var(--text-muted)" fontSize={11} minTickGap={24}/>
-                <YAxis domain={[0, 100]} stroke="var(--text-muted)" fontSize={11}/>
-                <RechartsTooltip contentStyle={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 8 }}/>
-                <Area type="monotone" dataKey="score" name="Score" stroke="var(--teal)" fill="var(--teal-dim)" strokeWidth={2} isAnimationActive={false}/>
-              </AreaChart></ResponsiveContainer>
-            </div> : <p>Sem histórico disponível para este motorista.</p>}
-          </>
-        ) : <form onSubmit={e => { e.preventDefault(); onSave({ name: formData.name, phone: formData.phone, email: formData.email, ...(!driver && formData.truckPlate && formData.truckModel ? { truck: { plate: formData.truckPlate, model: formData.truckModel, capacity_liters: formData.truckCapacity } } : {}) }); }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={e => { e.preventDefault(); onSave({ name: formData.name, phone: formData.phone, email: formData.email, ...(!driver && formData.truckPlate && formData.truckModel ? { truck: { plate: formData.truckPlate, model: formData.truckModel, capacity_liters: formData.truckCapacity } } : {}) }); }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {[
             { key: 'name',  label: 'Nome *',   type: 'text',  required: true,  placeholder: 'Nome completo' },
             { key: 'phone', label: 'Telefone', type: 'text',  required: false, placeholder: '(11) 99999-9999' },
@@ -125,11 +80,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
             </div>
           ))}
           {!driver && <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: '16px', display: 'grid', gap: '10px' }}>
-            <span className="eyebrow">Caminhão próprio (opcional)</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Caminhão próprio (opcional)</span>
             <input placeholder="Placa (ex.: ABC-1234)" value={formData.truckPlate} onChange={e => setFormData({ ...formData, truckPlate: e.target.value })} style={inputStyle} />
             <input placeholder="Modelo do caminhão" value={formData.truckModel} onChange={e => setFormData({ ...formData, truckModel: e.target.value })} style={inputStyle} />
             <input type="number" min="1" placeholder="Capacidade do tanque (L)" value={formData.truckCapacity} onChange={e => setFormData({ ...formData, truckCapacity: e.target.value })} style={inputStyle} />
-            <small style={{ color: 'var(--text-muted)' }}>O score começa em 0 até existirem dados reais de operação.</small>
           </div>}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
@@ -149,7 +103,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, fetchDriv
               Salvar
             </button>
           </div>
-        </form>}
+        </form>
       </div>
     </div>
   );
