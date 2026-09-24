@@ -16,6 +16,8 @@ router.get("/sessions/:truckId/active", fuelingController.getActiveSession);
 // Fuel stations
 router.get("/stations", stationsController.list);
 router.post("/stations", stationsController.create);
+router.put("/stations/:id", stationsController.update);
+router.patch("/stations/:id/toggle", stationsController.toggleAuthorized);
 router.get("/stations/nearest", stationsController.nearest);
 
 module.exports = router;

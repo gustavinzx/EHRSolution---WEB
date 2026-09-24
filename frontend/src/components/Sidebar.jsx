@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Truck, Fuel, FileText, LogOut, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, Truck, Fuel, FileText, LogOut, ShieldAlert, MapPin } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 const links = [
   {to:'/',icon:LayoutDashboard,label:'Visão geral'},
   {to:'/fleet',icon:Truck,label:'Veículos'},
   {to:'/drivers',icon:Users,label:'Motoristas'},
   {to:'/fueling',icon:Fuel,label:'Abastecimentos'},
+  {to:'/stations',icon:MapPin,label:'Postos'},
   {to:'/reports',icon:FileText,label:'Relatórios'},
 ];
 export default function Sidebar(){

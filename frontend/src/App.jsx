@@ -12,6 +12,7 @@ import TruckDetailsPage from './pages/TruckDetailsPage';
 import FuelingPage      from './pages/FuelingPage';
 import ReportsPage      from './pages/ReportsPage';
 import InvestigationPage from './pages/InvestigationPage';
+import StationsPage     from './pages/StationsPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
 import FuelUnlockModal  from './components/FuelUnlockModal';
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/fleet/:id"          element={<ProtectedLayout><TruckDetailsPage /></ProtectedLayout>} />
         <Route path="/investigation/:id"  element={<ProtectedLayout><InvestigationPage /></ProtectedLayout>} />
         <Route path="/fueling"            element={<ProtectedLayout><FuelingPage /></ProtectedLayout>} />
+        <Route path="/stations"           element={<ProtectedLayout><StationsPage /></ProtectedLayout>} />
         <Route path="/reports"            element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
       </Routes>
