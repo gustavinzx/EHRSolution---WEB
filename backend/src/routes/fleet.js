@@ -14,6 +14,7 @@ router.post("/:id/route", fleetController.configureRoute);
 router.post("/:id/cancel-route", fleetController.cancelRoute);
 router.post("/:id/force-fueling", fleetController.forceFueling);
 router.post("/:id/security-events", fleetController.securityEvent);
+router.post("/:id/telemetry", fleetController.ingestTelemetry);
 router.patch("/alerts/:id/resolve", alertsController.resolve);
 
 router.get('/:id/investigation', fleetController.getInvestigation);

@@ -328,103 +328,116 @@ export default function InvestigationPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
         
         {/* Gráfico telemetria */}
-        <Card>
+        <Card style={{ display: 'flex', flexDirection: 'column', height: '340px' }}>
           <SectionTitle icon={TrendingDown} title="Telemetria de Combustível" count={`${chartData.length} leituras`} />
-          {chartData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
-              Sem dados de telemetria disponíveis
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="fuelGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                  labelStyle={{ color: '#cbd5e1' }}
-                  formatter={(v) => [`${v} L`, 'Nível']}
-                />
-                {suspiciousIndexes.map(idx => (
-                  <ReferenceLine key={idx} x={chartData[idx]?.name} stroke="#f87171" strokeDasharray="4 4" label={{ value: '⚠', fill: '#f87171', fontSize: 12 }} />
-                ))}
-                <Area type="monotone" dataKey="nivel" stroke="#38bdf8" fill="url(#fuelGrad)" strokeWidth={2} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-          {suspiciousIndexes.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '11px', color: '#f87171' }}>
-              <AlertTriangle size={12} /> {suspiciousIndexes.length} queda(s) suspeita(s) detectada(s) no período
-            </div>
-          )}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {chartData.length === 0 ? (
+              <div style={{ margin: 'auto', color: 'var(--text-muted)', fontSize: '13px' }}>
+                Sem dados de telemetria disponíveis
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="fuelGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
+                    labelStyle={{ color: '#cbd5e1' }}
+                    formatter={(v) => [`${v} L`, 'Nível']}
+                  />
+                  {suspiciousIndexes.map(idx => (
+                    <ReferenceLine key={idx} x={chartData[idx]?.name} stroke="#f87171" strokeDasharray="4 4" label={{ value: '⚠', fill: '#f87171', fontSize: 12 }} />
+                  ))}
+                  <Area type="monotone" dataKey="nivel" stroke="#38bdf8" fill="url(#fuelGrad)" strokeWidth={2} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+            {suspiciousIndexes.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '11px', color: '#f87171', flexShrink: 0 }}>
+                <AlertTriangle size={12} /> {suspiciousIndexes.length} queda(s) suspeita(s) detectada(s) no período
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Alertas ativos */}
-        <Card>
+        <Card style={{ display: 'flex', flexDirection: 'column', height: '340px' }}>
           <SectionTitle icon={ShieldAlert} title="Alertas Ativos" count={unresolvedAlerts.length} />
-          {unresolvedAlerts.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '24px', color: '#34d399', fontSize: '13px', justifyContent: 'center' }}>
-              <ShieldCheck size={18} /> Nenhum alerta ativo para este veículo
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
-              {unresolvedAlerts.map(a => (
-                <AlertRow key={a.id} alert={a} onResolve={handleResolve} />
-              ))}
-            </div>
-          )}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {unresolvedAlerts.length === 0 ? (
+              <div style={{ margin: 'auto', display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '13px' }}>
+                <ShieldCheck size={18} /> Nenhum alerta ativo para este veículo
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', paddingRight: '4px' }}>
+                {unresolvedAlerts.map(a => (
+                  <AlertRow key={a.id} alert={a} onResolve={handleResolve} />
+                ))}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 
-      {/* Sessões de abastecimento */}
-      <Card style={{ marginBottom: '20px' }}>
-        <SectionTitle icon={Lock} title="Histórico de Liberações de Trava" count={sessions.length} />
-        {sessions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>Sem sessões registradas</div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '6px' }}>
-              {['Data/Hora', 'Motorista', 'Posto', 'Status'].map(h => (
-                <span key={h} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</span>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto' }}>
-              {sessions.map(s => <SessionRow key={s.id} session={s} />)}
-            </div>
-          </>
-        )}
-      </Card>
+      {/* Logs e Sessões lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+        
+        {/* Sessões de abastecimento */}
+        <Card style={{ display: 'flex', flexDirection: 'column', height: '320px' }}>
+          <SectionTitle icon={Lock} title="Histórico de Liberações de Trava" count={sessions.length} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {sessions.length === 0 ? (
+              <div style={{ margin: 'auto', color: 'var(--text-muted)', fontSize: '13px' }}>Sem sessões registradas</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '6px' }}>
+                  {['Data/Hora', 'Motorista', 'Posto', 'Status'].map(h => (
+                    <span key={h} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {sessions.map(s => <SessionRow key={s.id} session={s} />)}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
 
-      {/* Logs de abastecimento */}
-      <Card style={{ marginBottom: '20px' }}>
-        <SectionTitle icon={Fuel} title="Logs de Abastecimento" count={fuelingLogs.length} />
-        {fuelingLogs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>Sem logs de abastecimento</div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '6px' }}>
-              {['Data/Hora', 'Motorista', 'Posto', 'Nível Antes', 'Nível Depois'].map(h => (
-                <span key={h} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</span>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto' }}>
-              {fuelingLogs.map(l => <FuelingRow key={l.id} log={l} />)}
-            </div>
-          </>
-        )}
-      </Card>
+        {/* Logs de abastecimento */}
+        <Card style={{ display: 'flex', flexDirection: 'column', height: '320px' }}>
+          <SectionTitle icon={Fuel} title="Logs de Abastecimento" count={fuelingLogs.length} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {fuelingLogs.length === 0 ? (
+              <div style={{ margin: 'auto', color: 'var(--text-muted)', fontSize: '13px' }}>Sem logs de abastecimento</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '6px' }}>
+                  {['Data/Hora', 'Motorista', 'Posto', 'Nível Antes', 'Nível Depois'].map(h => (
+                    <span key={h} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', fontWeight: 600 }}>{h}</span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {fuelingLogs.map(l => <FuelingRow key={l.id} log={l} />)}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+      </div>
 
       {/* Alertas resolvidos */}
       {resolvedAlerts.length > 0 && (
         <Card>
           <SectionTitle icon={CheckCircle} title="Ocorrências Resolvidas" count={resolvedAlerts.length} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
             {resolvedAlerts.map(a => (
               <AlertRow key={a.id} alert={a} onResolve={() => {}} />
             ))}

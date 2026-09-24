@@ -236,3 +236,30 @@ exports.getInvestigation = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+exports.ingestTelemetry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fuel_level_liters, lat, lng, speed_kmh } = req.body;
+
+    // Update truck current status
+    const { rows: updated } = await db.query(
+      `UPDATE trucks SET current_level_liters=$1, lat=$2, lng=$3, speed_kmh=$4 WHERE id=$5 RETURNING *`,
+      [fuel_level_liters, lat, lng, speed_kmh, id]
+    );
+
+    if (updated.length === 0) return res.status(404).json({ error: 'Truck not found' });
+
+    // Log telemetry
+    await db.query(
+      `INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1, $2, $3, $4, $5)`,
+      [id, lat, lng, speed_kmh, fuel_level_liters]
+    );
+
+    // If io is available, we could emit a fleetUpdate here, but the simulator handles regular sync.
+    res.json({ success: true, truck: updated[0] });
+  } catch (error) {
+    console.error('Ingest telemetry error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
