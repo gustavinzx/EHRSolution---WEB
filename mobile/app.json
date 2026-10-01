@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "EHR Motorista",
+    "slug": "ehr-driver-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ehrsolutions.driverapp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O aplicativo precisa da câmera para autenticação facial do motorista.",
+        "NSLocationWhenInUseUsageDescription": "A localização é necessária para registrar o ponto exato do abastecimento.",
+        "NSBluetoothAlwaysUsageDescription": "O Bluetooth é utilizado para comunicar com a trava eletrônica do veículo."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1E293B"
+      },
+      "package": "com.ehrsolutions.driverapp",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1E293B"
+        }
+      ]
+    ]
+  }
+}
