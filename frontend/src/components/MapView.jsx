@@ -107,7 +107,7 @@ const MemoizedTruckRoute = React.memo(({ truck, tempRouteRaw, plannedRouteRaw, i
          prev.plannedRouteRaw === next.plannedRouteRaw;
 });
 
-export default function MapView({ trucks = [], onOpen3D }) {
+export default function MapView({ trucks = [] }) {
   const navigate = useNavigate();
   const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
   
@@ -236,14 +236,6 @@ export default function MapView({ trucks = [], onOpen3D }) {
                     >
                       Ver Detalhes
                     </button>
-                    {onOpen3D && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onOpen3D(truck); }}
-                        style={{ flex: 1, padding: '8px', background: 'rgba(56,189,248,0.1)', color: 'var(--teal)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
-                      >
-                        Ver no 3D
-                      </button>
-                    )}
                   </div>
                 </div>
               </Popup>

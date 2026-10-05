@@ -4,7 +4,6 @@ import { useParams, Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
-import Simulation3DModal from '../components/Simulation3DModal';
 import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
 
 function CenterOnTruck({ lat, lng }) {
@@ -48,7 +47,6 @@ export default function TruckDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [localError, setLocalError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSimulationOpen, setIsSimulationOpen] = useState(false);
   
   const { fleet, truckRoutes, fetchTruckRoute, cancelTruckRoute } = useFleetState();
 
@@ -248,18 +246,6 @@ export default function TruckDetailsPage() {
                     </span>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setIsSimulationOpen(true)}
-                  style={{
-                    background: 'var(--teal)', border: 'none', padding: '12px 24px', borderRadius: '12px', color: '#0a101a',
-                    fontWeight: 800, fontSize: '13px', cursor: 'pointer', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '8px',
-                    boxShadow: '0 4px 15px rgba(56,189,248,0.3)', transition: 'transform 0.2s'
-                  }}
-                  onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
-                  onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-                >
-                  <Map size={16} /> Abrir rastreamento 3D
-                </button>
               </>
             ) : (
               <div style={{ color: 'var(--text-muted)' }}>Nenhum motorista vinculado no momento.</div>
@@ -404,12 +390,6 @@ export default function TruckDetailsPage() {
         onClose={() => setIsModalOpen(false)} 
         truckId={truck.id} 
         onConfigured={(truckId) => { loadData(); fetchTruckRoute(truckId); }}
-      />
-
-      <Simulation3DModal
-        isOpen={isSimulationOpen}
-        onClose={() => setIsSimulationOpen(false)}
-        truck={truck}
       />
     </div>
   );

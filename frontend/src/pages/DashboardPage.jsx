@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap, Map } from 'lucide-react';
+import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFleet, useLiveEvents }   from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
@@ -8,7 +8,6 @@ import MapView        from '../components/MapView';
 import FuelingTable   from '../components/FuelingTable';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage   from '../components/ErrorMessage';
-import Simulation3DModal from '../components/Simulation3DModal';
 
 const card = {
   background: 'var(--bg-panel)',
@@ -81,7 +80,6 @@ export default function DashboardPage() {
   const { fueling_now, recent_logs }     = useLiveEvents();
   const navigate = useNavigate();
   const { selectedTruckId, setSelectedTruckId, alerts, fetchAlerts } = useFleetState();
-  const [is3DOpen, setIs3DOpen] = useState(false);
 
   useEffect(() => {
     if (fetchAlerts) fetchAlerts();
@@ -177,25 +175,10 @@ export default function DashboardPage() {
               <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Mapa da Frota em Tempo Real</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Posições atualizadas automaticamente</div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-              {selectedTruckId && (
-                <button 
-                  onClick={() => setIs3DOpen(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--teal)', color: '#000', border: 'none', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  <Map size={12} /> Ver no 3D
-                </button>
-              )}
-            </div>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }} />
           </div>
           <div style={{ height: '300px' }}>
-            <MapView
-              trucks={safeTrucks}
-              onOpen3D={(truck) => {
-                setSelectedTruckId(truck.id);
-                setIs3DOpen(true);
-              }}
-            />
+            <MapView trucks={safeTrucks} />
           </div>
           <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -368,10 +351,6 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : null}
-
-      {is3DOpen && selectedTruck && (
-        <Simulation3DModal isOpen={is3DOpen} truck={selectedTruck} onClose={() => setIs3DOpen(false)} />
-      )}
     </div>
   );
 }
