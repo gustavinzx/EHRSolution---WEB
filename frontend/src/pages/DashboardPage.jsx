@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import React from 'react';
+import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useFleet, useLiveEvents }   from '../hooks/useFleet';
+import { useFleet }   from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
-import useFleetState  from '../store/useFleetState';
+import { useAuth }    from '../hooks/useAuth';
 import MapView        from '../components/MapView';
 import FuelingTable   from '../components/FuelingTable';
 import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage   from '../components/ErrorMessage';
 
 const card = {
-  background: 'var(--bg-panel)',
+  background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '12px',
+  borderRadius: '16px',
 };
 
 function MiniBarChart({ trucks }) {
@@ -21,14 +20,14 @@ function MiniBarChart({ trucks }) {
     label: t.plate,
     value: t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0,
     color: (t.current_level_liters / t.capacity_liters) < 0.2 ? '#f87171' :
-           (t.current_level_liters / t.capacity_liters) < 0.5 ? '#fbbf24' : '#38BDF8',
+           (t.current_level_liters / t.capacity_liters) < 0.5 ? '#fbbf24' : '#2FBEB5',
   }));
   const max = Math.max(...vals.map(v => v.value), 1);
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '80px', padding: '0 4px' }}>
       {vals.map((v, i) => (
         <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace', fontWeight: 600 }}>{v.value}%</span>
+          <span style={{ fontSize: '9px', color: '#64748b', fontFamily: 'monospace' }}>{v.value}%</span>
           <div style={{
             width: '100%', borderRadius: '4px 4px 0 0',
             background: `${v.color}22`,
@@ -41,7 +40,7 @@ function MiniBarChart({ trucks }) {
               background: `linear-gradient(to top, ${v.color}88, transparent)`,
             }} />
           </div>
-          <span style={{ fontSize: '9px', color: '#8BA3BC', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textOverflow: 'ellipsis', textAlign: 'center', fontWeight: 500 }}>{v.label}</span>
+          <span style={{ fontSize: '8px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textOverflow: 'ellipsis', textAlign: 'center' }}>{v.label}</span>
         </div>
       ))}
     </div>
@@ -60,6 +59,7 @@ function DonutRing({ value, color, label }) {
           <circle cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="7"
             strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
             transform="rotate(-90 30 30)"
+            style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
         </svg>
         <div style={{
@@ -74,139 +74,150 @@ function DonutRing({ value, color, label }) {
 }
 
 export default function DashboardPage() {
-  const [alertFilter, setAlertFilter] = useState('all');
-  const { trucks, loading: fl, error, refetch } = useFleet();
+  const { trucks, loading: fl, refetch } = useFleet();
   const { logs,   loading: ll }          = useFueling();
-  const { fueling_now, recent_logs }     = useLiveEvents();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { selectedTruckId, setSelectedTruckId, alerts, fetchAlerts } = useFleetState();
-
-  useEffect(() => {
-    if (fetchAlerts) fetchAlerts();
-  }, [fetchAlerts]);
-
-  const handleSelectTruck = (id) => {
-    if (selectedTruckId === id) setSelectedTruckId(null);
-    else setSelectedTruckId(id);
-  };
-
-  const selectedTruck = trucks?.find(t => t.id === selectedTruckId);
 
   const pct = (t) => t.capacity_liters > 0
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  if (fl && (!trucks || trucks.length === 0)) return <LoadingSpinner />;
-  if (error && (!trucks || trucks.length === 0)) return <ErrorMessage message={error} />;
-
-  const safeTrucks = Array.isArray(trucks) ? trucks : [];
-  const safeLogs = Array.isArray(logs) ? logs : [];
+  if (fl && trucks.length === 0) return <LoadingSpinner />;
 
   const today    = new Date().toISOString().split('T')[0];
-  const enRoute  = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
-  const critical = safeTrucks.filter(t => pct(t) < 20).length;
-  const todayFuel= safeLogs.filter(l => l.timestamp?.startsWith(today)).length;
+  const enRoute  = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
+  const critical = trucks.filter(t => pct(t) < 20).length;
+  const todayFuel= logs.filter(l => l.timestamp?.startsWith(today)).length;
   const statuses = {
-    ok:  safeTrucks.filter(t => t.status === 'ok').length,
-    low: safeTrucks.filter(t => t.status === 'low_fuel').length,
-    off: safeTrucks.filter(t => t.status === 'no_signal').length,
+    ok:  trucks.filter(t => t.status === 'ok').length,
+    low: trucks.filter(t => t.status === 'low_fuel').length,
+    off: trucks.filter(t => t.status === 'no_signal').length,
   };
-  const avgFuel = safeTrucks.length > 0
-    ? Math.round(safeTrucks.reduce((acc, t) => acc + pct(t), 0) / safeTrucks.length) : 0;
+  const avgFuel = trucks.length > 0
+    ? Math.round(trucks.reduce((acc, t) => acc + pct(t), 0) / trucks.length) : 0;
 
   const statCards = [
-    { title: 'Total Caminhões', value: safeTrucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#38BDF8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.2)' },
-    { title: 'Em Rota', value: enRoute, sub: `${safeTrucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
+    { title: 'Total Caminhões', value: trucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#2FBEB5', bg: 'rgba(47,190,181,0.1)', border: 'rgba(47,190,181,0.2)' },
+    { title: 'Em Rota', value: enRoute, sub: `${trucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
     { title: 'Tanques Críticos', value: critical, sub: 'Abaixo de 20%', icon: Fuel, color: critical > 0 ? '#f87171' : '#34d399', bg: critical > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', border: critical > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' },
     { title: 'Abastecimentos Hoje', value: todayFuel, sub: 'registros hoje', icon: FileText, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)' },
   ];
 
-  const alertTrucks  = safeTrucks.filter(t => t.status !== 'ok').slice(0, 4);
-  const activeTrucks = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).slice(0, 4);
-  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const alertTrucks  = trucks.filter(t => t.status !== 'ok').slice(0, 4);
+  const activeTrucks = trucks.filter(t => parseFloat(t.speed_kmh) > 0).slice(0, 4);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1400px', margin: '0 auto' }}>
 
-      <div className="operations-summary">
+      {/* ── Hero Banner ── */}
+      <div style={{
+        borderRadius: '20px',
+        background: 'linear-gradient(120deg, #1a2a5e 0%, #0f2040 40%, #1a1a3e 100%)',
+        border: '1px solid rgba(79,142,247,0.2)',
+        padding: '28px 32px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'relative', overflow: 'hidden', minHeight: '140px',
+      }}>
+        <div style={{ position: 'absolute', top: '-40px', right: '240px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(79,142,247,0.15)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', bottom: '-30px', right: '100px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(47,190,181,0.1)', filter: 'blur(30px)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div className="eyebrow">CENTRAL DE OPERAÇÕES</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Bem-vindo de volta</div>
           <h1 style={{ margin: 0, fontSize: '30px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-            Visão geral da frota
+            Olá, {(user?.name || 'Gestor').split(' ')[0]}! 👋
           </h1>
           <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
             Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#38BDF8' }}>{enRoute} {enRoute === 1 ? 'caminhão' : 'caminhões'} em rota</strong> agora.
+            <strong style={{ color: '#2FBEB5' }}>{enRoute} caminhão{enRoute !== 1 ? 'ões' : ''} em rota</strong> agora.
           </p>
-          <div className="operations-actions">
-            <button onClick={() => navigate('/fleet')} className="panel-button primary-button">
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <button onClick={() => navigate('/fleet')} style={{ background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', border: 'none', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(47,190,181,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Truck size={14} /> Ver Frota Completa
             </button>
-            <button onClick={refetch} className="panel-button">
+            <button onClick={refetch} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               Atualizar Dados
             </button>
           </div>
         </div>
-        <div className="operations-rings">
-          <DonutRing value={avgFuel} color="#38BDF8" label="Combustível" />
-          <DonutRing value={safeTrucks.length > 0 ? Math.round((enRoute / safeTrucks.length) * 100) : 0} color="#34d399" label="Em rota" />
-          <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#60A5FA" label="Operacional" />
+        <div style={{ display: 'flex', gap: '24px', position: 'relative', zIndex: 1 }}>
+          <DonutRing value={avgFuel} color="#2FBEB5" label="Combustível" />
+          <DonutRing value={trucks.length > 0 ? Math.round((enRoute / trucks.length) * 100) : 0} color="#34d399" label="Em rota" />
+          <DonutRing value={trucks.length > 0 ? Math.round((statuses.ok / trucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
         </div>
       </div>
 
-      <div className="dashboard-stats">
+      {/* ── Stat Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
         {statCards.map((s, i) => (
-          <div key={i} className="fleet-kpi">
+          <div key={i} style={{ ...card, background: s.bg, border: `1px solid ${s.border}`, padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: '14px', transition: 'transform 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${s.color}20`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <s.icon size={20} color={s.color} />
             </div>
             <div>
-              <div className="eyebrow">{s.title}</div>
-              <div className="fleet-kpi-value">{s.value}</div>
-              <div className="fleet-kpi-note">{s.sub}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600 }}>{s.title}</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#fff', lineHeight: 1.1, marginTop: '4px', fontFamily: 'monospace' }}>{s.value}</div>
+              <div style={{ fontSize: '11px', color: '#475569', marginTop: '3px' }}>{s.sub}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="dashboard-columns">
+      {/* ── Main Grid ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px', alignItems: 'start' }}>
+
+        {/* Map card */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div className="fleet-map-header">
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Mapa da Frota em Tempo Real</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Posições atualizadas automaticamente</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Atualiza automaticamente a cada 15s</div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }} />
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+              {[['#34d399','OK',statuses.ok],['#fbbf24','Baixo',statuses.low],['#f87171','Off',statuses.off]].map(([c,l,n]) => (
+                <span key={l} style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: c, boxShadow: `0 0 5px ${c}`, flexShrink: 0 }} />
+                  {l} ({n})
+                </span>
+              ))}
+            </div>
           </div>
           <div style={{ height: '300px' }}>
-            <MapView trucks={safeTrucks} />
+            <MapView trucks={trucks} />
           </div>
           <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Nível de Combustível por Veículo</span>
-              <Link to="/fleet" style={{ fontSize: '12px', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
+              <Link to="/fleet" style={{ fontSize: '12px', color: '#2FBEB5', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
             </div>
-            <MiniBarChart trucks={safeTrucks} />
+            <MiniBarChart trucks={trucks} />
           </div>
         </div>
 
+        {/* Right panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+          {/* Active routes */}
           <div style={card}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399' }} />
                 Rotas Ativas
               </div>
-              <span style={{ fontSize: '11px', color: '#38BDF8', background: 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{enRoute} em rota</span>
+              <span style={{ fontSize: '11px', color: '#2FBEB5', background: 'rgba(47,190,181,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{enRoute} em rota</span>
             </div>
             <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {activeTrucks.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', padding: '20px 0' }}>Nenhum caminhão em rota</div>
               ) : activeTrucks.map(t => (
-                <div key={t.id} onClick={() => handleSelectTruck(t.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)', border: '1px solid', borderColor: selectedTruckId === t.id ? 'var(--teal)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
+                <div key={t.id} onClick={() => navigate(`/fleet/${t.id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(47,190,181,0.08)'; e.currentTarget.style.borderColor = 'rgba(47,190,181,0.2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
                 >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Truck size={16} color="#38BDF8" />
+                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(47,190,181,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(47,190,181,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Truck size={16} color="#2FBEB5" />
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
@@ -221,136 +232,58 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Alerts */}
           <div style={card}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <AlertTriangle size={15} color="#fbbf24" /> Alertas
               </div>
-              {(alertTrucks.length > 0 || safeAlerts.length > 0) && (
-                <span style={{ fontSize: '11px', color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{alertTrucks.length + safeAlerts.length} atenção</span>
+              {alertTrucks.length > 0 && (
+                <span style={{ fontSize: '11px', color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{alertTrucks.length} atenção</span>
               )}
             </div>
             <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {alertTrucks.length === 0 && safeAlerts.length === 0 ? (
+              {alertTrucks.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 12px', color: '#34d399', fontSize: '13px' }}>
                   <CheckCircle size={16} /> Todos os veículos estão OK
                 </div>
-              ) : (
-                <>
-                  {safeAlerts.map(a => (
-                    <div key={`alert-${a.id}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: a.type === 'destination_arrived' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.15)', border: `1px solid ${a.type === 'destination_arrived' ? 'rgba(52,211,153,0.3)' : '#f87171'}` }}
-                    >
-                      <Fuel size={15} color="#f87171" style={{ flexShrink: 0 }} />
-                      <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => handleSelectTruck(a.truck_id)}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{a.plate}</div>
-                        <div style={{ fontSize: '11px', color: '#f87171' }}>{a.message}</div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                          {new Date(a.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </div>
-                        <Link to={`/investigation/${a.truck_id}`} style={{ fontSize: '11px', color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.15)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                          Investigar
-                        </Link>
-                      </div>
+              ) : alertTrucks.map(t => {
+                const isLow = t.status === 'low_fuel';
+                const color = isLow ? '#fbbf24' : '#f87171';
+                return (
+                  <div key={t.id} onClick={() => navigate(`/fleet/${t.id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: `${color}0d`, border: `1px solid ${color}33`, cursor: 'pointer' }}
+                  >
+                    <AlertTriangle size={15} color={color} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
+                      <div style={{ fontSize: '11px', color }}>{isLow ? 'Combustível Baixo' : 'Sem Sinal'}</div>
                     </div>
-                  ))}
-                  {alertTrucks.map(t => {
-                    let color = '#f87171';
-                    let label = 'Sem Sinal';
-                    let Icon = AlertTriangle;
-                    if (t.status === 'low_fuel' || t.status === 'critical_fuel') {
-                      color = '#fbbf24';
-                      label = 'Combustível Baixo';
-                    } else if (t.status === 'arrived' || t.sim_state === 'arrived') {
-                      color = '#60a5fa';
-                      label = 'Chegou ao Destino';
-                      Icon = CheckCircle;
-                    }
-                    return (
-                      <div key={`status-${t.id}`} onClick={() => handleSelectTruck(t.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? `${color}22` : `${color}0d`, border: `1px solid`, borderColor: selectedTruckId === t.id ? color : `${color}33`, cursor: 'pointer', transition: 'all 0.2s' }}
-                      >
-                        <Icon size={15} color={color} style={{ flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
-                          <div style={{ fontSize: '11px', color }}>{label}</div>
-                        </div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{pct(t)}%</div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
+                    <div style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{pct(t)}%</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Eventos ao Vivo ── */}
-      {(Array.isArray(fueling_now) && fueling_now.length > 0) || (Array.isArray(recent_logs) && recent_logs.length > 0) ? (
-        <div style={card}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 10px #f87171', animation: 'pulse-ring 1.5s infinite' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Eventos ao Vivo</div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Abastecimentos em andamento e recentes</div>
-              </div>
-            </div>
+      {/* ── Bottom: Recent Fueling ── */}
+      <div style={card}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Últimos Abastecimentos</div>
+            <div style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>Registros mais recentes da frota</div>
           </div>
-          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {Array.isArray(fueling_now) && fueling_now.map(t => (
-              <div key={t.id} onClick={() => handleSelectTruck(t.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.08)', border: '1px solid', borderColor: selectedTruckId === t.id ? '#f87171' : 'rgba(248,113,113,0.3)', cursor: 'pointer', transition: 'all 0.2s' }}
-              >
-                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(248,113,113,0.15)', border: '2px solid rgba(248,113,113,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse-ring 1.2s infinite' }}>
-                  <Fuel size={16} color="#f87171" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontFamily: 'monospace' }}>{t.plate}</span>
-                    <span style={{ fontSize: '10px', background: '#f87171', color: '#000', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>⛽ ABASTECENDO AGORA</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{t.model}</div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '12px', color: '#f87171', fontFamily: 'monospace', fontWeight: 700 }}>
-                    {t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0}%
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>nível atual</div>
-                </div>
-              </div>
-            ))}
-
-            {Array.isArray(recent_logs) && recent_logs.map(log => {
-              const mins = Math.round((Date.now() - new Date(log.timestamp).getTime()) / 60000);
-              const timeStr = mins < 1 ? 'agora' : mins < 60 ? `${mins}min atrás` : `${Math.floor(mins/60)}h atrás`;
-              const liters = (parseFloat(log.level_after) - parseFloat(log.level_before)).toFixed(0);
-              return (
-                <div key={log.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)' }}
-                >
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Zap size={14} color="#38BDF8" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontFamily: 'monospace' }}>{log.plate}</span>
-                      <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>+{liters}L</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{log.model} • {log.driver_name || 'Desconhecido'}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, fontSize: '11px', color: '#64748b' }}>
-                    {timeStr}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <Link to="/fueling" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: '#2FBEB5', fontWeight: 600 }}>Ver todos <ArrowRight size={14} /></Link>
         </div>
-      ) : null}
+        <div>
+          {ll
+            ? <div style={{ padding: '40px', display: 'flex', justifyContent: 'center' }}><LoadingSpinner /></div>
+            : <FuelingTable logs={logs.slice(0, 5)} />}
+        </div>
+      </div>
+
     </div>
   );
 }

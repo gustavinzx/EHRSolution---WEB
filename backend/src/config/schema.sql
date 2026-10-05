@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS drivers (
   name VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
   email VARCHAR(255),
+  password_hash VARCHAR(255),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS trucks (
   route_resume_index INTEGER DEFAULT 0,
   route_index INTEGER DEFAULT 0,
   route_progress NUMERIC(5,4) DEFAULT 0,
+  api_key VARCHAR(100),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

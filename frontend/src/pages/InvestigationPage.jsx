@@ -38,6 +38,7 @@ const ALERT_TYPE_LABEL = {
   security_unauthorized_movement: 'Movimento Não Autorizado',
   security_theft_signal: 'Sinal de Roubo',
   security_emergency_button: 'Botão de Emergência',
+  security_unauthorized_fueling_attempt: 'Tentativa de Abastecimento Não Autorizada',
 };
 
 const SESSION_STATUS_CONFIG = {

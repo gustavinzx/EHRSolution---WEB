@@ -34,10 +34,10 @@ const runSeed = async () => {
     
     for (const [index, driver] of drivers.entries()) {
       await client.query(`
-        INSERT INTO drivers (id, name, phone, email, is_active)
-        VALUES ($1, $2, $3, $4, true)
+        INSERT INTO drivers (id, name, phone, email, password_hash, is_active)
+        VALUES ($1, $2, $3, $4, $5, true)
         ON CONFLICT (id) DO NOTHING
-      `, [index + 1, driver, `1199999${index.toString().padStart(4, '0')}`, `motorista${index + 1}@ehr.com`]);
+      `, [index + 1, driver, `1199999${index.toString().padStart(4, '0')}`, `motorista${index + 1}@ehr.com`, hash]);
     }
 
     // Reset sequence
@@ -60,12 +60,13 @@ const runSeed = async () => {
 
     for (const t of trucks) {
       await client.query(`
-        INSERT INTO trucks (id, plate, model, capacity_liters, current_level_liters, lat, lng, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO trucks (id, plate, model, capacity_liters, current_level_liters, lat, lng, status, api_key)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id) DO UPDATE SET
           plate = EXCLUDED.plate,
-          model = EXCLUDED.model
-      `, [t.id, t.plate, t.model, t.cap, t.lvl, t.lat, t.lng, t.status]);
+          model = EXCLUDED.model,
+          api_key = EXCLUDED.api_key
+      `, [t.id, t.plate, t.model, t.cap, t.lvl, t.lat, t.lng, t.status, `TRUCK-${t.plate}`]);
     }
     
     // Reset sequence

@@ -15,7 +15,6 @@ import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
-import FuelUnlockModal  from './components/FuelUnlockModal';
 import useFleetState    from './store/useFleetState';
 
 export const ProtectedLayout = ({ children }) => {
@@ -28,12 +27,11 @@ export const ProtectedLayout = ({ children }) => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
-    <div className="app-shell">
-      <FuelUnlockModal />
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f1624' }}>
       <Sidebar />
-      <div className="app-content">
+      <div style={{ flex: 1, marginLeft: '72px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <TopBar />
-        <main className="app-main">
+        <main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

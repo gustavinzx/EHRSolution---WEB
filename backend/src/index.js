@@ -66,11 +66,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Protected routes (JWT auth + general rate limit)
-app.use('/api/drivers', generalLimiter, authMiddleware, driversRoutes);
-app.use('/api/fleet', generalLimiter, authMiddleware, fleetRoutes);
-app.use('/api/fueling', generalLimiter, authMiddleware, fuelingRoutes);
-app.use('/api/reports', generalLimiter, authMiddleware, reportsRoutes);
-app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'));
+app.use('/api/drivers', generalLimiter, driversRoutes);
+app.use('/api/fleet', generalLimiter, fleetRoutes);
+app.use('/api/fueling', generalLimiter, fuelingRoutes);
+app.use('/api/reports', generalLimiter, reportsRoutes);
+app.use('/api/alerts', generalLimiter, require('./routes/alerts'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -120,3 +120,6 @@ server.listen(PORT, () => {
   ensureSecuritySchema().catch(err => console.error('[SECURITY] Schema init failed:', err.message));
 
 });
+ 
+ 
+ 

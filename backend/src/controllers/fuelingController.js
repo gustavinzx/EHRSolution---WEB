@@ -59,15 +59,63 @@ exports.requestSession = async (req, res) => {
   }
 };
 
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 exports.authorizeSession = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // First get the session and related station/truck info
+    const { rows: sessions } = await db.query(
+      `SELECT s.*, t.lat as truck_lat, t.lng as truck_lng,
+              fs.lat as station_lat, fs.lng as station_lng
+       FROM fueling_sessions s
+       JOIN trucks t ON s.truck_id = t.id
+       LEFT JOIN fuel_stations fs ON s.station_id = fs.id
+       WHERE s.id=$1 AND s.status='requested'`,
+      [id]
+    );
+
+    if (sessions.length === 0) return res.status(404).json({ error: "Sessao nao encontrada ou ja autorizada" });
+    const session = sessions[0];
+
+    if (session.station_lat && session.station_lng && session.truck_lat && session.truck_lng) {
+      const distance = haversineKm(session.truck_lat, session.truck_lng, session.station_lat, session.station_lng);
+      if (distance > 0.2) { // 200 meters geofence
+        // Create security event
+        const security = require("../services/securityService");
+        await security.recordSecurityEvent({
+          truckId: session.truck_id,
+          type: 'unauthorized_fueling_attempt',
+          severity: 'critical',
+          source: 'device',
+          payload: { reason: 'outside_geofence', distance_km: distance },
+          io: req.io
+        });
+        
+        // Cancel the session
+        await db.query(
+          `UPDATE fueling_sessions SET status='cancelled' WHERE id=$1`,
+          [id]
+        );
+        return res.status(403).json({ error: "Caminhao fora da geofence do posto autorizado. Tentativa bloqueada e alertada." });
+      }
+    }
+
     const { rows } = await db.query(
       `UPDATE fueling_sessions SET status='authorized', authorized_at=NOW()
        WHERE id=$1 AND status='requested' RETURNING *`,
       [id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Sessao nao encontrada ou ja autorizada" });
 
     // Update truck phase to fueling
     await db.query(

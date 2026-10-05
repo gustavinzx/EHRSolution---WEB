@@ -66,7 +66,7 @@ async function finishFuelingSession(sessionId) {
 async function recordSecurityEvent({ truckId, type, severity, source = 'device', payload = {}, io }) {
   const truck = await getTruck(truckId);
   if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
-  const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal']);
+  const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
   const { rows: events } = await db.query(`INSERT INTO security_events
     (truck_id, type, severity, source, payload) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
@@ -77,7 +77,8 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
       tamper: 'Violação física da trava detectada.',
       unauthorized_movement: 'Movimento detectado sem abastecimento autorizado.',
       emergency_button: 'Botão de emergência acionado.',
-      theft_signal: 'Sinal de possível roubo recebido do dispositivo.'
+      theft_signal: 'Sinal de possível roubo recebido do dispositivo.',
+      unauthorized_fueling_attempt: 'Tentativa bloqueada: Caminhão fora da geofence do posto autorizado.'
     };
     const { rows } = await db.query(`INSERT INTO fleet_alerts
       (truck_id, type, severity, message, plate, model) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
