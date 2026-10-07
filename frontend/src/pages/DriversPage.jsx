@@ -3,10 +3,13 @@ import { useDrivers } from '../hooks/useDrivers';
 import { useFleet } from '../hooks/useFleet';
 import DriverModal    from '../components/DriverModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { UserPlus, Search, Users, UserX, UserCheck, Truck, Fuel } from 'lucide-react';
+import { UserPlus, Search, Users, UserX, UserCheck, Truck, Fuel, ShieldCheck, ShieldAlert, Edit2 } from 'lucide-react';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px',
+  background: 'rgba(255,255,255,0.03)', 
+  border: '1px solid rgba(255,255,255,0.06)', 
+  borderRadius: '20px',
+  transition: 'transform 0.2s ease, border-color 0.2s',
 };
 
 export default function DriversPage() {
@@ -29,7 +32,7 @@ export default function DriversPage() {
 
   const handleToggleActive = async (driver) => {
     const action = driver.is_active ? deactivateDriver : activateDriver;
-    if (window.confirm(`${driver.is_active ? 'Desativar' : 'Reativar'} este motorista?`)) {
+    if (window.confirm(`${driver.is_active ? 'Desativar' : 'Reativar'} acesso facial e operações deste motorista?`)) {
       await action(driver.id);
     }
   };
@@ -44,116 +47,190 @@ export default function DriversPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontSize: '28px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0 }}><Users size={28} color="#2FBEB5" /> Motoristas</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
-            {drivers.filter(d => d.is_active).length} ativos · {drivers.filter(d => !d.is_active).length} inativos
-          </p>
+      {/* Hero Header */}
+      <div style={{ 
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '32px 40px', borderRadius: '24px',
+        background: 'linear-gradient(135deg, #111b28 0%, #1a2a3a 100%)',
+        border: '1px solid rgba(47,190,181,0.2)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'rgba(47,190,181,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(47,190,181,0.3)' }}>
+            <Users size={32} color="#2FBEB5" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#fff', margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>
+              Gestão de Motoristas
+            </h1>
+            <p style={{ margin: 0, color: '#94a3b8', fontSize: '15px' }}>
+              Controle de identidades, biometria e permissões da frota.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => { setEditingDriver(null); setIsModalOpen(true); }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '10px 18px', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
-            color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-            fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
-          }}
-        >
-          <UserPlus size={16} /> Novo Motorista
-        </button>
+        
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', paddingRight: '24px', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: '24px', fontWeight: 800, color: '#2FBEB5' }}>{drivers.filter(d => d.is_active).length}</span>
+            <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Ativos</span>
+          </div>
+          <button
+            onClick={() => { setEditingDriver(null); setIsModalOpen(true); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '14px 24px', borderRadius: '14px', border: 'none',
+              background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+              color: '#fff', fontWeight: 700, fontSize: '15px', 
+              cursor: 'pointer', boxShadow: '0 8px 24px rgba(47,190,181,0.3)',
+              transition: 'transform 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <UserPlus size={18} /> Cadastrar Motorista
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div style={{ position: 'relative', maxWidth: '320px' }}>
-        <Search size={15} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-        <input
-          type="text" placeholder="Buscar por nome..." value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-            color: '#fff', padding: '10px 14px 10px 38px', borderRadius: '10px',
-            width: '100%', fontSize: '14px', outline: 'none',
-          }}
-        />
+      {/* Toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'relative', width: '380px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+          <input
+            type="text" placeholder="Buscar motorista por nome..." value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              background: '#111b28', border: '1px solid #1f2e3b',
+              color: '#fff', padding: '12px 16px 12px 42px', borderRadius: '12px',
+              width: '100%', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s'
+            }}
+            onFocus={e => e.currentTarget.style.borderColor = '#2FBEB5'}
+            onBlur={e => e.currentTarget.style.borderColor = '#1f2e3b'}
+          />
+        </div>
       </div>
 
-      {/* Table card */}
-      <div style={glass}>
-        <table>
-          <thead>
-            <tr>
-              {['Nome / Status', 'Caminhões Vinculados', 'Qtd. Abastecimentos', 'Volume Total (Litros)', 'Ações'].map((h,i) => (
-                <th key={h} style={{ textAlign: i===4?'right':'left', padding: '16px', color: 'var(--text-muted)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Users size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                <div>Nenhum motorista encontrado</div>
-              </td></tr>
-            )}
-            {Array.isArray(filtered) && filtered.map(d => (
-              <tr key={d.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <td style={{ padding: '16px', fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img src={`https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} />
-                  <div>
-                    <div style={{ fontSize: '15px' }}>{d.name}</div>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', display: 'inline-block', marginTop: '4px',
-                      background: d.is_active ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.1)',
-                      color: d.is_active ? '#34d399' : '#f87171',
-                      border: `1px solid ${d.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
-                    }}>
-                      {d.is_active ? 'Ativo' : 'Inativo'}
-                    </span>
+      {/* Drivers Grid */}
+      {filtered.length === 0 ? (
+        <div style={{ padding: '80px', textAlign: 'center', color: '#64748b', background: '#111b28', borderRadius: '20px', border: '1px dashed #1f2e3b' }}>
+          <Users size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+          <div style={{ fontSize: '18px', fontWeight: 600, color: '#e2e8f0' }}>Nenhum motorista encontrado</div>
+          <div style={{ marginTop: '8px' }}>Tente buscar por um nome diferente ou cadastre um novo.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+          {filtered.map(d => (
+            <div key={d.id} 
+              style={{ 
+                ...glass, 
+                display: 'flex', flexDirection: 'column',
+                background: '#111b28',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(47,190,181,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+            >
+              
+              {/* Card Header (Profile Info) */}
+              <div style={{ padding: '24px', display: 'flex', gap: '16px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ position: 'relative' }}>
+                  <img src={`https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} 
+                       style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #1f2e3b' }} />
+                  <div style={{ 
+                    position: 'absolute', bottom: '-4px', right: '-4px', width: '22px', height: '22px', 
+                    borderRadius: '50%', background: d.is_active ? '#34d399' : '#f87171', border: '3px solid #111b28',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                  }}>
+                    {d.is_active ? <ShieldCheck size={10} color="#000" /> : <ShieldAlert size={10} color="#fff" />}
                   </div>
-                </td>
-                <td style={{ padding: '16px', fontSize: '13px', color: '#cbd5e1' }}>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                    {d.email || d.phone || 'Sem contato'}
+                  </div>
+                </div>
+                <button onClick={() => { setEditingDriver(d); setIsModalOpen(true); }} 
+                        style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        title="Editar Perfil">
+                  <Edit2 size={16} />
+                </button>
+              </div>
+
+              {/* Card Body (Stats & Vehicles) */}
+              <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Vehicles Tags */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Veículos Vinculados</div>
                   {d.assigned_trucks && d.assigned_trucks.length > 0 ? (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {d.assigned_trucks.map(t => (
-                        <span key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                          <Truck size={12} color="var(--teal)" /> {t.plate}
-                        </span>
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(47,190,181,0.08)', border: '1px solid rgba(47,190,181,0.2)', padding: '6px 10px', borderRadius: '8px', color: '#2FBEB5', fontSize: '13px', fontWeight: 600 }}>
+                          <Truck size={14} /> {t.plate}
+                        </div>
                       ))}
                     </div>
-                  ) : <span style={{ color: 'var(--text-muted)' }}>Nenhum</span>}
-                </td>
-                <td style={{ padding: '16px', fontSize: '15px', color: '#fff', fontWeight: 600 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Fuel size={14} color="#fbbf24" /> {d.fueling_count || 0} logs
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>Nenhum veículo vinculado</div>
+                  )}
+                </div>
+
+                {/* KPI Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: 'auto' }}>
+                  <div style={{ background: '#182430', padding: '12px', borderRadius: '12px', border: '1px solid #1f2e3b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+                      <Fuel size={14} /> Histórico
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{d.fueling_count || 0}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>abastecimentos</div>
                   </div>
-                </td>
-                <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: '#34d399', fontWeight: 600 }}>
-                  {parseFloat(d.fueling_volume || 0).toFixed(1)} L
-                </td>
-                <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <div style={{ display:'inline-flex', alignItems:'center', gap:'6px', marginRight:'12px' }}>
-                    <select aria-label={`Vincular caminhão a ${d.name}`} value={assigning[d.id] || ''} onChange={e=>setAssigning(prev=>({...prev,[d.id]:e.target.value}))} style={{ background:'var(--bg-main)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:'7px', padding:'7px 6px', fontSize:'11px', maxWidth:'115px' }}>
-                      <option value="">Vincular veículo</option>
-                      {trucks.map(t=><option key={t.id} value={t.id}>{t.plate}</option>)}
-                    </select>
-                    <button onClick={()=>handleAssign(d.id)} disabled={!assigning[d.id]} style={{ background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.3)', color:'var(--teal)', cursor:assigning[d.id]?'pointer':'not-allowed', padding:'7px', borderRadius:'7px' }} title="Vincular caminhão"><UserCheck size={14}/></button>
+                  <div style={{ background: '#182430', padding: '12px', borderRadius: '12px', border: '1px solid #1f2e3b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+                      Volume Total
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: 'monospace' }}>{parseFloat(d.fueling_volume || 0).toFixed(0)}L</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>litros liberados</div>
                   </div>
-                  <button onClick={() => { setEditingDriver(d); setIsModalOpen(true); }} style={{ background:'transparent', border:'none', color:'var(--teal)', cursor:'pointer', fontSize:'13px', fontWeight:600, padding: '8px', borderRadius: '8px' }}>
-                    Editar
+                </div>
+
+              </div>
+
+              {/* Card Footer (Quick Actions) */}
+              <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)', padding: '12px' }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
+                  <select 
+                    value={assigning[d.id] || ''} 
+                    onChange={e => setAssigning(prev => ({...prev, [d.id]: e.target.value}))} 
+                    style={{ background: '#182430', color: '#e2e8f0', border: '1px solid #1f2e3b', borderRadius: '8px', padding: '8px', fontSize: '12px', outline: 'none', flex: 1 }}
+                  >
+                    <option value="">Vincular Caminhão...</option>
+                    {trucks.map(t => <option key={t.id} value={t.id}>{t.plate}</option>)}
+                  </select>
+                  <button onClick={() => handleAssign(d.id)} disabled={!assigning[d.id]} 
+                    style={{ width: '34px', height: '34px', borderRadius: '8px', background: assigning[d.id] ? '#2FBEB5' : '#1f2e3b', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: assigning[d.id] ? 'pointer' : 'not-allowed', transition: 'background 0.2s' }}>
+                    <UserCheck size={16}/>
                   </button>
-                  <button onClick={() => handleToggleActive(d)} title={d.is_active ? 'Desativar motorista' : 'Reativar motorista'} style={{ marginLeft:'4px', background:'transparent', border:'1px solid var(--border)', color: d.is_active ? '#f87171' : '#34d399', cursor:'pointer', padding:'8px', borderRadius:'8px' }}>
-                    {d.is_active ? <UserX size={15}/> : <UserCheck size={15}/>}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+                
+                <div style={{ width: '1px', background: 'rgba(255,255,255,0.04)', margin: '0 12px' }} />
+                
+                <button 
+                  onClick={() => handleToggleActive(d)} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 16px', background: 'transparent', border: 'none', color: d.is_active ? '#f87171' : '#34d399', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {d.is_active ? <UserX size={14}/> : <UserCheck size={14}/>}
+                  {d.is_active ? 'Bloquear' : 'Desbloquear'}
+                </button>
+              </div>
+
+            </div>
+          ))}
+        </div>
+      )}
 
       <DriverModal
         isOpen={isModalOpen}
