@@ -23,7 +23,7 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, name: user.name, role: 'manager' },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
@@ -72,7 +72,7 @@ exports.driverLogin = async (req, res) => {
     if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not defined');
 
     const token = jwt.sign(
-      { id: driver.id, email: driver.email, role: 'driver' },
+      { id: driver.id, email: driver.email, name: driver.name, role: 'driver' },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );

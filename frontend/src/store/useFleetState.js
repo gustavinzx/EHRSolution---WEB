@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import client from '../api/client';
 import { normalizeRoute } from '../utils/routeGeometry';
+import toast from 'react-hot-toast';
 
 const routeRequests = new Map();
 let socket = null;
@@ -157,13 +158,18 @@ const useFleetState = create((set, get) => ({
   },
 
   resolveAlert: async (id, note) => {
+    if (!note || note.trim().length < 5) {
+      toast.error('A nota de resolução deve ter pelo menos 5 caracteres.');
+      return;
+    }
     try {
-      await client.patch(`/fleet/alerts/${id}/resolve`, { resolution_note: note, resolved_by: 'Gestor' });
+      await client.patch(`/fleet/alerts/${id}/resolve`, { resolution_note: note.trim() });
       set(state => ({
         alerts: state.alerts.filter(a => a.id !== id)
       }));
     } catch (error) {
       console.error('Erro ao resolver alerta:', error);
+      toast.error('Erro ao resolver alerta.');
     }
   },
 

@@ -229,34 +229,43 @@ exports.finishSession = async (req, res) => {
     let levelBeforeStr = null;
     let levelAfterStr = null;
     
-    // Se o ator for manager ou hardware, aceita os níveis do corpo. 
-    // Se for driver (App Mobile), ignora o corpo e confia só no hardware (ou assume cheio, mas marca como 'unverified').
     if (actorType === 'manager' || actorType === 'hardware') {
       levelBeforeStr = req.body?.level_before;
       levelAfterStr = req.body?.level_after;
       dataSource = actorType;
     }
 
-    const levelBefore = parseFloat(levelBeforeStr ?? truck.current_level_liters);
-    let levelAfter    = parseFloat(levelAfterStr ?? capacity);
-    if (!Number.isFinite(levelAfter)) levelAfter = capacity;
-    levelAfter = Math.min(Math.max(levelAfter, 0), capacity);
-    
-    const volume      = Math.max(levelAfter - levelBefore, 0);
-    const tankLitersDelta = volume;
-    const pumpLiters = session.pump_liters || null; // Vem da bomba caso ela já tenha reportado
-
-    const now         = new Date();
-    const startedAt   = session.authorized_at || session.requested_at;
+    const pumpLiters = session.pump_liters ?? null;
+    const now = new Date();
+    const startedAt = session.authorized_at || session.requested_at;
     const durationMin = (now - new Date(startedAt)) / 60000;
+
+    let levelBefore = null;
+    let levelAfter = null;
+    let volume = null;
+    let tankLitersDelta = null;
+
+    if (dataSource !== 'unverified') {
+      levelBefore = parseFloat(levelBeforeStr ?? truck.current_level_liters);
+      levelAfter = parseFloat(levelAfterStr ?? capacity);
+      if (!Number.isFinite(levelAfter)) levelAfter = capacity;
+      levelAfter = Math.min(Math.max(levelAfter, 0), capacity);
+      volume = Math.max(levelAfter - levelBefore, 0);
+      tankLitersDelta = volume;
+    } else {
+      // Unverified logic: we don't know the exact levels without hardware.
+      // We still record the level_before as the truck's last known level, 
+      // but leave level_after and volume as NULL.
+      levelBefore = parseFloat(truck.current_level_liters);
+    }
 
     await db.query(
       `INSERT INTO fueling_logs
-         (driver_id, truck_id, lat, lng, level_before, level_after, release_method,
+         (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
           station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
           pump_liters, tank_liters_delta, data_source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-      [session.driver_id, session.truck_id, truck.lat, truck.lng,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [id, session.driver_id, session.truck_id, truck.lat, truck.lng,
        levelBefore, levelAfter, session.release_method || "facial",
        session.station_id, truck.station_name || null,
        startedAt, now, durationMin.toFixed(1), volume,
@@ -270,19 +279,33 @@ exports.finishSession = async (req, res) => {
       [id, tankLitersDelta, dataSource]
     );
 
+    if (dataSource === 'unverified') {
+      const { rows: alerts } = await db.query(
+        `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
+         VALUES ($1, 'unverified_fueling', 'high', 'Abastecimento finalizado sem medição de hardware (driver).', $2, $3)
+         RETURNING *`,
+        [truck.id, truck.plate, truck.model]
+      );
+      if (req.io && alerts.length > 0) req.io.emit('newAlert', alerts[0]);
+    }
+
     // Retorno à rota só faz sentido se houver rota planejada
     let returning = null;
     try { returning = await buildReturnRoute(truck); } catch (e) { returning = null; }
+    
+    // IMPORTANTE: Só atualizamos o nível de combustível do caminhão se a fonte for confiável.
+    const updatedLevel = dataSource !== 'unverified' ? levelAfter : truck.current_level_liters;
+
     if (returning?.route) {
       await db.query(`
         UPDATE trucks SET current_level_liters=$1, speed_kmh=0, status='ok',
           sim_state='driving', route_phase='returning_to_route', fueling_ticks=0,
           route_geometry=$2, route_index=0, route_resume_index=$3 WHERE id=$4
-      `, [levelAfter, JSON.stringify(returning.route), returning.index, session.truck_id]);
+      `, [updatedLevel, JSON.stringify(returning.route), returning.index, session.truck_id]);
     } else {
       await db.query(
         "UPDATE trucks SET current_level_liters=$1, status='ok', sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$2",
-        [levelAfter, session.truck_id]
+        [updatedLevel, session.truck_id]
       );
     }
 
@@ -488,20 +511,30 @@ exports.reportPumpReading = async (req, res) => {
 
     const val = parseFloat(pump_liters);
     
-    const { rows: sessions } = await db.query("SELECT * FROM fueling_sessions WHERE id=$1", [id]);
+    const { rows: sessions } = await db.query(
+      "SELECT s.*, t.capacity_liters FROM fueling_sessions s JOIN trucks t ON s.truck_id = t.id WHERE s.id=$1",
+      [id]
+    );
     if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada" });
     
     const session = sessions[0];
     
-    // AuthHardware já garantiu que o ator é hardware. Validar se o hardware pertence a este truck/station
-    // A bomba geralmente é vinculada à station ou ao truck. Assumimos que o authHardware passou se a API Key bate.
+    if (session.truck_id !== req.truck?.id) {
+      return res.status(403).json({ error: "Hardware API Key não pertence a este caminhão" });
+    }
+
+    if (val < 0 || val > parseFloat(session.capacity_liters)) {
+      return res.status(400).json({ error: "pump_liters inválido (fora do limite da capacidade)" });
+    }
+
+    if (!['active', 'completed'].includes(session.status)) {
+      return res.status(409).json({ error: "Sessão não está ativa nem concluída" });
+    }
 
     await db.query("UPDATE fueling_sessions SET pump_liters = $1 WHERE id = $2", [val, id]);
     
-    // Se a sessão já virou um log, atualizar o log também
     if (session.status === 'completed') {
-      await db.query("UPDATE fueling_logs SET pump_liters = $1 WHERE started_at = $2 AND truck_id = $3", 
-        [val, session.authorized_at || session.requested_at, session.truck_id]);
+      await db.query("UPDATE fueling_logs SET pump_liters = $1 WHERE session_id = $2", [val, id]);
     }
     
     res.json({ success: true, pump_liters: val });
