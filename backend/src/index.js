@@ -17,7 +17,6 @@ const reportsRoutes = require('./routes/reports');
 
 const http = require('http');
 const { Server } = require('socket.io');
-const { ensureSecuritySchema } = require('./services/securityService');
 
 const app = express();
 const server = http.createServer(app);
@@ -104,9 +103,11 @@ server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
   try {
-    await ensureSecuritySchema();
+    const { runMigrations } = require('./migrations/runner');
+    await runMigrations();
   } catch (err) {
-    console.error('[SECURITY] Schema init failed:', err.message);
+    console.error('[MIGRATIONS] Schema init failed:', err.message);
+    process.exit(1);
   }
 
   // Simulador é só para demonstração: com hardware real ele sobrescreveria posição/combustível.

@@ -5,9 +5,9 @@ const bcrypt = require('bcrypt');
 
 async function seed() {
   try {
-    const schemaSql = fs.readFileSync(path.join(__dirname, '../config/schema.sql'), 'utf8');
-    await db.query(schemaSql);
-    console.log('Schema created/verified.');
+    const { runMigrations } = require('../migrations/runner');
+    await runMigrations();
+    console.log('Schema created/verified via migrations.');
 
     // Wipe all previous demo data to prepare for REAL integration
     await db.query(`TRUNCATE users, drivers, trucks, driver_trucks, fuel_stations, fueling_logs, telemetry_logs, fleet_alerts, fueling_sessions, security_events, unloading_events RESTART IDENTITY CASCADE`);
