@@ -224,3 +224,10 @@ button:disabled { cursor: default; opacity: .65; }
  .tracking-overlay{padding:8px}.tracking-dialog{height:96dvh;border-radius:10px}.tracking-header{padding:12px}.tracking-heading{gap:8px}.tracking-heading h2{font-size:15px}.tracking-heading h2 span{display:block;border:0;padding:0;margin:5px 0 0;font-size:12px}.tracking-symbol{display:none}.tracking-toolbar{flex-wrap:wrap;gap:16px;padding:12px}.tracking-metric{min-width:0;flex:1}.tracking-actions{width:100%;margin:0;justify-content:space-between}.tracking-metric strong{font-size:24px}
 }
 @media(prefers-reduced-motion:reduce) { button,a { transition:none !important; } }
+
+/* Select options fix */
+select option {
+  background-color: #111b28;
+  color: #e9f0f6;
+}
+

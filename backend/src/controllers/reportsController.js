@@ -12,81 +12,114 @@ exports.exportPDF = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="relatorio_abastecimentos.pdf"');
     
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
     doc.pipe(res);
     
+    // Config de cores e fontes
+    const brandColor = '#2FBEB5';
+    const darkText = '#1f2e3b';
+    const lightText = '#64748b';
+
     // Header
-    doc.fontSize(20).font('Helvetica-Bold').text('EHR Solutions - Relatório de Abastecimentos', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(10).font('Helvetica').text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'center' });
-    doc.text(`Filtros: Caminhão: ${truck_id || 'Todos'} | Motorista: ${driver_id || 'Todos'} | Período: ${start || 'S/D'} a ${end || 'S/D'}`, { align: 'center' });
+    doc.fillColor(brandColor).fontSize(24).font('Helvetica-Bold').text('EHR Solutions', { align: 'left' });
+    doc.fillColor(darkText).fontSize(14).text('Relatório Oficial de Abastecimentos', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fillColor(lightText).fontSize(10).font('Helvetica').text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'left' });
+    
+    // Linha de filtro
+    let filtrosTexto = [];
+    if (truck_id) filtrosTexto.push(`Veículo ID: ${truck_id}`);
+    if (driver_id) filtrosTexto.push(`Motorista ID: ${driver_id}`);
+    if (start || end) filtrosTexto.push(`Período: ${start || '-'} até ${end || '-'}`);
+    
+    if (filtrosTexto.length > 0) {
+      doc.moveDown(0.5);
+      doc.fontSize(9).text(`Filtros Aplicados: ${filtrosTexto.join(' | ')}`);
+    }
+
     doc.moveDown(2);
     
     // Configuração de Tabela
     const colX = {
-      date: 40,
-      truck: 110,
-      driver: 170,
-      gps: 260,
-      qty: 360,
-      method: 410,
-      hash: 480
+      date: 50,
+      truck: 130,
+      driver: 190,
+      qty: 290,
+      method: 360,
+      hash: 440
     };
     
-    // Table Header
-    doc.font('Helvetica-Bold').fontSize(9);
-    doc.text('Data/Hora', colX.date, doc.y, { continued: false });
-    doc.text('Placa', colX.truck, doc.y - 10.5, { continued: false });
-    doc.text('Motorista', colX.driver, doc.y - 10.5, { continued: false });
-    doc.text('Localização (GPS)', colX.gps, doc.y - 10.5, { continued: false });
-    doc.text('Abastecido', colX.qty, doc.y - 10.5, { continued: false });
-    doc.text('Liberação', colX.method, doc.y - 10.5, { continued: false });
-    doc.text('Carimbo (Integridade)', colX.hash, doc.y - 10.5, { continued: false });
-    doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-    doc.moveDown();
+    const drawTableHeader = () => {
+      doc.rect(50, doc.y, 495, 20).fill('#f1f5f9');
+      doc.fillColor(darkText).font('Helvetica-Bold').fontSize(9);
+      const rowY = doc.y + 6;
+      doc.text('DATA / HORA', colX.date, rowY, { continued: false });
+      doc.text('PLACA', colX.truck, rowY, { continued: false });
+      doc.text('MOTORISTA', colX.driver, rowY, { continued: false });
+      doc.text('VOLUME (L)', colX.qty, rowY, { continued: false });
+      doc.text('MÉTODO', colX.method, rowY, { continued: false });
+      doc.text('ASSINATURA DIGITAL', colX.hash, rowY, { continued: false });
+      doc.moveDown(1.5);
+    };
+
+    drawTableHeader();
     
     doc.font('Helvetica').fontSize(8);
+    let isZebra = false;
     
     for (const log of logs) {
       if (doc.y > 750) {
         doc.addPage();
-        doc.font('Helvetica-Bold').fontSize(9);
-        doc.text('Data/Hora', colX.date, doc.y, { continued: false });
-        doc.text('Placa', colX.truck, doc.y - 10.5, { continued: false });
-        doc.text('Motorista', colX.driver, doc.y - 10.5, { continued: false });
-        doc.text('Localização (GPS)', colX.gps, doc.y - 10.5, { continued: false });
-        doc.text('Abastecido', colX.qty, doc.y - 10.5, { continued: false });
-        doc.text('Liberação', colX.method, doc.y - 10.5, { continued: false });
-        doc.text('Carimbo (Integridade)', colX.hash, doc.y - 10.5, { continued: false });
-        doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-        doc.moveDown();
+        drawTableHeader();
         doc.font('Helvetica').fontSize(8);
       }
       
-      const dt = new Date(log.timestamp).toLocaleString('pt-BR');
-      const plate = log.truck_plate || '-';
-      const driver = log.driver_name ? log.driver_name.substring(0, 15) : '-';
-      const gps = `${Number(log.lat).toFixed(4)}, ${Number(log.lng).toFixed(4)}`;
-      const qty = `+${Number(log.level_after) - Number(log.level_before)}L`;
-      const method = log.release_method === 'facial' ? 'Facial' : 'BLE';
-      
-      // NOTA: Este hash é uma SIMULAÇÃO de integridade. Em um cenário real, 
-      // uma infraestrutura de chaves públicas (PKI) ou blockchain seria utilizada.
-      const rawData = `${log.timestamp}|${log.lat}|${log.lng}|${driver}|${log.level_before}|${log.level_after}`;
-      const hash = crypto.createHash('sha256').update(rawData).digest('hex').substring(0, 12);
-      
       const currentY = doc.y;
-      doc.text(dt, colX.date, currentY, { width: 65 });
-      doc.text(plate, colX.truck, currentY, { width: 55 });
-      doc.text(driver, colX.driver, currentY, { width: 85 });
-      doc.text(gps, colX.gps, currentY, { width: 95 });
-      doc.text(qty, colX.qty, currentY, { width: 45 });
-      doc.text(method, colX.method, currentY, { width: 65 });
-      doc.font('Courier').text(hash, colX.hash, currentY, { width: 70 });
-      doc.font('Helvetica');
       
-      doc.moveDown(0.5);
+      if (isZebra) {
+        doc.rect(50, currentY - 4, 495, 18).fill('#fafafa');
+      }
+      isZebra = !isZebra;
+
+      const dt = new Date(log.timestamp).toLocaleString('pt-BR');
+      const plate = log.truck_plate || log.caminhao || '-'; // lidando com aliases
+      const driver = (log.driver_name || log.motorista || '-').substring(0, 16);
+      
+      const vBefore = Number(log.level_before) || 0;
+      const vAfter = Number(log.level_after) || 0;
+      const qty = `+${(vAfter - vBefore).toFixed(1)} L`;
+      
+      const methodMap = { facial: 'Facial', ble_fallback: 'BLE/App', manager_override: 'Gestor' };
+      const method = methodMap[log.release_method] || log.release_method || '-';
+      
+      const rawData = `${log.timestamp}|${log.lat}|${log.lng}|${driver}|${vBefore}|${vAfter}`;
+      const hash = crypto.createHash('sha256').update(rawData).digest('hex').substring(0, 12).toUpperCase();
+      
+      doc.fillColor('#334155');
+      doc.text(dt, colX.date, currentY, { width: 75 });
+      doc.font('Helvetica-Bold').text(plate, colX.truck, currentY, { width: 55 });
+      doc.font('Helvetica').text(driver, colX.driver, currentY, { width: 95 });
+      doc.fillColor(brandColor).font('Helvetica-Bold').text(qty, colX.qty, currentY, { width: 65 });
+      doc.fillColor('#334155').font('Helvetica').text(method, colX.method, currentY, { width: 75 });
+      doc.fillColor('#94a3b8').font('Courier').text(hash, colX.hash, currentY, { width: 100 });
+      
+      doc.moveDown(1);
     }
+    
+    // Resumo no final
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    doc.moveDown(1);
+    
+    const totalVolume = logs.reduce((acc, log) => {
+      const vBefore = Number(log.level_before) || 0;
+      const vAfter = Number(log.level_after) || 0;
+      return acc + (vAfter - vBefore);
+    }, 0);
+
+    doc.fillColor(darkText).font('Helvetica-Bold').fontSize(11)
+       .text(`Total de Abastecimentos: ${logs.length}`, 50, doc.y);
+    doc.text(`Volume Total Abastecido: ${totalVolume.toFixed(1)} Litros`, 50, doc.y + 15);
     
     doc.end();
   } catch (error) {
