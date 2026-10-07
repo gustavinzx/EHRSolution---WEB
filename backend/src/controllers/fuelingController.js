@@ -223,12 +223,29 @@ exports.finishSession = async (req, res) => {
     const truck = trucks[0];
 
     const capacity    = parseFloat(truck.capacity_liters);
-    const levelBefore = parseFloat(req.body?.level_before ?? truck.current_level_liters);
-    // Hardware real envia o nível medido pelo sensor; sem leitura, assume tanque cheio.
-    let levelAfter    = parseFloat(req.body?.level_after ?? capacity);
+    
+    const actorType = req.actor?.type;
+    let dataSource = 'unverified';
+    let levelBeforeStr = null;
+    let levelAfterStr = null;
+    
+    // Se o ator for manager ou hardware, aceita os níveis do corpo. 
+    // Se for driver (App Mobile), ignora o corpo e confia só no hardware (ou assume cheio, mas marca como 'unverified').
+    if (actorType === 'manager' || actorType === 'hardware') {
+      levelBeforeStr = req.body?.level_before;
+      levelAfterStr = req.body?.level_after;
+      dataSource = actorType;
+    }
+
+    const levelBefore = parseFloat(levelBeforeStr ?? truck.current_level_liters);
+    let levelAfter    = parseFloat(levelAfterStr ?? capacity);
     if (!Number.isFinite(levelAfter)) levelAfter = capacity;
     levelAfter = Math.min(Math.max(levelAfter, 0), capacity);
+    
     const volume      = Math.max(levelAfter - levelBefore, 0);
+    const tankLitersDelta = volume;
+    const pumpLiters = session.pump_liters || null; // Vem da bomba caso ela já tenha reportado
+
     const now         = new Date();
     const startedAt   = session.authorized_at || session.requested_at;
     const durationMin = (now - new Date(startedAt)) / 60000;
@@ -236,15 +253,22 @@ exports.finishSession = async (req, res) => {
     await db.query(
       `INSERT INTO fueling_logs
          (driver_id, truck_id, lat, lng, level_before, level_after, release_method,
-          station_id, station_name, started_at, completed_at, duration_minutes, volume_liters)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
+          pump_liters, tank_liters_delta, data_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [session.driver_id, session.truck_id, truck.lat, truck.lng,
        levelBefore, levelAfter, session.release_method || "facial",
        session.station_id, truck.station_name || null,
-       startedAt, now, durationMin.toFixed(1), volume]
+       startedAt, now, durationMin.toFixed(1), volume,
+       pumpLiters, tankLitersDelta, dataSource]
     );
 
-    await db.query("UPDATE fueling_sessions SET status='completed', completed_at=NOW() WHERE id=$1", [id]);
+    await db.query(`
+      UPDATE fueling_sessions 
+      SET status='completed', completed_at=NOW(), tank_liters_delta=$2, data_source=$3
+      WHERE id=$1`, 
+      [id, tankLitersDelta, dataSource]
+    );
 
     // Retorno à rota só faz sentido se houver rota planejada
     let returning = null;
@@ -449,6 +473,40 @@ exports.emergencyUnlockTruck = async (req, res) => {
     res.status(201).json(full);
   } catch (err) {
     console.error("Emergency unlock truck error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.reportPumpReading = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pump_liters } = req.body;
+    
+    if (pump_liters == null || isNaN(parseFloat(pump_liters))) {
+      return res.status(400).json({ error: "pump_liters é obrigatório e numérico" });
+    }
+
+    const val = parseFloat(pump_liters);
+    
+    const { rows: sessions } = await db.query("SELECT * FROM fueling_sessions WHERE id=$1", [id]);
+    if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada" });
+    
+    const session = sessions[0];
+    
+    // AuthHardware já garantiu que o ator é hardware. Validar se o hardware pertence a este truck/station
+    // A bomba geralmente é vinculada à station ou ao truck. Assumimos que o authHardware passou se a API Key bate.
+
+    await db.query("UPDATE fueling_sessions SET pump_liters = $1 WHERE id = $2", [val, id]);
+    
+    // Se a sessão já virou um log, atualizar o log também
+    if (session.status === 'completed') {
+      await db.query("UPDATE fueling_logs SET pump_liters = $1 WHERE started_at = $2 AND truck_id = $3", 
+        [val, session.authorized_at || session.requested_at, session.truck_id]);
+    }
+    
+    res.json({ success: true, pump_liters: val });
+  } catch (err) {
+    console.error("Pump reading error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -4,12 +4,25 @@ const { detectFuelAnomalies } = require('../services/anomalyDetector');
 // GET /api/alerts — return recent alerts (last 24h)
 exports.list = async (req, res) => {
   try {
-    const { rows } = await db.query(`
-      SELECT * FROM fleet_alerts
-      WHERE resolved_at IS NULL
-      ORDER BY created_at DESC
-      LIMIT 50
-    `);
+    const { truck_id, type, severity, status, start, end } = req.query;
+    
+    let query = 'SELECT * FROM fleet_alerts WHERE 1=1';
+    const params = [];
+    let pIdx = 1;
+
+    if (truck_id) { query += ` AND truck_id = $${pIdx++}`; params.push(truck_id); }
+    if (type) { query += ` AND type = $${pIdx++}`; params.push(type); }
+    if (severity) { query += ` AND severity = $${pIdx++}`; params.push(severity); }
+    
+    if (status === 'resolved') { query += ` AND resolved_at IS NOT NULL`; }
+    else if (status === 'active') { query += ` AND resolved_at IS NULL`; }
+
+    if (start) { query += ` AND created_at >= $${pIdx++}`; params.push(start); }
+    if (end) { query += ` AND created_at <= $${pIdx++}`; params.push(end); }
+
+    query += ' ORDER BY created_at DESC LIMIT 100';
+
+    const { rows } = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error('List alerts error:', err);
@@ -85,27 +98,25 @@ exports.simulateFuelDrop = async (req, res) => {
   }
 };
 
-// DELETE /api/alerts/:id — dismiss an alert
-exports.dismiss = async (req, res) => {
-  try {
-    await db.query('DELETE FROM fleet_alerts WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Alert dismissed' });
-  } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
 exports.resolve = async (req, res) => {
   try {
     const { id } = req.params;
-    const { resolution_note, resolved_by } = req.body;
+    const { resolution_note } = req.body;
+    
+    // Validar nota de resolução
+    if (!resolution_note || resolution_note.trim().length < 5) {
+      return res.status(400).json({ error: "A nota de resolução deve ter pelo menos 5 caracteres." });
+    }
+
+    // Identificar gestor a partir do token (authMiddleware)
+    const resolved_by = req.user ? (req.user.name || req.user.email) : 'Gestor Desconhecido';
     
     const { rows } = await db.query(
       `UPDATE fleet_alerts 
        SET resolved_at = NOW(), resolution_note = $1, resolved_by = $2
        WHERE id = $3 AND resolved_at IS NULL
        RETURNING *`,
-      [resolution_note || null, resolved_by || null, id]
+      [resolution_note.trim(), resolved_by, id]
     );
     
     if (rows.length === 0) {

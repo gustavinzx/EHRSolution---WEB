@@ -200,16 +200,19 @@ export default function InvestigationPage() {
   };
 
   const confirmResolve = async () => {
+    if (!note || note.trim().length < 5) {
+      toast.error('A nota de resolução deve ter pelo menos 5 caracteres.');
+      return;
+    }
     const alertId = showNoteModal;
-    setShowNoteModal(null);
     setResolvingId(alertId);
     try {
       await client.patch(`/fleet/alerts/${alertId}/resolve`, {
-        resolution_note: note || null,
-        resolved_by: JSON.parse(localStorage.getItem('user') || '{}')?.name || 'Gestor'
+        resolution_note: note.trim()
       });
       toast.success('Alerta marcado como resolvido.');
       setNote('');
+      setShowNoteModal(null);
       await fetchData();
     } catch {
       toast.error('Erro ao resolver alerta.');
@@ -263,7 +266,7 @@ export default function InvestigationPage() {
           <div style={{ background: 'rgba(11,20,36,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '440px' }}>
             <h3 style={{ color: '#fff', margin: '0 0 16px', fontFamily: 'var(--font-display)' }}>Nota de Resolução</h3>
             <textarea
-              placeholder="Descreva como o caso foi resolvido (opcional)..."
+              placeholder="Descreva como o caso foi resolvido (mínimo 5 caracteres)..."
               value={note}
               onChange={e => setNote(e.target.value)}
               rows={3}

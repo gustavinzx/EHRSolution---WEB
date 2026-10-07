@@ -62,18 +62,14 @@ export default function TopBar() {
         }}>
           <Mail size={16} />
         </button>
-        <button onClick={() => toast('Nenhum alerta crítico novo', { icon: '🔔' })} style={{
+        <button onClick={() => window.location.href = '/alerts'} style={{
           width: '38px', height: '38px', borderRadius: '10px',
           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: '#94a3b8', position: 'relative',
         }}>
           <Bell size={16} />
-          <span style={{
-            position: 'absolute', top: '8px', right: '8px',
-            width: '7px', height: '7px', borderRadius: '50%',
-            background: '#f87171', border: '2px solid #0f1624',
-          }} />
+          {/* Could conditionally render red dot if there are active alerts */}
         </button>
       </div>
       <div ref={dropdownRef} style={{ position: 'relative' }}>

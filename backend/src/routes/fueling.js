@@ -32,6 +32,7 @@ router.post("/sessions/:id/authorize", managerOrDriver, fuelingController.author
 router.post("/sessions/:id/finish", anyActor, fuelingController.finishSession);
 router.post("/sessions/:id/facial-failure", driverOnly, fuelingController.reportFacialFailure);
 router.post("/sessions/:id/emergency-unlock", managerOnly, fuelingController.emergencyUnlockSession);
+router.post("/sessions/:id/pump-reading", allow({ hardware: true }), fuelingController.reportPumpReading);
 
 // Sessão ativa (hardware consulta para abrir a trava; painel/app para exibir status)
 router.get("/sessions/:truckId/active", anyActor, fuelingController.getActiveSession);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Truck, Fuel, FileText, MapPin, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Truck, Fuel, FileText, MapPin, LogOut, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const links = [
@@ -9,6 +9,7 @@ const links = [
   { to: '/fleet',   icon: Truck,           label: 'Frota' },
   { to: '/fueling', icon: Fuel,            label: 'Abastecimentos' },
   { to: '/stations',icon: MapPin,          label: 'Postos' },
+  { to: '/alerts',  icon: ShieldAlert,     label: 'Alertas' },
   { to: '/reports', icon: FileText,        label: 'Relatórios' },
 ];
 

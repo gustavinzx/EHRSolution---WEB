@@ -13,6 +13,7 @@ import FuelingPage      from './pages/FuelingPage';
 import ReportsPage      from './pages/ReportsPage';
 import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
+import AlertsPage       from './pages/AlertsPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
 import useFleetState    from './store/useFleetState';
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/fueling"            element={<ProtectedLayout><FuelingPage /></ProtectedLayout>} />
         <Route path="/stations"           element={<ProtectedLayout><StationsPage /></ProtectedLayout>} />
         <Route path="/reports"            element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
+        <Route path="/alerts"             element={<ProtectedLayout><AlertsPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
