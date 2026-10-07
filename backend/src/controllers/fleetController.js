@@ -62,9 +62,17 @@ exports.forceFueling = async (req, res) => {
 // POST /api/fleet/:id/security-events — bridge for device/IoT security signals
 exports.securityEvent = async (req, res) => {
   try {
+    if (!req.truck || req.truck.id !== parseInt(req.params.id, 10)) {
+      return res.status(403).json({ error: 'API Key não pertence a este caminhão' });
+    }
     const { type, severity, source, payload } = req.body || {};
     if (!type) return res.status(400).json({ error: 'O campo type é obrigatório' });
-    const result = await security.recordSecurityEvent({ truckId: req.params.id, type, severity, source, payload, io: req.io });
+    const allowedSeverity = ['low', 'medium', 'high', 'critical'];
+    const result = await security.recordSecurityEvent({
+      truckId: req.truck.id, type: String(type).slice(0, 50),
+      severity: allowedSeverity.includes(severity) ? severity : undefined,
+      source: source || 'device', payload, io: req.io,
+    });
     res.status(201).json(result);
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || 'Internal server error' });
@@ -237,27 +245,62 @@ exports.getInvestigation = async (req, res) => {
   }
 };
 
+let lastBroadcast = 0;
+async function broadcastFleet(io) {
+  if (!io) return;
+  const now = Date.now();
+  if (now - lastBroadcast < 1000) return; // no máximo 1x por segundo
+  lastBroadcast = now;
+  try {
+    io.emit('fleetUpdate', await dataProvider.getFleetSnapshot());
+  } catch (e) {
+    console.error('Broadcast fleet error:', e.message);
+  }
+}
+exports.broadcastFleet = broadcastFleet;
+
 exports.ingestTelemetry = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { fuel_level_liters, lat, lng, speed_kmh } = req.body;
+    const id = parseInt(req.params.id, 10);
+    if (!req.truck || req.truck.id !== id) {
+      return res.status(403).json({ error: 'API Key não pertence a este caminhão' });
+    }
+    const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+    const fuel = num(req.body.fuel_level_liters);
+    const lat = num(req.body.lat);
+    const lng = num(req.body.lng);
+    const speed = num(req.body.speed_kmh);
 
-    // Update truck current status
+    if ([fuel, lat, lng, speed].some(v => v !== null && !Number.isFinite(v))) {
+      return res.status(400).json({ error: 'Valores de telemetria inválidos' });
+    }
+    if ((lat !== null && Math.abs(lat) > 90) || (lng !== null && Math.abs(lng) > 180)) {
+      return res.status(400).json({ error: 'Coordenadas fora do intervalo válido' });
+    }
+
     const { rows: updated } = await db.query(
-      `UPDATE trucks SET current_level_liters=$1, lat=$2, lng=$3, speed_kmh=$4 WHERE id=$5 RETURNING *`,
-      [fuel_level_liters, lat, lng, speed_kmh, id]
+      `UPDATE trucks SET
+         current_level_liters = COALESCE($1, current_level_liters),
+         lat = COALESCE($2, lat), lng = COALESCE($3, lng),
+         speed_kmh = COALESCE($4, speed_kmh),
+         status = CASE
+           WHEN status = 'security_alert' THEN status
+           WHEN COALESCE($1, current_level_liters) < capacity_liters * 0.2 THEN 'low_fuel'
+           ELSE 'ok' END,
+         updated_at = NOW()
+       WHERE id=$5 RETURNING *`,
+      [fuel, lat, lng, speed, id]
     );
-
     if (updated.length === 0) return res.status(404).json({ error: 'Truck not found' });
+    const t = updated[0];
 
-    // Log telemetry
     await db.query(
       `INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1, $2, $3, $4, $5)`,
-      [id, lat, lng, speed_kmh, fuel_level_liters]
+      [id, t.lat ?? 0, t.lng ?? 0, t.speed_kmh ?? 0, t.current_level_liters]
     );
 
-    // If io is available, we could emit a fleetUpdate here, but the simulator handles regular sync.
-    res.json({ success: true, truck: updated[0] });
+    broadcastFleet(req.io);
+    res.json({ success: true, truck: { id: t.id, status: t.status } });
   } catch (error) {
     console.error('Ingest telemetry error:', error);
     res.status(500).json({ error: 'Internal server error' });

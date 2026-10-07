@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS fuel_stations (
   lat NUMERIC(10,7) NOT NULL,
   lng NUMERIC(10,7) NOT NULL,
   active BOOLEAN DEFAULT true,
+  is_authorized BOOLEAN DEFAULT true,
   source VARCHAR(50) DEFAULT 'seed',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -71,7 +72,7 @@ CREATE TABLE IF NOT EXISTS fueling_logs (
   lng NUMERIC(10,7),
   level_before NUMERIC(10,2),
   level_after NUMERIC(10,2),
-  release_method VARCHAR(20) DEFAULT 'facial' CHECK (release_method IN ('facial','ble_fallback'))
+  release_method VARCHAR(20) DEFAULT 'facial' CHECK (release_method IN ('facial','ble_fallback','manager_override'))
   ,station_id INTEGER REFERENCES fuel_stations(id), station_name VARCHAR(255), started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ, duration_minutes NUMERIC(5,1), volume_liters NUMERIC(10,2)
 );
@@ -95,6 +96,8 @@ CREATE TABLE IF NOT EXISTS fleet_alerts (
   plate VARCHAR(20),
   model VARCHAR(255),
   resolved_at TIMESTAMPTZ,
+  resolution_note TEXT,
+  resolved_by VARCHAR(255),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -105,7 +108,7 @@ CREATE TABLE IF NOT EXISTS fueling_sessions (
   driver_id INTEGER REFERENCES drivers(id),
   status VARCHAR(20) NOT NULL DEFAULT 'requested'
     CHECK (status IN ('requested','authorized','active','completed','expired','cancelled')),
-  release_method VARCHAR(20) CHECK (release_method IN ('facial','ble_fallback')),
+  release_method VARCHAR(20) CHECK (release_method IN ('facial','ble_fallback','manager_override')),
   requested_at TIMESTAMPTZ DEFAULT NOW(),
   authorized_at TIMESTAMPTZ,
   started_at TIMESTAMPTZ,

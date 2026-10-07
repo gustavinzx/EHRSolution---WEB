@@ -1,6 +1,7 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { startSimulator } = require('./services/simulator');
 const { startAnomalyEngine } = require('./services/anomalyDetector');
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -21,19 +22,19 @@ const { ensureSecuritySchema } = require('./services/securityService');
 const app = express();
 const server = http.createServer(app);
 
-// SECURITY NOTE 2.4: In production, FRONTEND_URL must be set explicitly in the environment.
-const allowedOrigin = '*';
+// SECURITY NOTE 2.4: Em produção defina CORS_ORIGINS (lista separada por vírgula). Sem ela, libera tudo (dev / app mobile).
+const allowedOrigin = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : '*';
 
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: allowedOrigin,
     methods: ["GET", "POST"]
   }
 });
 
 // FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.use(helmet());
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 app.use(compression());
 
@@ -65,11 +66,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Protected routes (JWT auth + general rate limit)
-app.use('/api/drivers', generalLimiter, driversRoutes);
+app.use('/api/drivers', generalLimiter, authMiddleware, driversRoutes);
 app.use('/api/fleet', generalLimiter, fleetRoutes);
 app.use('/api/fueling', generalLimiter, fuelingRoutes);
-app.use('/api/reports', generalLimiter, reportsRoutes);
-app.use('/api/alerts', generalLimiter, require('./routes/alerts'));
+app.use('/api/reports', generalLimiter, authMiddleware, reportsRoutes);
+app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -99,25 +100,23 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
-  
+server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
-  
-  // Verificação de segurança: rotas ausentes
-  const db = require('./config/db');
-  db.query('SELECT COUNT(*) FROM trucks WHERE route_geometry IS NULL')
-    .then(res => {
-      const count = parseInt(res.rows[0].count);
-      if (count > 0) {
-        console.warn(`\n[AVISO CRÍTICO] Existem ${count} caminhões sem rota calculada (route_geometry IS NULL).`);
-        console.warn('[AVISO CRÍTICO] O simulador não moverá esses caminhões. Rode "npm run seed" para repopular as rotas!\n');
-      }
-    })
-    .catch(console.error);
 
-  startSimulator(io); startAnomalyEngine(io);
-  ensureSecuritySchema().catch(err => console.error('[SECURITY] Schema init failed:', err.message));
+  try {
+    await ensureSecuritySchema();
+  } catch (err) {
+    console.error('[SECURITY] Schema init failed:', err.message);
+  }
 
+  // Simulador é só para demonstração: com hardware real ele sobrescreveria posição/combustível.
+  if (process.env.SIMULATOR_ENABLED === 'true') {
+    console.log('[SIM] SIMULATOR_ENABLED=true — dados de telemetria serão simulados.');
+    startSimulator(io);
+  } else {
+    console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
+  }
+  startAnomalyEngine(io);
 });
  
  
