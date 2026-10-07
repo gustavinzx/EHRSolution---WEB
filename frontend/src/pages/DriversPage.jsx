@@ -199,31 +199,26 @@ export default function DriversPage() {
 
               {/* Card Footer (Quick Actions) */}
               <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)', padding: '12px' }}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
-                  <select 
-                    value={assigning[d.id] || ''} 
-                    onChange={e => setAssigning(prev => ({...prev, [d.id]: e.target.value}))} 
-                    style={{ background: '#182430', color: '#e2e8f0', border: '1px solid #1f2e3b', borderRadius: '8px', padding: '8px', fontSize: '12px', outline: 'none', flex: 1 }}
-                  >
-                    <option value="">Vincular Caminhão...</option>
-                    {trucks.map(t => <option key={t.id} value={t.id}>{t.plate}</option>)}
-                  </select>
-                  <button onClick={() => handleAssign(d.id)} disabled={!assigning[d.id]} 
-                    style={{ width: '34px', height: '34px', borderRadius: '8px', background: assigning[d.id] ? '#2FBEB5' : '#1f2e3b', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: assigning[d.id] ? 'pointer' : 'not-allowed', transition: 'background 0.2s' }}>
-                    <UserCheck size={16}/>
-                  </button>
-                </div>
+                <button 
+                  onClick={() => { setEditingDriver(d); setIsModalOpen(true); }}
+                  style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '8px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
+                >
+                  <Edit2 size={14} />
+                  Editar Cadastro
+                </button>
                 
                 <div style={{ width: '1px', background: 'rgba(255,255,255,0.04)', margin: '0 12px' }} />
                 
                 <button 
                   onClick={() => handleToggleActive(d)} 
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 16px', background: 'transparent', border: 'none', color: d.is_active ? '#f87171' : '#34d399', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '8px', background: 'transparent', border: 'none', color: d.is_active ? '#f87171' : '#34d399', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px', transition: 'all 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = d.is_active ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   {d.is_active ? <UserX size={14}/> : <UserCheck size={14}/>}
-                  {d.is_active ? 'Bloquear' : 'Desbloquear'}
+                  {d.is_active ? 'Bloquear Acesso' : 'Desbloquear'}
                 </button>
               </div>
 
