@@ -33,11 +33,68 @@ exports.login = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        role: 'manager'
       }
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.driverLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Find driver
+    const result = await db.query('SELECT * FROM drivers WHERE email = $1 AND is_active = true', [email]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const driver = result.rows[0];
+    const isMatch = await bcrypt.compare(password, driver.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    // Get assigned truck
+    const truckRes = await db.query(`
+      SELECT t.* FROM trucks t
+      JOIN driver_trucks dt ON dt.truck_id = t.id
+      WHERE dt.driver_id = $1
+      LIMIT 1
+    `, [driver.id]);
+    
+    const vehicle = truckRes.rows.length > 0 ? truckRes.rows[0] : null;
+
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not defined');
+
+    const token = jwt.sign(
+      { id: driver.id, email: driver.email, role: 'driver' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        email: driver.email,
+        phone: driver.phone
+      },
+      vehicle: vehicle ? {
+        id: vehicle.id,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        brand: vehicle.model.split(' ')[0], // simple hack
+        capacity: vehicle.capacity_liters
+      } : null
+    });
+  } catch (error) {
+    console.error('Driver Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

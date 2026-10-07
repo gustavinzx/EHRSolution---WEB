@@ -5,10 +5,7 @@ import { MapPin, Search, Plus, MapPinOff, CheckCircle2, XCircle } from 'lucide-r
 import toast from 'react-hot-toast';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px',
 };
 
 export default function StationsPage() {
@@ -61,8 +58,7 @@ export default function StationsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0 }}>
-            Rede Autorizada
+          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontSize: '28px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0 }}><MapPin size={28} color="#2FBEB5" /> RedeAutorizada
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
             {stations.filter(s => s.is_authorized).length} postos autorizados para destrava
@@ -73,7 +69,7 @@ export default function StationsPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 18px', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
+            background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
             color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
             fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
           }}
@@ -130,16 +126,16 @@ export default function StationsPage() {
           <form onSubmit={handleSave} style={{ background: 'rgba(11,20,36,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', width: '100%', maxWidth: '440px', padding: '24px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '20px' }}>Cadastrar Posto</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input placeholder="Nome do posto" required value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
-              <input placeholder="Endereço (opcional)" value={formData.address} onChange={e=>setFormData({...formData, address: e.target.value})} style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
+              <input placeholder="Nome do posto" required value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
+              <input placeholder="Endereço (opcional)" value={formData.address} onChange={e=>setFormData({...formData, address: e.target.value})} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input placeholder="Latitude" required type="number" step="any" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} style={{ flex: 1, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
-                <input placeholder="Longitude" required type="number" step="any" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} style={{ flex: 1, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
+                <input placeholder="Latitude" required type="number" step="any" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
+                <input placeholder="Longitude" required type="number" step="any" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px' }} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button type="button" onClick={() => setIsModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>Cancelar</button>
-              <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #38BDF8, #60A5FA)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Salvar</button>
+              <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Salvar</button>
             </div>
           </form>
         </div>

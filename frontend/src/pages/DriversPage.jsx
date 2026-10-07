@@ -6,10 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { UserPlus, Search, Users, UserX, UserCheck, Truck, Fuel } from 'lucide-react';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px',
 };
 
 export default function DriversPage() {
@@ -52,9 +49,7 @@ export default function DriversPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0 }}>
-            Motoristas
-          </h1>
+          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontSize: '28px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0 }}><Users size={28} color="#2FBEB5" /> Motoristas</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
             {drivers.filter(d => d.is_active).length} ativos · {drivers.filter(d => !d.is_active).length} inativos
           </p>
@@ -64,7 +59,7 @@ export default function DriversPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 18px', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
+            background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
             color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
             fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
           }}

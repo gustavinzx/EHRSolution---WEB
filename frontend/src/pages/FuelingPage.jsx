@@ -4,25 +4,22 @@ import { useFleet } from '../hooks/useFleet';
 import { useDrivers } from '../hooks/useDrivers';
 import FuelingTable   from '../components/FuelingTable';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Filter, RotateCcw, ShieldCheck, LockKeyhole, CheckCircle2, Clock, MapPin } from 'lucide-react';
+import { Filter, RotateCcw, ShieldCheck, LockKeyhole, CheckCircle2, Clock, MapPin, Fuel } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px',
 };
 
 const inputStyle = {
-  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
   color: '#fff', padding: '10px 14px', borderRadius: '10px',
   fontSize: '13px', outline: 'none', fontFamily: 'Inter, sans-serif',
 };
 
 const primaryButton = {
   display:'inline-flex', alignItems:'center', gap:'7px', padding:'10px 16px', borderRadius:'10px', border:'none', cursor:'pointer',
-  background:'linear-gradient(135deg,#38BDF8,#60A5FA)', color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'12px'
+  background:'linear-gradient(135deg,#2FBEB5,#4F8EF7)', color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'12px'
 };
 
 export default function FuelingPage() {
@@ -113,7 +110,7 @@ export default function FuelingPage() {
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', color: '#fff' }}>
       <header style={{ marginBottom: '24px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, margin: '0 0 4px 0' }}>Sessão de Abastecimento</h1>
+          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, margin: '0 0 4px 0' }}><Fuel size={28} color="#2FBEB5" /> Sessãode Abastecimento</h1>
           <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Autorize travas e monitore logs de combustível</p>
         </div>
       </header>
@@ -150,7 +147,7 @@ export default function FuelingPage() {
 
           {session && (
             <div style={{ background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '20px', borderRadius: '12px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'8px', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'16px', color: '#38BDF8', marginBottom: '16px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'16px', color: '#2FBEB5', marginBottom: '16px' }}>
                 <LockKeyhole size={18} /> Sessão Ativa
               </div>
               

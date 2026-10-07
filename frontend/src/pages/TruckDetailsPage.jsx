@@ -20,7 +20,7 @@ function CenterOnTruck({ lat, lng }) {
 }
 import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert, LockKeyhole } from 'lucide-react';
 
 const glass = {
   background: 'var(--bg-panel)',
@@ -33,7 +33,7 @@ const STATUS_META = {
   low_fuel:  { label: 'Comb. Baixo',color: '#fbbf24', glow: 'rgba(251,191,36,0.15)' },
   no_signal: { label: 'Sem Sinal',  color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
   security_alert: { label: 'Alerta de segurança', color: '#fb7185', glow: 'rgba(251,113,133,0.18)' },
-  arrived: { label: 'Chegou ao destino', color: '#60a5fa', glow: 'rgba(96,165,250,0.18)' },
+  arrived: { label: 'Chegou ao destino', color: '#4F8EF7', glow: 'rgba(96,165,250,0.18)' },
 };
 
 import useFleetState from '../store/useFleetState';
@@ -177,7 +177,25 @@ export default function TruckDetailsPage() {
                <div>
                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Velocidade</div>
                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontFamily: 'var(--font-mono)', color: '#fff' }}><Gauge size={14} color="var(--blue)" /> {truck.speed_kmh} km/h</div>
-               </div>
+                 <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Você tem certeza? Isso abrirá a trava de segurança fisicamente no veículo via GPRS de emergência.")) {
+                        toast.success('Comando de liberação emergencial enviado para o hardware!', { icon: '🔓' });
+                      }
+                    }}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: '10px',
+                      background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)',
+                      color: '#f87171', fontWeight: 700, fontSize: '14px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <LockKeyhole size={16} /> Liberação de Emergência
+                  </button>
+                </div>
+              </div>
             </div>
             
             <div style={{ display: 'flex', gap: '16px' }}>
@@ -209,7 +227,7 @@ export default function TruckDetailsPage() {
               <button onClick={() => setIsModalOpen(true)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: 'none',
-                background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
+                background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
                 color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
                 fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
                 height: '44px'
@@ -320,7 +338,7 @@ export default function TruckDetailsPage() {
                <span style={{ fontFamily: 'var(--font-display)', fontSize: '48px', fontWeight: 800, color: levelColor, lineHeight: 1 }}>{pct}%</span>
                <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{truck.current_level_liters} L</span>
              </div>
-             <div style={{ height: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', overflow: 'hidden' }}>
+             <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: `${pct}%`, height: '100%', background: levelColor, boxShadow: `0 0 12px ${levelColor}` }} />
              </div>
              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>

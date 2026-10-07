@@ -28,7 +28,7 @@ const SEVERITY_CONFIG = {
   critical: { color: '#f87171', bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.4)', label: 'CRÍTICO' },
   high:     { color: '#fbbf24', bg: 'rgba(251,191,36,0.15)',  border: 'rgba(251,191,36,0.4)',  label: 'ALTO' },
   medium:   { color: '#fb923c', bg: 'rgba(251,146,60,0.15)',  border: 'rgba(251,146,60,0.4)',  label: 'MÉDIO' },
-  low:      { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)',  border: 'rgba(96,165,250,0.4)',  label: 'BAIXO' },
+  low:      { color: '#4F8EF7', bg: 'rgba(96,165,250,0.15)',  border: 'rgba(96,165,250,0.4)',  label: 'BAIXO' },
 };
 
 const ALERT_TYPE_LABEL = {
@@ -44,7 +44,7 @@ const ALERT_TYPE_LABEL = {
 const SESSION_STATUS_CONFIG = {
   requested:  { color: '#fbbf24', label: 'Solicitado' },
   authorized: { color: '#34d399', label: 'Autorizado' },
-  active:     { color: '#38bdf8', label: 'Ativo' },
+  active:     { color: '#2FBEB5', label: 'Ativo' },
   completed:  { color: '#64748b', label: 'Concluído' },
   expired:    { color: '#f87171', label: 'Expirado' },
   cancelled:  { color: '#94a3b8', label: 'Cancelado' },
@@ -138,7 +138,7 @@ function SessionRow({ session }) {
       display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
       gap: '8px', alignItems: 'center',
       padding: '10px 12px', borderRadius: '8px',
-      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
       fontSize: '12px'
     }}>
       <span style={{ color: '#cbd5e1' }}>{fmtDate(session.requested_at)}</span>
@@ -155,7 +155,7 @@ function FuelingRow({ log }) {
       display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr 1fr',
       gap: '8px', alignItems: 'center',
       padding: '10px 12px', borderRadius: '8px',
-      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
       fontSize: '12px'
     }}>
       <span style={{ color: '#cbd5e1' }}>{fmtDate(log.timestamp)}</span>
@@ -267,7 +267,7 @@ export default function InvestigationPage() {
               value={note}
               onChange={e => setNote(e.target.value)}
               rows={3}
-              style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '8px', fontSize: '13px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '8px', fontSize: '13px', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px', justifyContent: 'flex-end' }}>
               <button onClick={() => setShowNoteModal(null)} style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>
@@ -341,8 +341,8 @@ export default function InvestigationPage() {
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="fuelGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2FBEB5" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2FBEB5" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -356,7 +356,7 @@ export default function InvestigationPage() {
                   {suspiciousIndexes.map(idx => (
                     <ReferenceLine key={idx} x={chartData[idx]?.name} stroke="#f87171" strokeDasharray="4 4" label={{ value: '⚠', fill: '#f87171', fontSize: 12 }} />
                   ))}
-                  <Area type="monotone" dataKey="nivel" stroke="#38bdf8" fill="url(#fuelGrad)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="nivel" stroke="#2FBEB5" fill="url(#fuelGrad)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             )}

@@ -29,7 +29,7 @@ export const ProtectedLayout = ({ children }) => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0f1624' }}>
       <Sidebar />
-      <div style={{ flex: 1, marginLeft: '72px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div style={{ flex: 1, marginLeft: '240px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <TopBar />
         <main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
           <ErrorBoundary>

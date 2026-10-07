@@ -6,14 +6,11 @@ import toast from 'react-hot-toast';
 import client from '../api/client';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px',
 };
 
 const inputStyle = {
-  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
   color: '#fff', padding: '11px 14px', borderRadius: '10px',
   fontSize: '13px', outline: 'none', fontFamily: 'Inter, sans-serif', width: '100%',
 };
@@ -73,9 +70,7 @@ export default function ReportsPage() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'24px' }}>
       <div>
-        <h1 style={{ fontSize:'28px', fontFamily:'var(--font-display)', fontWeight:800, color:'#fff', margin:0 }}>
-          Relatórios
-        </h1>
+        <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontSize:'28px', fontFamily:'var(--font-display)', fontWeight:800, color:'#fff', margin:0 }}><FileText size={28} color="#2FBEB5" /> Relatórios</h1>
         <p style={{ color:'var(--text-muted)', fontSize:'13px', marginTop:'6px' }}>
           Exporte histórico de abastecimentos em CSV
         </p>
@@ -86,7 +81,7 @@ export default function ReportsPage() {
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'24px' }}>
           <div style={{
             width:'40px', height:'40px', borderRadius:'10px',
-            background:'linear-gradient(135deg,#38BDF8,#60A5FA)',
+            background:'linear-gradient(135deg,#2FBEB5,#4F8EF7)',
             display:'flex', alignItems:'center', justifyContent:'center',
             boxShadow:'0 4px 16px rgba(56,189,248,0.3)',
           }}>
@@ -136,7 +131,7 @@ export default function ReportsPage() {
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:'9px',
               padding:'13px', borderRadius:'10px', border:'none', marginTop:'8px',
-              background: loading ? 'rgba(56,189,248,0.4)' : 'linear-gradient(135deg,#38BDF8,#60A5FA)',
+              background: loading ? 'rgba(56,189,248,0.4)' : 'linear-gradient(135deg,#2FBEB5,#4F8EF7)',
               color:'#fff', fontFamily:'var(--font-display)', fontWeight:700, fontSize:'15px',
               cursor: loading ? 'not-allowed' : 'pointer',
               boxShadow:'0 8px 32px rgba(56,189,248,0.25)',

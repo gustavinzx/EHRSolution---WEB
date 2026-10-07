@@ -4,15 +4,12 @@ import toast from 'react-hot-toast';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import { RefreshCw, MapPin, Users, Gauge, Droplets } from 'lucide-react';
+import { RefreshCw, MapPin, Users, Gauge, Droplets , Truck} from 'lucide-react';
 import MapView from '../components/MapView';
 import RouteModal from '../components/RouteModal';
 import useFleetState from '../store/useFleetState';
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '16px', overflow: 'hidden',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', overflow: 'hidden',
 };
 
 const STATUS_META = {
@@ -21,7 +18,7 @@ const STATUS_META = {
   low_fuel:  { label: 'Comb. Baixo',color: '#fbbf24', glow: 'rgba(251,191,36,0.15)' },
   no_signal: { label: 'Sem Sinal',  color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
   security_alert: { label: 'Alerta de segurança', color: '#fb7185', glow: 'rgba(251,113,133,0.18)' },
-  arrived: { label: 'Chegou ao destino', color: '#60a5fa', glow: 'rgba(96,165,250,0.18)' },
+  arrived: { label: 'Chegou ao destino', color: '#4F8EF7', glow: 'rgba(96,165,250,0.18)' },
 };
 
 export default function FleetPage() {
@@ -78,7 +75,7 @@ export default function FleetPage() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
         <div>
-          <h1 style={{ fontSize:'28px', fontFamily:'var(--font-display)', fontWeight:800, color:'#fff', margin:0 }}>Frota</h1>
+          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontSize:'28px', fontFamily:'var(--font-display)', fontWeight:800, color:'#fff', margin:0 }}><Truck size={28} color="#2FBEB5" /> Frota</h1>
           <p style={{ color:'var(--text-muted)', fontSize:'13px', marginTop:'6px' }}>
             {counts.total} veículos monitorados
           </p>
@@ -96,13 +93,13 @@ export default function FleetPage() {
       {/* Summary pills */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
         {[
-          ['Total',       counts.total, '#38BDF8'],
+          ['Total',       counts.total, '#2FBEB5'],
           ['Operacional', counts.ok,    '#34d399'],
           ['Comb. Baixo', counts.low,   '#fbbf24'],
           ['S/ Autonomia', counts.critical, '#f87171'],
           ['Sem Sinal',   counts.off,   '#64748b'],
           ['Alerta Seg.', counts.security, '#fb7185'],
-          ['Chegou',      counts.arrived,  '#60a5fa'],
+          ['Chegou',      counts.arrived,  '#4F8EF7'],
         ].map(([label, val, color]) => (
           <div key={label} style={{
             display:'flex', alignItems:'center', gap:'10px',

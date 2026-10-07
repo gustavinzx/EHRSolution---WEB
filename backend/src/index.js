@@ -22,19 +22,18 @@ const app = express();
 const server = http.createServer(app);
 
 // SECURITY NOTE 2.4: In production, FRONTEND_URL must be set explicitly in the environment.
-// Leaving it unset falls back to localhost which would be insecure in a deployed environment.
-const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+const allowedOrigin = '*';
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigin,
+    origin: '*',
     methods: ["GET", "POST"]
   }
 });
 
 // FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.use(helmet());
-app.use(cors({ origin: allowedOrigin }));
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(compression());
 

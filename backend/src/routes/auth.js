@@ -17,4 +17,9 @@ router.post('/login', loginLimiter, [
   body('password').notEmpty().withMessage('Password is required')
 ], validate, authController.login);
 
+router.post('/driver/login', loginLimiter, [
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').notEmpty().withMessage('Password is required')
+], validate, authController.driverLogin);
+
 module.exports = router;
