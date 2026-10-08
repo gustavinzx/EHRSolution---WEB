@@ -64,10 +64,12 @@ async function evaluateFuelingLog(logId, io) {
 
     // 2. fueling_off_hours
     if (settings.offhours_enabled === 1 && log.started_at) {
-      // Parse in local timezone (America/Sao_Paulo has UTC-3 or UTC-2, let's use the local hour from timestamp adjusting to SP time approx)
-      // JS Date .getHours() uses system local time. It's safer to use localized formatter.
-      const dateStr = log.started_at.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hourCycle: 'h23' });
-      const hour = new Date(dateStr).getHours();
+      const parts = Intl.DateTimeFormat('en-US', { 
+        timeZone: 'America/Sao_Paulo', 
+        hour: 'numeric', 
+        hourCycle: 'h23' 
+      }).formatToParts(new Date(log.started_at));
+      const hour = parseInt(parts.find(p => p.type === 'hour').value, 10);
       
       const startH = settings.offhours_start_hour;
       const endH = settings.offhours_end_hour;
@@ -107,20 +109,19 @@ async function evaluateFuelingLog(logId, io) {
 
     // Insert and Emit Alerts
     for (const alert of alertsToCreate) {
-      const { rows: existing } = await db.query(`
-        SELECT id FROM fleet_alerts WHERE type = $1 AND fueling_log_id = $2 LIMIT 1
-      `, [alert.type, logId]);
-
-      if (existing.length === 0) {
+      try {
         const { rows: inserted } = await db.query(`
           INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model, fueling_log_id)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (type, fueling_log_id) WHERE fueling_log_id IS NOT NULL DO NOTHING
           RETURNING *
         `, [truckId, alert.type, alert.severity, alert.message, log.plate, log.model, logId]);
         
         if (inserted.length > 0 && io) {
           io.emit('newAlert', inserted[0]);
         }
+      } catch (err) {
+        console.error('Error inserting alert:', err);
       }
     }
     
@@ -134,3 +135,4 @@ module.exports = {
   getAlertSettings,
   clearSettingsCache
 };
+

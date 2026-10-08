@@ -575,7 +575,7 @@ exports.reportPumpReading = async (req, res) => {
     if (logIdToEval) {
       try {
         const { evaluateFuelingLog } = require('../services/fuelRules');
-        await evaluateFuelingLog(logIdToEval, req.app.get('io'));
+        await evaluateFuelingLog(logIdToEval, req.io);
       } catch (e) {
         console.error("Rule evaluation failed after pump reading:", e);
       }
@@ -585,3 +585,5 @@ exports.reportPumpReading = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+

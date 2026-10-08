@@ -106,3 +106,4 @@ describe('Migrations and Seed', () => {
     }
   });
 });
+

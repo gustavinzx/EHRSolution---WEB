@@ -39,17 +39,28 @@ const helpStyle = {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const fetchData = async () => {
+    try {
+      const [resSet, resHist] = await Promise.all([
+        client.get('/settings/alerts'),
+        client.get('/settings/alerts/history')
+      ]);
+      setSettings(resSet.data);
+      setHistory(resHist.data);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao carregar configurações');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    client.get('/settings/alerts')
-      .then(res => setSettings(res.data))
-      .catch(err => {
-        console.error(err);
-        toast.error('Erro ao carregar configurações');
-      })
-      .finally(() => setLoading(false));
+    fetchData();
   }, []);
 
   const handleChange = (e) => {
@@ -111,7 +122,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-
+        
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
             <div style={{ background: 'rgba(47,190,181,0.1)', padding: '8px', borderRadius: '8px' }}>
@@ -165,3 +176,9 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+
+
+
+
+
