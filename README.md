@@ -174,3 +174,9 @@ O seed cria automaticamente:
 - Comunicação LoRa / BLE real
 - App mobile
 - Reconhecimento facial real (simulado nos logs como campo `release_method`)
+
+---
+
+## Variáveis de Ambiente e Segurança
+Consulte o `.env.example` para as variáveis necessárias.
+**IMPORTANTE:** Para rodar o `npm run seed` e limpar o banco de dados atual, a variável `ALLOW_SEED_WIPE=true` deve estar definida. **NUNCA** defina isso em produção. O script de seed também abortará se `NODE_ENV=production`.

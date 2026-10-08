@@ -2,12 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Mail, ChevronDown, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import client from '../api/client';
+import useFleetState from '../store/useFleetState';
 
 export default function TopBar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   
+  const storeAlerts = useFleetState(state => state.alerts);
+  const activeAlertsCount = storeAlerts.filter(a => !a.resolved_at).length;
+
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -20,6 +27,15 @@ export default function TopBar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    // Carga inicial apenas se o store ainda estiver vazio
+    if (storeAlerts.length === 0) {
+      client.get('/alerts?status=active').then(res => {
+        useFleetState.setState({ alerts: res.data });
+      }).catch(console.error);
+    }
+  }, [storeAlerts.length]);
 
   return (
     <header style={{
@@ -62,14 +78,24 @@ export default function TopBar() {
         }}>
           <Mail size={16} />
         </button>
-        <button onClick={() => window.location.href = '/alerts'} style={{
+        <button onClick={() => navigate('/alerts')} style={{
           width: '38px', height: '38px', borderRadius: '10px',
           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: '#94a3b8', position: 'relative',
         }}>
           <Bell size={16} />
-          {/* Could conditionally render red dot if there are active alerts */}
+          {activeAlertsCount > 0 && (
+            <span style={{
+              position: 'absolute', top: '-6px', right: '-6px',
+              minWidth: '18px', height: '18px', borderRadius: '9px',
+              background: '#f87171', border: '2px solid #0f1624',
+              color: '#fff', fontSize: '10px', fontWeight: 800,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px'
+            }}>
+              {activeAlertsCount > 99 ? '99+' : activeAlertsCount}
+            </span>
+          )}
         </button>
       </div>
       <div ref={dropdownRef} style={{ position: 'relative' }}>

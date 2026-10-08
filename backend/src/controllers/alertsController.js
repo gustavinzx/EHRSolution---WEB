@@ -4,21 +4,41 @@ const { detectFuelAnomalies } = require('../services/anomalyDetector');
 // GET /api/alerts — return recent alerts (last 24h)
 exports.list = async (req, res) => {
   try {
-    const { truck_id, type, severity, status, start, end } = req.query;
+    let { truck_id, type, severity, status, start, end } = req.query;
     
+    // Default status
+    if (!status) status = 'active';
+
+    // Validações
+    if (truck_id && !/^\d+$/.test(truck_id)) {
+      return res.status(400).json({ error: "truck_id deve ser um número inteiro válido." });
+    }
+    if (severity && !['low', 'medium', 'high', 'critical'].includes(severity)) {
+      return res.status(400).json({ error: "severity inválida. Use low, medium, high ou critical." });
+    }
+    if (status && !['active', 'resolved', 'all'].includes(status)) {
+      return res.status(400).json({ error: "status inválido. Use active, resolved ou all." });
+    }
+    if (start && isNaN(Date.parse(start))) {
+      return res.status(400).json({ error: "start deve ser uma data válida." });
+    }
+    if (end && isNaN(Date.parse(end))) {
+      return res.status(400).json({ error: "end deve ser uma data válida." });
+    }
+
     let query = 'SELECT * FROM fleet_alerts WHERE 1=1';
     const params = [];
     let pIdx = 1;
 
-    if (truck_id) { query += ` AND truck_id = $${pIdx++}`; params.push(truck_id); }
+    if (truck_id) { query += ` AND truck_id = $${pIdx++}`; params.push(parseInt(truck_id)); }
     if (type) { query += ` AND type = $${pIdx++}`; params.push(type); }
     if (severity) { query += ` AND severity = $${pIdx++}`; params.push(severity); }
     
     if (status === 'resolved') { query += ` AND resolved_at IS NOT NULL`; }
     else if (status === 'active') { query += ` AND resolved_at IS NULL`; }
 
-    if (start) { query += ` AND created_at >= $${pIdx++}`; params.push(start); }
-    if (end) { query += ` AND created_at <= $${pIdx++}`; params.push(end); }
+    if (start) { query += ` AND created_at >= $${pIdx++}`; params.push(new Date(start).toISOString()); }
+    if (end) { query += ` AND created_at <= $${pIdx++}`; params.push(new Date(end).toISOString()); }
 
     query += ' ORDER BY created_at DESC LIMIT 100';
 
@@ -109,7 +129,10 @@ exports.resolve = async (req, res) => {
     }
 
     // Identificar gestor a partir do token (authMiddleware)
-    const resolved_by = req.user ? (req.user.name || req.user.email) : 'Gestor Desconhecido';
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuário não autenticado." });
+    }
+    const resolved_by = req.user.name || req.user.email;
     
     const { rows } = await db.query(
       `UPDATE fleet_alerts 

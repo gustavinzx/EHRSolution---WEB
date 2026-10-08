@@ -99,26 +99,29 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, async () => {
+    console.log(`Server running on port ${PORT}`);
 
-  try {
-    const { runMigrations } = require('./migrations/runner');
-    await runMigrations();
-  } catch (err) {
-    console.error('[MIGRATIONS] Schema init failed:', err.message);
-    process.exit(1);
-  }
+    try {
+      const { runMigrations } = require('./migrations/runner');
+      await runMigrations();
+    } catch (err) {
+      console.error('[MIGRATIONS] Schema init failed:', err.message);
+      process.exit(1);
+    }
 
-  // Simulador é só para demonstração: com hardware real ele sobrescreveria posição/combustível.
-  if (process.env.SIMULATOR_ENABLED === 'true') {
-    console.log('[SIM] SIMULATOR_ENABLED=true — dados de telemetria serão simulados.');
-    startSimulator(io);
-  } else {
-    console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
-  }
-  startAnomalyEngine(io);
-});
+    if (process.env.SIMULATOR_ENABLED === 'true') {
+      console.log('[SIM] SIMULATOR_ENABLED=true — dados de telemetria serão simulados.');
+      startSimulator(io);
+    } else {
+      console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
+    }
+    startAnomalyEngine(io);
+  });
+}
+
+module.exports = { app, server, io };
  
  
  

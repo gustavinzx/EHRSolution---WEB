@@ -4,6 +4,11 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_SEED_WIPE !== 'true') {
+    console.error('Seed falhou: Ambiente de produção detectado ou ALLOW_SEED_WIPE=true ausente.');
+    process.exit(1);
+  }
+
   try {
     const { runMigrations } = require('../migrations/runner');
     await runMigrations();
