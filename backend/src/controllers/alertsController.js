@@ -10,14 +10,14 @@ exports.list = async (req, res) => {
     if (!status) status = 'active';
 
     // Validações
-    if (truck_id && isNaN(parseInt(truck_id))) {
+    if (truck_id && !/^\d+$/.test(truck_id)) {
       return res.status(400).json({ error: "truck_id deve ser um número inteiro válido." });
     }
     if (severity && !['low', 'medium', 'high', 'critical'].includes(severity)) {
       return res.status(400).json({ error: "severity inválida. Use low, medium, high ou critical." });
     }
-    if (status && !['active', 'resolved'].includes(status)) {
-      return res.status(400).json({ error: "status inválido. Use active ou resolved." });
+    if (status && !['active', 'resolved', 'all'].includes(status)) {
+      return res.status(400).json({ error: "status inválido. Use active, resolved ou all." });
     }
     if (start && isNaN(Date.parse(start))) {
       return res.status(400).json({ error: "start deve ser uma data válida." });

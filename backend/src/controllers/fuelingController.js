@@ -232,7 +232,12 @@ exports.finishSession = async (req, res) => {
     if (actorType === 'manager' || actorType === 'hardware') {
       levelBeforeStr = req.body?.level_before;
       levelAfterStr = req.body?.level_after;
-      dataSource = actorType;
+      // Reverter para unverified se level_after não for um número válido
+      if (levelAfterStr == null || isNaN(parseFloat(levelAfterStr))) {
+        dataSource = 'unverified';
+      } else {
+        dataSource = actorType;
+      }
     }
 
     const pumpLiters = session.pump_liters ?? null;
@@ -247,8 +252,7 @@ exports.finishSession = async (req, res) => {
 
     if (dataSource !== 'unverified') {
       levelBefore = parseFloat(levelBeforeStr ?? truck.current_level_liters);
-      levelAfter = parseFloat(levelAfterStr ?? capacity);
-      if (!Number.isFinite(levelAfter)) levelAfter = capacity;
+      levelAfter = parseFloat(levelAfterStr);
       levelAfter = Math.min(Math.max(levelAfter, 0), capacity);
       volume = Math.max(levelAfter - levelBefore, 0);
       tankLitersDelta = volume;

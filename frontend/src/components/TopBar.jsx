@@ -12,7 +12,8 @@ export default function TopBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   
-  const [activeAlertsCount, setActiveAlertsCount] = useState(0);
+  const storeAlerts = useFleetState(state => state.alerts);
+  const activeAlertsCount = storeAlerts.filter(a => !a.resolved_at).length;
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -28,22 +29,13 @@ export default function TopBar() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    client.get('/alerts?status=active').then(res => {
-      if (isMounted) setActiveAlertsCount(res.data.length);
-    }).catch(console.error);
-    
-    return () => { isMounted = false; };
-  }, []);
-
-  useEffect(() => {
-    const unsub = useFleetState.subscribe((state) => state.lastAlert, (newAlert) => {
-      if (newAlert) {
-        setActiveAlertsCount(prev => prev + 1);
-      }
-    });
-    return unsub;
-  }, []);
+    // Carga inicial apenas se o store ainda estiver vazio
+    if (storeAlerts.length === 0) {
+      client.get('/alerts?status=active').then(res => {
+        useFleetState.setState({ alerts: res.data });
+      }).catch(console.error);
+    }
+  }, [storeAlerts.length]);
 
   return (
     <header style={{

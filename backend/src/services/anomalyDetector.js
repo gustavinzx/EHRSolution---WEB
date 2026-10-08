@@ -44,10 +44,17 @@ async function detectFuelAnomalies(io) {
 
       // Um abastecimento legítimo recupera o alerta aberto daquele caminhão.
       if (parseFloat(row.current_level) >= cap * 0.9) {
-        const { rows: logs } = await db.query(`SELECT data_source FROM fueling_logs WHERE truck_id=$1 ORDER BY timestamp DESC LIMIT 1`, [row.truck_id]);
+        const { rows: logs } = await db.query(`
+          SELECT timestamp, data_source FROM fueling_logs 
+          WHERE truck_id=$1 AND timestamp >= NOW() - INTERVAL '30 minutes' 
+          ORDER BY timestamp DESC LIMIT 1
+        `, [row.truck_id]);
         if (logs.length > 0 && ['hardware', 'manager'].includes(logs[0].data_source)) {
-          await db.query(`UPDATE fleet_alerts SET resolved_at = NOW()
-            WHERE truck_id = $1 AND type = 'suspicious_fuel_drop' AND resolved_at IS NULL`, [row.truck_id]);
+          const res = await db.query(`
+            UPDATE fleet_alerts SET resolved_at = NOW(), resolution_note = 'Resolvido automaticamente por abastecimento validado', resolved_by = 'Sistema'
+            WHERE truck_id = $1 AND type = 'suspicious_fuel_drop' AND resolved_at IS NULL AND created_at <= $2
+            RETURNING id, created_at
+          `, [row.truck_id, logs[0].timestamp]);
         }
         continue;
       }
