@@ -90,22 +90,7 @@ async function evaluateFuelingLog(logId, io) {
       }
     }
 
-    // 3. consumption_anomaly
-    // To calculate we need distance since last fueling
-    const { rows: prevLogs } = await db.query(`
-      SELECT timestamp FROM fueling_logs 
-      WHERE truck_id = $1 AND timestamp < $2 
-      ORDER BY timestamp DESC LIMIT 1
-    `, [truckId, log.timestamp]);
-    
-    if (prevLogs.length > 0 && log.pump_liters > 0) {
-      const prevTs = prevLogs[0].timestamp;
-      // Unfortunately we don't have odometer. Can we estimate distance via telemetry?
-      // Since we can't reliably get distance from raw lat/lng easily without PostGIS,
-      // and we are requested "inspecione primeiro quais dados existem",
-      // "Se NÃO houver dado suficiente, não invente: pule esta regra e diga isso explicitamente no relatório final."
-      // Since there is no odometer field in trucks nor telemetry_logs, we must skip.
-    }
+    // 3. consumption_anomaly: pendente (requer odômetro)
 
     // Insert and Emit Alerts
     for (const alert of alertsToCreate) {

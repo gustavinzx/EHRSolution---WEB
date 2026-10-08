@@ -79,43 +79,9 @@ async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}) {
 // ─── Fueling Logs ────────────────────────────────────────────────────────────
 exports.list = async (req, res) => {
   try {
-    const { truck_id, driver_id, start, end, dataSource, onlyDivergence } = req.query;
-    let query = `
-      SELECT f.*, d.name as driver_name, t.plate, t.model,
-             COALESCE(fs.name, f.station_name) as station_name,
-             CASE 
-               WHEN f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 
-               THEN ABS(f.pump_liters - f.tank_liters_delta) 
-               ELSE NULL 
-             END as divergence_liters,
-             CASE 
-               WHEN f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 
-               THEN (ABS(f.pump_liters - f.tank_liters_delta) / f.pump_liters * 100)
-               ELSE NULL 
-             END as divergence_pct
-      FROM fueling_logs f
-      LEFT JOIN drivers d ON f.driver_id = d.id
-      JOIN trucks t ON f.truck_id = t.id
-      LEFT JOIN fuel_stations fs ON f.station_id = fs.id
-      WHERE 1=1
-    `;
-    const values = [];
-    let idx = 1;
-    if (truck_id)  { query += ` AND f.truck_id = $${idx++}`;   values.push(truck_id); }
-    if (driver_id) { query += ` AND f.driver_id = $${idx++}`;  values.push(driver_id); }
-    if (dataSource) { query += ` AND f.data_source = $${idx++}`; values.push(dataSource); }
-    if (onlyDivergence === 'true') {
-      // Need to filter where divergence > divergence_pct setting, or just > 0.
-      // The prompt asks to highlight based on setting, but the filter says "Somente com divergência". We will use > 0.
-      query += ` AND (
-        f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 AND 
-        ABS(f.pump_liters - f.tank_liters_delta) > 0
-      )`;
-    }
-    if (start)     { query += ` AND f.timestamp >= $${idx++}::date`; values.push(start); }
-    // inclui o dia final inteiro
-    if (end)       { query += ` AND f.timestamp < ($${idx++}::date + INTERVAL '1 day')`; values.push(end); }
-    query += " ORDER BY f.timestamp DESC LIMIT 100";
+    const { buildFuelingLogsQuery } = require('../services/fuelingQuery');
+    let { query, values } = await buildFuelingLogsQuery(req.query);
+    query += " LIMIT 100";
     const { rows } = await db.query(query, values);
     res.json(rows);
   } catch (err) {
@@ -333,7 +299,6 @@ exports.finishSession = async (req, res) => {
     }
 
     emitSession(req, await loadSession(id));
-    res.json({ success: true, volume_liters: volume, duration_minutes: durationMin.toFixed(1) });
     
     // Evaluate rules
     try {
@@ -342,6 +307,8 @@ exports.finishSession = async (req, res) => {
     } catch (e) {
       console.error("Rule evaluation failed:", e);
     }
+
+    res.json({ success: true, volume_liters: volume, duration_minutes: durationMin.toFixed(1) });
   } catch (err) {
     console.error("Finish session error:", err);
     res.status(500).json({ error: "Internal server error" });

@@ -51,15 +51,37 @@ exports.updateAlertSettings = async (req, res) => {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
-      for (const [key, value] of Object.entries(updates)) {
-        await client.query(`
-          UPDATE alert_settings 
-          SET value_num = $1, updated_by = $2, updated_at = NOW() 
-          WHERE key = $3
-        `, [value, updatedBy, key]);
-      }
       
-      // Audit removed (requires truck_id)
+      const keys = Object.keys(updates);
+      if (keys.length > 0) {
+        // lock existing rows
+        const { rows: currentRows } = await client.query(
+          `SELECT key, value_num FROM alert_settings WHERE key = ANY($1) FOR UPDATE`,
+          [keys]
+        );
+        const currentMap = {};
+        for (const r of currentRows) {
+          currentMap[r.key] = parseFloat(r.value_num);
+        }
+
+        for (const [key, value] of Object.entries(updates)) {
+          const newVal = parseFloat(value);
+          const oldVal = currentMap[key];
+          
+          if (oldVal !== undefined && oldVal !== newVal) {
+            await client.query(`
+              UPDATE alert_settings 
+              SET value_num = $1, updated_by = $2, updated_at = NOW() 
+              WHERE key = $3
+            `, [newVal, updatedBy, key]);
+            
+            await client.query(`
+              INSERT INTO alert_settings_history (key, old_value, new_value, changed_by)
+              VALUES ($1, $2, $3, $4)
+            `, [key, oldVal, newVal, updatedBy]);
+          }
+        }
+      }
       
       await client.query('COMMIT');
     } catch (e) {
