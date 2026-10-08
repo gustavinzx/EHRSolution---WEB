@@ -186,7 +186,6 @@ describe('Web Hardening Tests', () => {
     await db.query(`INSERT INTO fueling_logs (truck_id, data_source, timestamp) VALUES ($1, 'hardware', NOW() - INTERVAL '2 minutes')`, [truckId]);
 
     const { rows: testLogs } = await db.query(`SELECT data_source, timestamp FROM fueling_logs WHERE truck_id = $1 ORDER BY timestamp DESC`, [truckId]);
-    console.log("DB Logs in test:", testLogs);
 
     // Run detector again
     await detectFuelAnomalies();

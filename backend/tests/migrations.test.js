@@ -61,7 +61,6 @@ describe('Migrations and Seed', () => {
       
       // Rodar novamente, o runner deve calcular o baseline e salvar no banco SEM falhar,
       // mesmo que o arquivo atual esteja diferente (porque a política de baseline assume o atual se for NULL).
-      // Wait, o runner pega o checksum atual do arquivo e guarda no banco.
       await expect(runMigrations()).resolves.not.toThrow();
 
       const { rows: mRows2 } = await db.query(`SELECT checksum FROM migrations WHERE name = '999_bad.sql'`);
@@ -74,7 +73,29 @@ describe('Migrations and Seed', () => {
     }
   });
 
-  it('8. seed.js recusa rodar em production', () => {
+  it('8. Teste de upgrade de banco ANTIGO (tabela migrations sem checksum)', async () => {
+    // Dropar a coluna checksum simulando um banco legado
+    await db.query(`ALTER TABLE migrations DROP COLUMN IF EXISTS checksum`);
+    
+    // A tabela agora só tem id, name, executed_at, e possui os registros antigos
+    
+    // Rodar runner
+    await expect(runMigrations()).resolves.not.toThrow();
+
+    // Validar (b) recria a coluna
+    const { rows: cols } = await db.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'migrations' AND column_name = 'checksum'
+    `);
+    expect(cols.length).toBe(1);
+
+    // Validar (c) grava o checksum baseline em todas as antigas
+    const { rows: mRows } = await db.query(`SELECT checksum FROM migrations`);
+    expect(mRows.length).toBeGreaterThan(0);
+    expect(mRows.every(m => m.checksum !== null)).toBe(true);
+  });
+
+  it('9. seed.js recusa rodar em production', () => {
     try {
       execSync('node src/seed/seed.js', { env: { ...process.env, NODE_ENV: 'production', ALLOW_SEED_WIPE: 'true' }, stdio: 'pipe' });
       // Should not reach here

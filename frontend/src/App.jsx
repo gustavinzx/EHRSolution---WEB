@@ -14,6 +14,7 @@ import ReportsPage      from './pages/ReportsPage';
 import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
 import AlertsPage       from './pages/AlertsPage';
+import SettingsPage     from './pages/SettingsPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
 import useFleetState    from './store/useFleetState';
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/stations"           element={<ProtectedLayout><StationsPage /></ProtectedLayout>} />
         <Route path="/reports"            element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
         <Route path="/alerts"             element={<ProtectedLayout><AlertsPage /></ProtectedLayout>} />
+        <Route path="/settings"           element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

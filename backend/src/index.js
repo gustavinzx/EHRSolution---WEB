@@ -70,6 +70,7 @@ app.use('/api/fleet', generalLimiter, fleetRoutes);
 app.use('/api/fueling', generalLimiter, fuelingRoutes);
 app.use('/api/reports', generalLimiter, authMiddleware, reportsRoutes);
 app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'));
+app.use('/api/settings', generalLimiter, authMiddleware, require('./routes/settings'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

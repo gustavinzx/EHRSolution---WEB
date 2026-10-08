@@ -5,6 +5,8 @@ import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
+import { getAlertMeta } from '../utils/alertMapping';
+
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleString('pt-BR');
@@ -82,7 +84,8 @@ export default function AlertsPage() {
             <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Nenhum alerta encontrado com estes filtros.</div>
           ) : alerts.map(a => {
             const isResolved = !!a.resolved_at;
-            let icon = AlertTriangle;
+            const meta = getAlertMeta(a.type);
+            let icon = meta.icon;
             let color = '#fbbf24';
             if (a.severity === 'critical') { icon = ShieldAlert; color = '#f87171'; }
             if (isResolved) { icon = CheckCircle; color = '#34d399'; }
@@ -102,7 +105,7 @@ export default function AlertsPage() {
                     </div>
                     <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
                       <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Veículo: {a.plate}</span>
-                      <span>Tipo: {a.type}</span>
+                      <span>Tipo: {meta.label}</span>
                     </div>
                   </div>
                   {!isResolved && (

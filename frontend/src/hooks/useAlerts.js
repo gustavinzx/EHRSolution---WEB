@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import client from '../api/client';
 
+import useFleetState from '../store/useFleetState';
+
 export function useAlerts(filters = {}) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,7 @@ export function useAlerts(filters = {}) {
   const resolveAlert = async (id, resolution_note) => {
     try {
       await client.patch(`/alerts/${id}/resolve`, { resolution_note });
+      useFleetState.setState(s => ({ alerts: s.alerts.filter(a => a.id !== id) }));
       await fetchAlerts();
       return true;
     } catch (err) {

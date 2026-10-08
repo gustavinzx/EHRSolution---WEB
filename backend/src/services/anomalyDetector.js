@@ -155,11 +155,21 @@ async function detectUnauthorizedStationFueling(io) {
   }
 }
 
+let isRunning = false;
+
 function startAnomalyEngine(io) {
   console.log("[SECURITY] Iniciando Motor de Anomalias em background (24/7)...");
   setInterval(async () => {
-    await detectFuelAnomalies(io);
-    await detectUnauthorizedStationFueling(io);
+    if (isRunning) return;
+    isRunning = true;
+    try {
+      await detectFuelAnomalies(io);
+      await detectUnauthorizedStationFueling(io);
+    } catch (err) {
+      console.error("[SECURITY] Erro no loop de anomalias:", err);
+    } finally {
+      isRunning = false;
+    }
   }, 5000); // Roda a cada 5 segundos
 }
 

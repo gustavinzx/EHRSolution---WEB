@@ -135,7 +135,7 @@ export default function TopBar() {
             </div>
             <div style={{ padding: '4px' }}>
               <button onClick={() => { setDropdownOpen(false); toast('Perfil em breve'); }} style={dropdownBtnStyle}><User size={14} /> Meu Perfil</button>
-              <button onClick={() => { setDropdownOpen(false); toast('Configurações em breve'); }} style={dropdownBtnStyle}><Settings size={14} /> Configurações</button>
+              <button onClick={() => { setDropdownOpen(false); navigate('/settings'); }} style={dropdownBtnStyle}><Settings size={14} /> Configurações</button>
             </div>
             <div style={{ padding: '4px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <button onClick={logout} style={{...dropdownBtnStyle, color: '#f87171'}}><LogOut size={14} /> Sair</button>
