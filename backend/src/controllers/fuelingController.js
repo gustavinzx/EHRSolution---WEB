@@ -79,10 +79,20 @@ async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}) {
 // ─── Fueling Logs ────────────────────────────────────────────────────────────
 exports.list = async (req, res) => {
   try {
-    const { truck_id, driver_id, start, end } = req.query;
+    const { truck_id, driver_id, start, end, dataSource, onlyDivergence } = req.query;
     let query = `
       SELECT f.*, d.name as driver_name, t.plate, t.model,
-             COALESCE(fs.name, f.station_name) as station_name
+             COALESCE(fs.name, f.station_name) as station_name,
+             CASE 
+               WHEN f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 
+               THEN ABS(f.pump_liters - f.tank_liters_delta) 
+               ELSE NULL 
+             END as divergence_liters,
+             CASE 
+               WHEN f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 
+               THEN (ABS(f.pump_liters - f.tank_liters_delta) / f.pump_liters * 100)
+               ELSE NULL 
+             END as divergence_pct
       FROM fueling_logs f
       LEFT JOIN drivers d ON f.driver_id = d.id
       JOIN trucks t ON f.truck_id = t.id
@@ -93,6 +103,15 @@ exports.list = async (req, res) => {
     let idx = 1;
     if (truck_id)  { query += ` AND f.truck_id = $${idx++}`;   values.push(truck_id); }
     if (driver_id) { query += ` AND f.driver_id = $${idx++}`;  values.push(driver_id); }
+    if (dataSource) { query += ` AND f.data_source = $${idx++}`; values.push(dataSource); }
+    if (onlyDivergence === 'true') {
+      // Need to filter where divergence > divergence_pct setting, or just > 0.
+      // The prompt asks to highlight based on setting, but the filter says "Somente com divergência". We will use > 0.
+      query += ` AND (
+        f.pump_liters IS NOT NULL AND f.tank_liters_delta IS NOT NULL AND f.pump_liters > 0 AND 
+        ABS(f.pump_liters - f.tank_liters_delta) > 0
+      )`;
+    }
     if (start)     { query += ` AND f.timestamp >= $${idx++}::date`; values.push(start); }
     // inclui o dia final inteiro
     if (end)       { query += ` AND f.timestamp < ($${idx++}::date + INTERVAL '1 day')`; values.push(end); }
@@ -263,12 +282,12 @@ exports.finishSession = async (req, res) => {
       levelBefore = parseFloat(truck.current_level_liters);
     }
 
-    await db.query(
+    const { rows: insertedLogs } = await db.query(
       `INSERT INTO fueling_logs
          (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
           station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
           pump_liters, tank_liters_delta, data_source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
       [id, session.driver_id, session.truck_id, truck.lat, truck.lng,
        levelBefore, levelAfter, session.release_method || "facial",
        session.station_id, truck.station_name || null,
@@ -285,10 +304,10 @@ exports.finishSession = async (req, res) => {
 
     if (dataSource === 'unverified') {
       const { rows: alerts } = await db.query(
-        `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
-         VALUES ($1, 'unverified_fueling', 'high', 'Abastecimento finalizado sem medição de hardware (driver).', $2, $3)
+        `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model, fueling_log_id)
+         VALUES ($1, 'unverified_fueling', 'high', 'Abastecimento finalizado sem medição de hardware (driver).', $2, $3, $4)
          RETURNING *`,
-        [truck.id, truck.plate, truck.model]
+        [truck.id, truck.plate, truck.model, insertedLogs[0].id]
       );
       if (req.io && alerts.length > 0) req.io.emit('newAlert', alerts[0]);
     }
@@ -315,6 +334,14 @@ exports.finishSession = async (req, res) => {
 
     emitSession(req, await loadSession(id));
     res.json({ success: true, volume_liters: volume, duration_minutes: durationMin.toFixed(1) });
+    
+    // Evaluate rules
+    try {
+      const { evaluateFuelingLog } = require('../services/fuelRules');
+      await evaluateFuelingLog(insertedLogs[0].id, req.io);
+    } catch (e) {
+      console.error("Rule evaluation failed:", e);
+    }
   } catch (err) {
     console.error("Finish session error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -537,11 +564,22 @@ exports.reportPumpReading = async (req, res) => {
 
     await db.query("UPDATE fueling_sessions SET pump_liters = $1 WHERE id = $2", [val, id]);
     
+    let logIdToEval = null;
     if (session.status === 'completed') {
-      await db.query("UPDATE fueling_logs SET pump_liters = $1 WHERE session_id = $2", [val, id]);
+      const { rows: updatedLogs } = await db.query("UPDATE fueling_logs SET pump_liters = $1 WHERE session_id = $2 RETURNING id", [val, id]);
+      if (updatedLogs.length > 0) logIdToEval = updatedLogs[0].id;
     }
     
     res.json({ success: true, pump_liters: val });
+    
+    if (logIdToEval) {
+      try {
+        const { evaluateFuelingLog } = require('../services/fuelRules');
+        await evaluateFuelingLog(logIdToEval, req.app.get('io'));
+      } catch (e) {
+        console.error("Rule evaluation failed after pump reading:", e);
+      }
+    }
   } catch (err) {
     console.error("Pump reading error:", err);
     res.status(500).json({ error: "Internal server error" });

@@ -99,7 +99,7 @@ export default function FuelingPage() {
 
   const handleApplyFilters = () => { refetch(filters); };
   const handleClearFilters = () => {
-    const empty = { truckId:'', driverId:'', start:'', end:'' };
+    const empty = { truckId:'', driverId:'', start:'', end:'', dataSource: '', onlyDivergence: false };
     setFilters(empty);
     refetch(empty);
   };
@@ -191,7 +191,7 @@ export default function FuelingPage() {
             <Filter size={18} color="var(--teal)"/> Filtros do Histórico
           </h2>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto auto', gap: '12px', alignItems: 'end', marginBottom: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr) auto auto', gap: '12px', alignItems: 'end', marginBottom: '24px' }}>
             <div>
               <label style={{ display:'block', fontSize:'11px', color:'#94a3b8', marginBottom:'6px' }}>Caminhão</label>
               <select value={filters.truckId} onChange={e=>setFilters({...filters, truckId:e.target.value})} style={{...inputStyle, width:'100%'}}>
@@ -205,6 +205,22 @@ export default function FuelingPage() {
                 <option value="">Todos</option>
                 {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
+            </div>
+            <div>
+              <label style={{ display:'block', fontSize:'11px', color:'#94a3b8', marginBottom:'6px' }}>Origem</label>
+              <select value={filters.dataSource || ''} onChange={e=>setFilters({...filters, dataSource:e.target.value})} style={{...inputStyle, width:'100%'}}>
+                <option value="">Todas</option>
+                <option value="hardware">Hardware</option>
+                <option value="manager">Gestor</option>
+                <option value="unverified">Não Verificado</option>
+                <option value="legacy">Legado</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', height: '38px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={filters.onlyDivergence || false} onChange={e=>setFilters({...filters, onlyDivergence: e.target.checked})} />
+                Com divergência
+              </label>
             </div>
             <div>
               <label style={{ display:'block', fontSize:'11px', color:'#94a3b8', marginBottom:'6px' }}>Data Inicial</label>

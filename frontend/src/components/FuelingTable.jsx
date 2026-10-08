@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import client from '../api/client';
 
 const METHOD_BADGE = {
-  facial:       { label: 'Facial',       bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
-  ble_fallback: { label: 'BLE Fallback', bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)' },
+  facial:           { label: 'Facial',           bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
+  ble_fallback:     { label: 'BLE Fallback',     bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)' },
+  manager_override: { label: 'Override Gestor',  bg: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'rgba(248,113,113,0.3)' },
+};
+
+const DATA_SOURCE_BADGE = {
+  hardware:   { label: 'Hardware',       bg: 'rgba(52,211,153,0.15)', color: '#34d399', border: 'rgba(52,211,153,0.3)' },
+  manager:    { label: 'Gestor',         bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
+  unverified: { label: 'Não Verificado', bg: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'rgba(248,113,113,0.3)' },
+  legacy:     { label: 'Legado',         bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', border: 'rgba(148,163,184,0.3)' },
 };
 
 export default function FuelingTable({ logs = [] }) {
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    client.get('/settings/alerts').then(res => setSettings(res.data)).catch(() => {});
+  }, []);
+
   if (!logs.length) return (
     <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
       <div style={{ fontSize: '36px', marginBottom: '12px' }}>⛽</div>
@@ -13,59 +29,71 @@ export default function FuelingTable({ logs = [] }) {
     </div>
   );
 
+  const formatVal = (v) => v != null ? parseFloat(v).toFixed(1) : <span title="sem medição">—</span>;
+
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            {['#', 'Data / Hora', 'Motorista', 'Caminhão', 'Coordenadas', 'Antes → Depois', 'Método'].map(h => (
-              <th key={h} style={{ textAlign: h === 'Antes → Depois' ? 'right' : 'left' }}>{h}</th>
+            {['#', 'Data / Hora', 'Motorista', 'Caminhão', 'Bomba (L)', 'Tanque (L)', 'Divergência (L / %)', 'Origem', 'Liberação'].map(h => (
+              <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {logs.map(log => {
-            const m = METHOD_BADGE[log.release_method] || METHOD_BADGE.facial;
+          {logs.map((log) => {
+            const mBadge = METHOD_BADGE[log.release_method] || { label: log.release_method, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'transparent' };
+            const dsBadge = DATA_SOURCE_BADGE[log.data_source] || DATA_SOURCE_BADGE.legacy;
+            
+            let divColor = null;
+            let DivIcon = null;
+            let divText = formatVal(log.divergence_liters);
+            
+            if (log.divergence_pct != null && settings) {
+              const pct = parseFloat(log.divergence_pct);
+              divText = `${parseFloat(log.divergence_liters).toFixed(1)} L (${pct.toFixed(1)}%)`;
+              if (pct > settings.divergence_critical_pct) {
+                divColor = '#f87171';
+                DivIcon = ShieldAlert;
+              } else if (pct > settings.divergence_pct) {
+                divColor = '#fbbf24';
+                DivIcon = AlertTriangle;
+              }
+            }
+
             return (
-              <tr key={log.id}>
-                <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-                  #{log.id}
-                </td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: divColor ? `${divColor}11` : 'transparent' }}>
+                <td style={{ padding: '12px 16px', color: '#94a3b8', fontFamily: 'monospace', fontSize: '12px' }}>#{log.id}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
                   {new Date(log.timestamp).toLocaleString('pt-BR')}
                 </td>
-                <td style={{ fontWeight: 500 }}>
+                <td style={{ padding: '12px 16px', fontWeight: 500, fontSize: '13px', color: '#fff' }}>
                   {log.driver_name || `ID ${log.driver_id}`}
                 </td>
-                <td>
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: '12px',
-                    background: 'rgba(56,189,248,0.08)', color: 'var(--teal)',
-                    padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(56,189,248,0.2)',
-                  }}>
-                    {log.truck_plate || `ID ${log.truck_id}`}
+                <td style={{ padding: '12px 16px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '12px', background: 'rgba(47,190,181,0.1)', color: '#2FBEB5', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(47,190,181,0.2)' }}>
+                    {log.plate || `ID ${log.truck_id}`}
                   </span>
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
-                  {log.lat != null ? (
-                    <a href={`https://www.google.com/maps/search/?api=1&query=${log.lat},${log.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(56,189,248,0.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.2)' }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                      {Number(log.lat).toFixed(4)}, {Number(log.lng).toFixed(4)}
-                    </a>
-                  ) : '—'}
+                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: '#fff' }}>
+                  {formatVal(log.pump_liters)}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{log.level_before}L</span>
-                  <span style={{ color: 'var(--text-muted)', margin: '0 6px' }}>→</span>
-                  <span style={{ color: '#34d399', fontWeight: 600 }}>{log.level_after}L</span>
+                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: '#fff' }}>
+                  {formatVal(log.tank_liters_delta)}
                 </td>
-                <td>
-                  <span style={{
-                    fontSize: '11px', fontWeight: 600, padding: '3px 10px',
-                    borderRadius: '20px', letterSpacing: '0.3px',
-                    background: m.bg, color: m.color, border: `1px solid ${m.border}`,
-                  }}>
-                    {m.label}
+                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: divColor || '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {DivIcon && <DivIcon size={14} />}
+                  {divText}
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: dsBadge.bg, color: dsBadge.color, border: `1px solid ${dsBadge.border}` }}>
+                    {dsBadge.label}
+                  </span>
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: mBadge.bg, color: mBadge.color, border: `1px solid ${mBadge.border}` }}>
+                    {mBadge.label}
                   </span>
                 </td>
               </tr>

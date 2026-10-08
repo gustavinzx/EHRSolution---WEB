@@ -14,6 +14,8 @@ import toast from 'react-hot-toast';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+import { getAlertMeta } from '../utils/alertMapping';
+
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -29,16 +31,6 @@ const SEVERITY_CONFIG = {
   high:     { color: '#fbbf24', bg: 'rgba(251,191,36,0.15)',  border: 'rgba(251,191,36,0.4)',  label: 'ALTO' },
   medium:   { color: '#fb923c', bg: 'rgba(251,146,60,0.15)',  border: 'rgba(251,146,60,0.4)',  label: 'MÉDIO' },
   low:      { color: '#4F8EF7', bg: 'rgba(96,165,250,0.15)',  border: 'rgba(96,165,250,0.4)',  label: 'BAIXO' },
-};
-
-const ALERT_TYPE_LABEL = {
-  suspicious_fuel_drop: 'Queda Suspeita de Combustível',
-  unauthorized_station: 'Posto Não Autorizado',
-  security_tamper: 'Violação Física da Trava',
-  security_unauthorized_movement: 'Movimento Não Autorizado',
-  security_theft_signal: 'Sinal de Roubo',
-  security_emergency_button: 'Botão de Emergência',
-  security_unauthorized_fueling_attempt: 'Tentativa de Abastecimento Não Autorizada',
 };
 
 const SESSION_STATUS_CONFIG = {
@@ -81,7 +73,7 @@ function Card({ children, style }) {
 
 function AlertRow({ alert, onResolve }) {
   const cfg = SEVERITY_CONFIG[alert.severity] || SEVERITY_CONFIG.high;
-  const typeLabel = ALERT_TYPE_LABEL[alert.type] || alert.type;
+  const typeLabel = getAlertMeta(alert.type).label;
   const isResolved = !!alert.resolved_at;
 
   return (
