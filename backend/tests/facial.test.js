@@ -51,7 +51,7 @@ describe('Facial & Deactivation Tests', () => {
   it('enroll ok com mock', async () => {
     const res = await request(app).post('/api/drivers/' + driverId + '/face/enroll')
       .set('Authorization', 'Bearer ' + tokenManager)
-      .send({ image_base64: 'base64_image_data', consent: true, consent_version: 'v1' });
+      .send({ image_base64: Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from('MATCH')]).toString('base64'), consent: true, consent_version: 'v1' });
     expect(res.status).toBe(200);
     expect(res.body.face_enrolled).toBe(true);
     expect(res.body.face_template_ref).toContain('mock_template_');
@@ -263,6 +263,7 @@ describe('Facial & Deactivation Tests', () => {
     expect(atts.rows.length).toBe(0);
   });
 });
+
 
 
 

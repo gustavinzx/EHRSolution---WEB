@@ -60,12 +60,13 @@ function canTouchSession(req, session) {
   return false;
 }
 
-async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}, actorType = 'driver') {
+async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}, actorType = null) {
   if (releaseMethod === 'manager_override' && actorType !== 'manager') return null;
   const { rows } = await db.query(
     `UPDATE fueling_sessions
         SET status='authorized', authorized_at=NOW(), release_method=$2,
             facial_consumed_at = CASE WHEN $4 = 'facial' THEN NOW() ELSE facial_consumed_at END,
+            ble_consumed_at = CASE WHEN $4 = 'ble_fallback' THEN NOW() ELSE ble_consumed_at END,
             expires_at = NOW() + INTERVAL '${SESSION_TTL_MIN} minutes',
             metadata = COALESCE(metadata,'{}'::jsonb) || $3::jsonb
       WHERE id=$1 AND status IN ('requested') RETURNING *`,
@@ -202,7 +203,7 @@ exports.authorizeSession = async (req, res) => {
     }
 
     const method = req.actor.type === "manager" ? "manager_override" : (session.release_method || "facial");
-    const updated = await authorizeAndUnlock(id, method, { authorized_by: req.actor.type, authorized_by_id: req.actor.id });
+    const updated = await authorizeAndUnlock(id, method, { authorized_by: req.actor.type, authorized_by_id: req.actor.id }, req.actor.type);
     if (!updated) return res.status(409).json({ error: "Sessão já foi processada" });
       if (effectiveMethod === 'ble_fallback') {
         const al = await db.query(`INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model) 
@@ -468,9 +469,7 @@ exports.emergencyUnlockSession = async (req, res) => {
     if (!session || session.status !== "requested") {
       return res.status(404).json({ error: "Sessão não encontrada ou já processada" });
     }
-    const updated = await authorizeAndUnlock(session.id, "manager_override", {
-      override_reason: reason, authorized_by: "manager", authorized_by_id: req.actor.id,
-    });
+    const updated = await authorizeAndUnlock(session.id, "manager_override", { override_reason: reason, authorized_by: "manager", authorized_by_id: req.actor.id }, req.actor.type);
     if (!updated) return res.status(409).json({ error: "Sessão já foi processada" });
     await recordOverride(req, session.truck_id, session.id, reason);
     const full = await loadSession(session.id);
@@ -516,9 +515,7 @@ exports.emergencyUnlockTruck = async (req, res) => {
       sessionId = rows[0].id;
     }
 
-    const updated = await authorizeAndUnlock(sessionId, "manager_override", {
-      override_reason: reason, authorized_by: "manager", authorized_by_id: req.actor.id,
-    });
+    const updated = await authorizeAndUnlock(sessionId, "manager_override", { override_reason: reason, authorized_by: "manager", authorized_by_id: req.actor.id }, req.actor.type);
     if (!updated) return res.status(409).json({ error: "Sessão já foi processada" });
     await recordOverride(req, truckId, sessionId, reason);
     const full = await loadSession(sessionId);
@@ -743,6 +740,8 @@ exports.bleConfirmed = async (req, res) => {
 
 
 exports.emitSession = emitSession;
-exports.cancelSession = async (req, res) => {}; // wait I can export loadSession
+
 exports.loadSession = loadSession;
+
+
 
