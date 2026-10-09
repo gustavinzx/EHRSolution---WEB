@@ -80,7 +80,7 @@ export default function DriversPage() {
             <span style={{ fontSize: '24px', fontWeight: 800, color: '#2FBEB5' }}>{drivers.filter(d => d.is_active).length}</span>
             <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Ativos</span>
           </div>
-          <button
+          {user?.role !== 'auditor' && <button
             onClick={() => { setEditingDriver(null); setIsModalOpen(true); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '10px',
@@ -94,7 +94,7 @@ export default function DriversPage() {
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <UserPlus size={18} /> Cadastrar Motorista
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -155,11 +155,11 @@ export default function DriversPage() {
                     {d.email || d.phone || 'Sem contato'}
                   </div>
                 </div>
-                <button onClick={() => { setEditingDriver(d); setIsModalOpen(true); }} 
+                {user?.role !== 'auditor' && <button onClick={() => { setEditingDriver(d); setIsModalOpen(true); }} 
                         style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         title="Editar Perfil">
                   <Edit2 size={16} />
-                </button>
+                </button>}
               </div>
 
               {/* Card Body (Stats & Vehicles) */}
@@ -177,11 +177,11 @@ export default function DriversPage() {
                     </div>
                   </div>
                   {d.face_enrolled ? (
-                    <button onClick={() => window.confirm('Revogar biometria deste motorista?') && removeFace(d.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }} title="Revogar Biometria">
+                    user?.role !== 'auditor' && <button onClick={() => window.confirm('Revogar biometria deste motorista?') && removeFace(d.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }} title="Revogar Biometria">
                       <Trash2 size={14} />
                     </button>
                   ) : (
-                    <button onClick={() => setEnrollDriverTarget(d)} style={{ background: 'rgba(47,190,181,0.1)', border: '1px solid rgba(47,190,181,0.2)', color: '#2FBEB5', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                    user?.role !== 'auditor' && <button onClick={() => setEnrollDriverTarget(d)} style={{ background: 'rgba(47,190,181,0.1)', border: '1px solid rgba(47,190,181,0.2)', color: '#2FBEB5', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                       Cadastrar
                     </button>
                   )}
@@ -225,7 +225,7 @@ export default function DriversPage() {
 
               {/* Card Footer (Quick Actions) */}
               <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.04)', padding: '12px' }}>
-                <button 
+                {user?.role !== 'auditor' && <button 
                   onClick={() => { setEditingDriver(d); setIsModalOpen(true); }}
                   style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '8px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px', transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#fff'; }}
@@ -233,11 +233,11 @@ export default function DriversPage() {
                 >
                   <Edit2 size={14} />
                   Editar Cadastro
-                </button>
+                </button>}
                 
                 <div style={{ width: '1px', background: 'rgba(255,255,255,0.04)', margin: '0 12px' }} />
                 
-                <button 
+                {user?.role !== 'auditor' && <button 
                   onClick={() => handleToggleActive(d)} 
                   style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', padding: '8px', background: 'transparent', border: 'none', color: d.is_active ? '#f87171' : '#34d399', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '8px', transition: 'all 0.2s' }}
                   onMouseEnter={e => e.currentTarget.style.background = d.is_active ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)'}
@@ -245,9 +245,8 @@ export default function DriversPage() {
                 >
                   {d.is_active ? <UserX size={14}/> : <UserCheck size={14}/>}
                   {d.is_active ? 'Bloquear Acesso' : 'Desbloquear'}
-                </button>
+                </button>}
               </div>
-
             </div>
           ))}
         </div>
@@ -268,6 +267,11 @@ export default function DriversPage() {
     </div>
   );
 }
+
+
+
+
+
 
 
 

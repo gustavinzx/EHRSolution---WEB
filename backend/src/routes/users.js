@@ -19,4 +19,9 @@ router.patch('/:id', authMiddleware, requireRole, [
   body('is_active').optional().isBoolean()
 ], validate, usersController.update);
 
+router.patch('/:id/password', authMiddleware, requireRole, [
+  body('password').isLength({ min: 8 }).withMessage('A senha deve ter pelo menos 8 caracteres')
+], validate, usersController.updatePassword);
+
 module.exports = router;
+

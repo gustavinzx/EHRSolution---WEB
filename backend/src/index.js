@@ -129,18 +129,8 @@ if (process.env.NODE_ENV !== 'test') {
     const { startRetentionRoutine } = require('./services/retentionService');
     startRetentionRoutine();
   });
-}module.exports = { app, server, io };
- 
- 
- 
 
+}
 
-
-
-
-
-
-
-
-
+module.exports = { app, server, io };
 

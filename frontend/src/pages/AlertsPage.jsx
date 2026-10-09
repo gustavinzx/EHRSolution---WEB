@@ -110,7 +110,7 @@ export default function AlertsPage() {
                       <span>Tipo: {meta.label}</span>
                     </div>
                   </div>
-                  {!isResolved && (
+                  {!isResolved && user?.role !== 'auditor' && (
                     <button onClick={() => setResolvingId(a.id)} style={{ padding: '8px 16px', background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
                       Resolver
                     </button>
@@ -163,6 +163,7 @@ const inputStyle = {
   outline: 'none',
   fontSize: '13px'
 };
+
 
 
 
