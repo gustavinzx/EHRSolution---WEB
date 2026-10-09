@@ -47,14 +47,8 @@ describe('Drivers Controller Actions', () => {
   it('enrollFace provedor falha => 503 e mantém template', async () => {
     const drvRes = await db.query("INSERT INTO drivers (name, is_active, face_enrolled, face_template_ref) VALUES ('Driver Fail', true, true, 'old_ref') RETURNING id");
     const dId = drvRes.rows[0].id;
-
-    // Simulate provider failure by not having FACE_PROVIDER=mock or by failing enroll
-    // To cleanly fail without removing provider, we can spy on the provider if we want, but wait, mockProvider doesn't fail unless we throw.
-    // Instead of messing with provider, let's just use jest.spyOn
     const faceProvider = require('../src/services/faceProvider');
     const spy = jest.spyOn(faceProvider, 'enroll').mockRejectedValue({ code: 'NOT_IMPLEMENTED', message: 'Not implemented' });
-
-    // Valid header for JPEG: ffd8ffe0
     const validJPEGBase64 = Buffer.from('ffd8ffe000104a46494600010100000100010000', 'hex').toString('base64');
     const res = await request(app).post(`/api/drivers/${dId}/face/enroll`)
       .set('Authorization', 'Bearer ' + tokenManager)
@@ -88,5 +82,38 @@ describe('Drivers Controller Actions', () => {
 
     const sec = await db.query("SELECT * FROM security_events WHERE type='driver_deactivated' AND payload->>'driver_id'=$1", [String(dId)]);
     expect(sec.rows.length).toBeGreaterThan(0);
+  });
+
+
+
+
+  it('deactivate maintains truck status when not fueling', async () => {
+    const drv = await db.query("INSERT INTO drivers (name, is_active, face_template_ref) VALUES ('Driver Alert', true, 'ref2') RETURNING id");
+    const dId = drv.rows[0].id;
+    const trk = await db.query("INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state) VALUES ('DRV-2222', 'T', 100, 50, 'low_fuel', 'fueling') RETURNING id");
+    const tId = trk.rows[0].id;
+    await db.query("INSERT INTO fueling_sessions (truck_id, driver_id, status) VALUES ($1, $2, 'active')", [tId, dId]);
+
+    const fuelingController = require('../src/controllers/fuelingController');
+    const spy = jest.spyOn(fuelingController, 'loadSession').mockRejectedValue(new Error('forced load error'));
+
+    const res = await request(app).patch('/api/drivers/' + dId + '/deactivate')
+      .set('Authorization', 'Bearer ' + tokenManager);
+    
+    expect(res.status).toBe(200);
+
+    const { rows: trucks } = await db.query("SELECT status, sim_state FROM trucks WHERE id=$1", [tId]);
+    expect(trucks[0].status).toBe('low_fuel');
+    expect(trucks[0].sim_state).toBe('idle');
+
+    spy.mockRestore();
+  });
+
+  it('no driver response contains face_template_ref', async () => {
+    const res = await request(app).get('/api/drivers').set('Authorization', 'Bearer ' + tokenManager);
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body[0].face_template_ref).toBeUndefined();
+    expect(res.body[0].password).toBeUndefined();
   });
 });

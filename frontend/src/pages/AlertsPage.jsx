@@ -13,6 +13,7 @@ function fmtDate(ts) {
 }
 
 export default function AlertsPage() {
+  const { user } = require('../hooks/useAuth').useAuth();
   const [filters, setFilters] = useState({ status: 'all' });
   const { alerts, loading, resolveAlert, refetch } = useAlerts(filters);
   const { trucks } = useFleet();
@@ -161,3 +162,4 @@ const inputStyle = {
   outline: 'none',
   fontSize: '13px'
 };
+

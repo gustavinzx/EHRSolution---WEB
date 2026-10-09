@@ -67,7 +67,7 @@ export default function TopBar() {
           }}
         />
       </div>
-      <div style={{ flex: 1 }} />
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>{user?.role === 'auditor' && <div style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Settings size={12} /> Modo somente leitura</div>}</div>
       <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'capitalize' }}>{dateStr}</span>
       <div style={{ display: 'flex', gap: '4px' }}>
         <button onClick={() => toast('Caixa de entrada vazia', { icon: '📬' })} style={{
@@ -117,7 +117,7 @@ export default function TopBar() {
           }}>
             {(user?.name || 'G').charAt(0).toUpperCase()}
           </div>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{user?.name || 'Gestor'}</span>
+          <div style={{display:'flex', flexDirection:'column'}}><span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{user?.name || 'Gestor'}</span><span style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>{user?.role || 'manager'}</span></div>
           <ChevronDown size={14} color="#64748b" />
         </div>
         
@@ -153,3 +153,4 @@ const dropdownBtnStyle = {
   color: '#e2e8f0', fontSize: '13px', cursor: 'pointer', borderRadius: '6px',
   textAlign: 'left'
 };
+

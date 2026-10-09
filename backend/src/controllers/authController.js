@@ -12,8 +12,11 @@ exports.login = async (req, res) => {
     }
 
     const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (user.is_active === false) {
+      return res.status(401).json({ error: 'User is deactivated' });
+    }
 
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -22,8 +25,10 @@ exports.login = async (req, res) => {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
 
+    const role = user.role || 'manager';
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: 'manager' },
+      { id: user.id, email: user.email, name: user.name, role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
@@ -34,7 +39,7 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: 'manager'
+        role
       }
     });
   } catch (error) {
@@ -89,7 +94,7 @@ exports.driverLogin = async (req, res) => {
         id: vehicle.id,
         plate: vehicle.plate,
         model: vehicle.model,
-        brand: vehicle.model.split(' ')[0], // simple hack
+        brand: vehicle.model.split(' ')[0],
         capacity: vehicle.capacity_liters
       } : null
     });

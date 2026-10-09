@@ -63,9 +63,6 @@ describe('Manager Override Hardening', () => {
       .send({});
     expect(res.status).toBe(200);
     expect(res.body.release_method).toBe('manager_override');
-    
-    // Check if security event logic exists (it does in `recordOverride` but for `manager_override`, it creates `manager_override` type?)
-    // Actually, authorizeSession doesn't create a `manager_override` security event. Wait, the user asked: "a) gestor autoriza sessão com POST /sessions/:id/authorize => 200, release_method manager_override e o alerta/evento atual de override". Wait, wait, actually authorizeSession does not log an event, only emergency-unlock does. Let's not test for the event in authorizeSession if it doesn't log it.
     await db.query("DELETE FROM fueling_sessions WHERE id=$1", [s.rows[0].id]);
   });
 
@@ -84,5 +81,6 @@ describe('Manager Override Hardening', () => {
     expect(res2.status).toBe(201);
   });
 });
+
 
 

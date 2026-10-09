@@ -54,7 +54,8 @@ describe('Facial & Deactivation Tests', () => {
       .send({ image_base64: Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from('MATCH')]).toString('base64'), consent: true, consent_version: 'v1' });
     expect(res.status).toBe(200);
     expect(res.body.face_enrolled).toBe(true);
-    expect(res.body.face_template_ref).toContain('mock_template_');
+    const dbRes = await db.query('SELECT face_template_ref FROM drivers WHERE id = $1', [driverId]);
+    expect(dbRes.rows[0].face_template_ref).toContain('mock_template_');
   });
 
   it('verify-face sem cadastro => 409', async () => {
@@ -216,7 +217,8 @@ describe('Facial & Deactivation Tests', () => {
     const r2 = await request(app).delete('/api/drivers/' + driverId + '/face').set('Authorization', 'Bearer ' + tokenManager);
     expect(r2.status).toBe(200);
     expect(r2.body.face_enrolled).toBe(false);
-    expect(r2.body.face_template_ref).toBeNull();
+    const dbRes2 = await db.query('SELECT face_template_ref FROM drivers WHERE id = $1', [driverId]);
+    expect(dbRes2.rows[0].face_template_ref).toBeNull();
   });
 
   it('FACE_PROVIDER validation', () => {
@@ -263,6 +265,7 @@ describe('Facial & Deactivation Tests', () => {
     expect(atts.rows.length).toBe(0);
   });
 });
+
 
 
 

@@ -1,15 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
-/**
- * Middleware flexível: aceita qualquer um dos papéis permitidos.
- *   - manager  → JWT do painel (role ausente ou 'manager')
- *   - driver   → JWT do app (role 'driver')
- *   - hardware → header x-api-key cadastrado em trucks.api_key
- *
- * Define req.actor = { type: 'manager'|'driver'|'hardware', id, ... }
- * e mantém compatibilidade com req.user / req.driver / req.truck.
- */
 function allow({ manager = false, driver = false, hardware = false } = {}) {
   return async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
@@ -40,11 +31,14 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
-    const role = decoded.role === 'driver' ? 'driver' : 'manager';
-    if (role === 'driver' && !driver) return res.status(403).json({ error: 'Acesso negado para motoristas' });
-    if (role === 'manager' && !manager) return res.status(403).json({ error: 'Acesso restrito ao app do motorista' });
+    const tokenRole = decoded.role || 'manager';
+    const isDriver = tokenRole === 'driver';
+    const isDashboard = !isDriver;
 
-    if (role === 'driver') {
+    if (isDriver && !driver) return res.status(403).json({ error: 'Acesso negado para motoristas' });
+    if (isDashboard && !manager) return res.status(403).json({ error: 'Acesso restrito ao app do motorista' });
+
+    if (isDriver) {
       try {
         const { rows } = await db.query('SELECT is_active FROM drivers WHERE id = $1', [decoded.id]);
         if (!rows.length || !rows[0].is_active) return res.status(403).json({ error: 'driver_inactive' });
@@ -52,14 +46,27 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
         return res.status(500).json({ error: 'Internal server error during authentication' });
       }
       req.driver = decoded;
+      req.actor = { type: 'driver', id: decoded.id, email: decoded.email };
+      return next();
+    } else {
+      try {
+        const { rows } = await db.query('SELECT is_active, role FROM users WHERE id = $1', [decoded.id]);
+        if (rows.length === 0) return res.status(401).json({ error: 'User not found' });
+        if (!rows[0].is_active) return res.status(401).json({ error: 'User is deactivated' });
+        const actualRole = rows[0].role;
+        
+        if (actualRole === 'auditor' && req.method !== 'GET') {
+          return res.status(403).json({ error: 'forbidden_role' });
+        }
+        
+        req.user = { ...decoded, role: actualRole };
+        req.actor = { type: 'manager', id: decoded.id, email: decoded.email };
+        return next();
+      } catch (e) {
+        return res.status(500).json({ error: 'Internal server error during authentication' });
+      }
     }
-    else req.user = decoded;
-    req.actor = { type: role, id: decoded.id, email: decoded.email };
-    next();
   };
 }
 
 module.exports = { allow };
-
-
-

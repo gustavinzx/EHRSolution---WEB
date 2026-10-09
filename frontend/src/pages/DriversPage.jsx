@@ -14,6 +14,7 @@ const glass = {
 };
 
 export default function DriversPage() {
+  const { user } = require('../hooks/useAuth').useAuth();
   const { drivers, loading, createDriver, updateDriver, deactivateDriver, activateDriver, assignTruck, enrollFace, removeFace } = useDrivers();
   const { trucks } = useFleet();
   const [search,       setSearch]       = useState('');
@@ -266,6 +267,7 @@ export default function DriversPage() {
     </div>
   );
 }
+
 
 
 

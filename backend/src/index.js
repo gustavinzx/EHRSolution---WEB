@@ -75,6 +75,7 @@ app.use('/api/reports', generalLimiter, authMiddleware, reportsRoutes);
 app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'));
 app.use('/api/settings', generalLimiter, authMiddleware, require('./routes/settings'));
 app.use('/api/facial-attempts', generalLimiter, authMiddleware, require('./routes/facialAttempts'));
+app.use('/api/users', generalLimiter, authMiddleware, require('./routes/users'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -106,8 +107,9 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 
 if (process.env.NODE_ENV !== 'test') {
+  require('./services/jwtValidator').validateJwtSecret(process.env.JWT_SECRET, process.env.NODE_ENV);
   server.listen(PORT, async () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log('Server running on port ' + PORT);
 
     try {
       const { runMigrations } = require('./migrations/runner');
@@ -127,12 +129,13 @@ if (process.env.NODE_ENV !== 'test') {
     const { startRetentionRoutine } = require('./services/retentionService');
     startRetentionRoutine();
   });
-}
+}module.exports = { app, server, io };
+ 
+ 
+ 
 
-module.exports = { app, server, io };
- 
- 
- 
+
+
 
 
 

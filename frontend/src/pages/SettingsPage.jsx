@@ -3,6 +3,7 @@ import { Save, AlertTriangle, Clock, Activity, ShieldCheck } from 'lucide-react'
 import client from '../api/client';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../hooks/useAuth';
 
 const card = {
   background: 'rgba(255,255,255,0.04)',
@@ -38,6 +39,7 @@ const helpStyle = {
 };
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +178,8 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+
 
 
 

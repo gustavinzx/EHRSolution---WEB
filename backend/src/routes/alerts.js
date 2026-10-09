@@ -1,9 +1,11 @@
 const express = require('express');
 const alertsController = require('../controllers/alertsController');
+const authMiddleware = require('../middleware/auth');
+const requireRole = authMiddleware.requireRole('admin', 'manager');
 
 const router = express.Router();
 
-router.get('/', alertsController.list);
+router.get('/', authMiddleware, alertsController.list);
 
 // Task 2: Protect simulation endpoint
 router.post('/simulate-fuel-drop/:truckId', (req, res, next) => {
@@ -14,6 +16,6 @@ router.post('/simulate-fuel-drop/:truckId', (req, res, next) => {
 });
 
 // Task 1: Immutable Alerts
-router.patch('/:id/resolve', alertsController.resolve);
+router.patch('/:id/resolve', authMiddleware, requireRole, alertsController.resolve);
 
 module.exports = router;

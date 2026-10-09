@@ -41,6 +41,7 @@ import useFleetState from '../store/useFleetState';
 import ErrorMessage from '../components/ErrorMessage';
 
 export default function TruckDetailsPage() {
+  const { user } = require('../hooks/useAuth').useAuth();
   const { id } = useParams();
   const { fetchTruckDetails, error } = useFleet();
   const [truckDetails, setTruckDetails] = useState(null);
@@ -177,7 +178,7 @@ export default function TruckDetailsPage() {
                <div>
                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Velocidade</div>
                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontFamily: 'var(--font-mono)', color: '#fff' }}><Gauge size={14} color="var(--blue)" /> {truck.speed_kmh} km/h</div>
-                 <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                 {user?.role !== 'auditor' && <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   <button
                     onClick={() => {
                       if (window.confirm("Você tem certeza? Isso abrirá a trava de segurança fisicamente no veículo via GPRS de emergência.")) {
@@ -194,13 +195,12 @@ export default function TruckDetailsPage() {
                   >
                     <LockKeyhole size={16} /> Liberação de Emergência
                   </button>
-                </div>
+                </div>}
               </div>
             </div>
             
             <div style={{ display: 'flex', gap: '16px' }}>
-              {/* Cancelar Viagem Button */}
-              {(truck.sim_state === 'driving' || truck.route_phase !== 'arrived') && (
+              {(user?.role !== 'auditor' && (truck.sim_state === 'driving' || truck.route_phase !== 'arrived')) && (
                 <button onClick={handleCancelRoute} style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(248,113,113,0.4)',
@@ -223,8 +223,7 @@ export default function TruckDetailsPage() {
               }}>
                 <ShieldAlert size={16} /> Investigar
               </Link>
-              {/* Nova Rota Button */}
-              <button onClick={() => setIsModalOpen(true)} style={{
+              {user?.role !== 'auditor' && <button onClick={() => setIsModalOpen(true)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '0 20px', borderRadius: '12px', border: 'none',
                 background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
@@ -233,7 +232,7 @@ export default function TruckDetailsPage() {
                 height: '44px'
               }}>
                 <Map size={16} /> Nova Rota
-              </button>
+              </button>}
             </div>
           </div>
         </div>
@@ -412,3 +411,8 @@ export default function TruckDetailsPage() {
     </div>
   );
 }
+
+
+
+
+

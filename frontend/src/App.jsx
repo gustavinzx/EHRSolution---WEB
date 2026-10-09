@@ -16,6 +16,7 @@ import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
 import AlertsPage       from './pages/AlertsPage';
 import SettingsPage     from './pages/SettingsPage';
+import UsersPage        from './pages/UsersPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
 import useFleetState    from './store/useFleetState';
@@ -76,9 +77,11 @@ export default function App() {
         <Route path="/facial-attempts"    element={<ProtectedLayout><FacialAttemptsPage /></ProtectedLayout>} />
         <Route path="/alerts"             element={<ProtectedLayout><AlertsPage /></ProtectedLayout>} />
         <Route path="/settings"           element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+        <Route path="/users"               element={<ProtectedLayout><UsersPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
+
 

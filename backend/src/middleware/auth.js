@@ -1,8 +1,7 @@
 const jwt = require('jsonwebtoken');
+const db = require('../config/db');
 
-// Autenticação do painel do gestor. Tokens de motorista (app) são recusados com 403
-// para que um motorista não consiga acessar as APIs administrativas.
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -24,9 +23,34 @@ const authMiddleware = (req, res, next) => {
   if (decoded.role === 'driver') {
     return res.status(403).json({ error: 'Acesso restrito ao gestor' });
   }
-  req.user = decoded;
-  req.actor = { type: 'manager', id: decoded.id, email: decoded.email };
-  next();
+
+  try {
+    const { rows } = await db.query('SELECT is_active, role FROM users WHERE id = $1', [decoded.id]);
+    if (rows.length === 0) return res.status(401).json({ error: 'User not found' });
+    if (!rows[0].is_active) return res.status(401).json({ error: 'User is deactivated' });
+
+    const actualRole = rows[0].role;
+    
+    if (actualRole === 'auditor' && req.method !== 'GET') {
+      return res.status(403).json({ error: 'forbidden_role' });
+    }
+
+    req.user = { ...decoded, role: actualRole }; 
+    req.actor = { type: 'manager', id: decoded.id, email: decoded.email };
+    next();
+  } catch (error) {
+    console.error('Auth DB error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+authMiddleware.requireRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.role || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'forbidden_role' });
+    }
+    next();
+  };
 };
 
 module.exports = authMiddleware;

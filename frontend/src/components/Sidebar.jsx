@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Truck, Fuel, FileText, MapPin, LogOut, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, Truck, Fuel, FileText, MapPin, LogOut, ShieldAlert, ScanFace, UserCog } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const links = [
@@ -15,7 +15,8 @@ const links = [
 ];
 
 export default function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const displayLinks = user?.role === 'admin' ? [...links, { to: '/users', icon: UserCog, label: 'Usuários' }] : links;
 
   return (
     <aside style={{
@@ -51,7 +52,7 @@ export default function Sidebar() {
       </div>
 
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 16px' }}>
-        {links.map(link => (
+        {displayLinks.map(link => (
           <NavLink
             key={link.to}
             to={link.to}
@@ -102,4 +103,5 @@ export default function Sidebar() {
     </aside>
   );
 }
+
 

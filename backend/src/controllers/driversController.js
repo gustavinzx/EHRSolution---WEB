@@ -1,4 +1,14 @@
 const db = require('../config/db');
+const faceProvider = require('../services/faceProvider');
+const security = require('../services/securityService');
+const { validateImageBase64 } = require('../services/imageValidation');
+const dataProvider = require('../services/fleetDataProvider');
+
+const safeDriver = (driver) => {
+  if (!driver) return driver;
+  const { face_template_ref, password, ...safe } = driver;
+  return safe;
+};
 
 exports.list = async (req, res) => {
   try {
@@ -20,7 +30,7 @@ exports.list = async (req, res) => {
     query += ` GROUP BY d.id ORDER BY d.name ASC`;
     
     const { rows } = await db.query(query, params);
-    res.json(rows);
+    res.json(rows.map(safeDriver));
   } catch (error) {
     console.error('List drivers error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -39,7 +49,7 @@ exports.create = async (req, res) => {
       'INSERT INTO drivers (name, phone, email) VALUES ($1, $2, $3) RETURNING *',
       [name.trim(), phone || null, email || null]
     );
-    res.status(201).json(rows[0]);
+    res.status(201).json(safeDriver(rows[0]));
   } catch (error) {
     console.error('Create driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -64,19 +74,17 @@ exports.update = async (req, res) => {
       return res.status(404).json({ error: 'Driver not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(safeDriver(result.rows[0]));
   } catch (error) {
     console.error('Update driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-const faceProvider = require('../services/faceProvider');
-const security = require('../services/securityService');
-
 exports.deactivate = async (req, res) => {
   const client = await db.pool.connect();
   let released = false;
+  let committed = false;
   const release = () => { if (!released) { client.release(); released = true; } };
   
   try {
@@ -103,7 +111,7 @@ exports.deactivate = async (req, res) => {
     
     for (const sess of openSessions) {
       await client.query(
-        "UPDATE trucks SET status='ok', sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$1",
+        "UPDATE trucks SET sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$1 AND sim_state='fueling'",
         [sess.truck_id]
       );
     }
@@ -118,13 +126,18 @@ exports.deactivate = async (req, res) => {
     }, client);
     
     await client.query('COMMIT');
+    committed = true;
     release();
     
     if (req.io && openSessions.length > 0) {
       const { emitSession, loadSession } = require('./fuelingController');
       for (const sess of openSessions) {
-        const fullSession = await loadSession(sess.id);
-        if (fullSession) emitSession(req, fullSession);
+        try {
+          const fullSession = await loadSession(sess.id);
+          if (fullSession) emitSession(req, fullSession);
+        } catch (err) {
+          console.error("Emit error:", err);
+        }
       }
     }
     
@@ -136,9 +149,11 @@ exports.deactivate = async (req, res) => {
       }
     }
     
-    res.json(result.rows[0]);
+    res.json(safeDriver(result.rows[0]));
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (!committed && !released) {
+      try { await client.query('ROLLBACK'); } catch(e){}
+    }
     release();
     console.error('Deactivate driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -147,7 +162,6 @@ exports.deactivate = async (req, res) => {
   }
 };
 
-const { validateImageBase64 } = require('../services/imageValidation');
 exports.enrollFace = async (req, res) => {
   try {
     const { id } = req.params;
@@ -183,7 +197,7 @@ exports.enrollFace = async (req, res) => {
       io: req.io
     });
     
-    res.json(result.rows[0]);
+    res.json(safeDriver(result.rows[0]));
   } catch(error) {
     console.error('Enroll face error:', error);
     if (error.status === 400) return res.status(400).json({ error: error.message });
@@ -216,7 +230,7 @@ exports.removeFace = async (req, res) => {
       io: req.io
     });
     
-    res.json(result.rows[0]);
+    res.json(safeDriver(result.rows[0]));
   } catch(error) {
     console.error('Remove face error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -227,7 +241,7 @@ exports.activate = async (req, res) => {
   try {
     const { rows } = await db.query('UPDATE drivers SET is_active = true WHERE id = $1 RETURNING *', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
-    res.json(rows[0]);
+    res.json(safeDriver(rows[0]));
   } catch (error) {
     console.error('Activate driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -260,8 +274,6 @@ exports.assignTruck = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-const dataProvider = require('../services/fleetDataProvider');
 
 exports.ranking = async (req, res) => {
   try {

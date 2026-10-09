@@ -1,182 +1,56 @@
-# EHR Solutions — Plataforma Web do Gestor de Frotas
+# EHR Solutions - Fleet Management
 
-> **Protótipo com dados fictícios** — dados de seed/demo estão marcados com `// DADOS DEMO` no código e podem ser substituídos por dados reais quando disponíveis.
+Sistema avançado de gestão de frotas e controle de combustível, construído com arquitetura Node.js (Express), PostgreSQL, e React (Vite). Focado em segurança zero-trust para prevenir desvios de combustível.
 
-Sistema de controle de travas e monitoramento de abastecimento para frotas, desenvolvido em parceria entre EHR Solutions e UCB.
+## Arquitetura e Funcionalidades
 
----
+- **Reconhecimento Facial no Servidor:** Validação biométrica estrita para autorização de abastecimento na bomba.
+- **Autorização BLE (Fallback offline):** Validação via token criptográfico assinado pelo caminhão para cenários sem internet.
+- **Motor de Anomalias:** Algoritmo que detecta quedas súbitas de combustível via telemetria sem registro correspondente de abastecimento.
+- **Controle Baseado em Papéis (RBAC):** Níveis granulares de acesso: `admin`, `manager`, e `auditor`.
+- **Desativação Imediata (Kill-switch):** Quando um motorista é desativado (ex: suspeita de fraude), qualquer sessão de abastecimento ativa é derrubada na hora via WebSocket.
+- **Dados Imutáveis e Auditoria:** Alertas não podem ser deletados (apenas resolvidos com nota e autoria) e o histórico de alterações das configurações de sensibilidade é preservado (`alert_settings_history`).
 
-## Stack
+## Requisitos
 
-| Camada      | Tecnologia                          |
-|-------------|-------------------------------------|
-| Frontend    | React 18 + Vite + Leaflet           |
-| Backend     | Node.js 20 + Express                |
-| Banco       | PostgreSQL 16                       |
-| Auth        | JWT + bcrypt                        |
-| Deploy      | Docker + docker-compose             |
+- Node.js >= 18
+- PostgreSQL >= 14
+- PM2 (para produção)
 
----
+## Executando Localmente
 
-## Início Rápido (Docker — recomendado)
-
-> Pré-requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e rodando.
-
-```bash
-# 1. Clone / abra o projeto
-cd EHR-Solutions-Web
-
-# 2. Suba tudo com um comando
-docker-compose up --build
-```
-
-Após o build (~2 min na primeira vez):
-
-| Serviço    | URL                          |
-|------------|------------------------------|
-| Frontend   | http://localhost:5173        |
-| Backend API| http://localhost:3001/api    |
-| Health     | http://localhost:3001/api/health |
-
-**Login demo:**
-- Email: `gestor@ehr.com`
-- Senha: `Demo@1234`
-
-Para parar: `docker-compose down`  
-Para resetar o banco: `docker-compose down -v`
-
----
-
-## Desenvolvimento Local (sem Docker)
-
-### Pré-requisitos
-- Node.js 20+
-- PostgreSQL 16 rodando localmente
-
-### Backend
+### 1. Backend
 
 ```bash
 cd backend
-
-# Instalar dependências
 npm install
-
-# Configurar variáveis de ambiente
 cp .env.example .env
-# Edite .env com suas credenciais do Postgres
-
-# Popular banco com dados demo
-npm run seed
-
-# Iniciar servidor (porta 3001)
-npm run dev
+# Configure as variáveis no .env, garantindo que o DB exista.
+npm run start
 ```
+*O banco é populado automaticamente através do runner de migrations no primeiro startup.*
 
-### Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
-
-# Instalar dependências
 npm install
-
-# Iniciar dev server (porta 5173)
 npm run dev
 ```
+*Acesse em http://localhost:5173.*
 
-O Vite está configurado para fazer proxy de `/api` → `http://localhost:3001`, sem problemas de CORS.
+## Scripts Disponíveis
 
----
+- `npm test` no backend executará a suíte de testes rigorosa com Jest, que cobre desde os limites de tentativas faciais até as projeções seguras de API. O banco de dados para os testes DEVE terminar em `_test`.
 
-## Estrutura do Projeto
+## Permissões
 
-```
-EHR-Solutions-Web/
-├── docker-compose.yml
-├── backend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── .env.example
-│   └── src/
-│       ├── index.js              # Entry point
-│       ├── config/
-│       │   ├── db.js             # Pool PostgreSQL
-│       │   └── schema.sql        # DDL das tabelas
-│       ├── middleware/
-│       │   ├── auth.js           # JWT verification
-│       │   └── validate.js       # express-validator helper
-│       ├── controllers/          # Lógica de negócio
-│       ├── routes/               # Endpoints REST
-│       └── seed/
-│           └── seed.js           # ⚠️ DADOS DEMO — substituir
-└── frontend/
-    ├── Dockerfile
-    ├── package.json
-    ├── vite.config.js
-    ├── index.html
-    └── src/
-        ├── App.jsx               # Rotas + proteção
-        ├── index.css             # Tokens CSS do tema dark
-        ├── api/client.js         # Axios + interceptors JWT
-        ├── hooks/                # useAuth, useFleet, useDrivers, useFueling
-        ├── components/           # Sidebar, MapView, StatCard, etc.
-        └── pages/                # Login, Dashboard, Drivers, Fleet, Fueling, Reports
-```
+| Role | Permissões |
+| --- | --- |
+| **Admin** | Acesso total. Único que pode alterar Configurações de Alertas e gerenciar Papéis de usuários. |
+| **Manager** | Operacional (resolver alertas, despachar caminhões, override de abastecimento, cadastrar motoristas). |
+| **Auditor** | Leitura estrita (GET apenas). Todos os botões de ação na interface são ocultos ou bloqueados. |
 
----
+## Documentação API Mobile
 
-## API Endpoints
-
-Todos os endpoints (exceto `/api/auth/login`) requerem header:
-```
-Authorization: Bearer <token>
-```
-
-| Método | Endpoint                         | Descrição                        |
-|--------|----------------------------------|----------------------------------|
-| POST   | /api/auth/login                  | Login, retorna JWT               |
-| GET    | /api/drivers                     | Lista motoristas                 |
-| POST   | /api/drivers                     | Cadastrar motorista              |
-| PUT    | /api/drivers/:id                 | Editar motorista                 |
-| PATCH  | /api/drivers/:id/deactivate      | Desativar motorista              |
-| POST   | /api/drivers/:id/trucks          | Vincular motorista ↔ caminhão    |
-| GET    | /api/fleet                       | Lista frota com status           |
-| GET    | /api/fleet/:id                   | Detalhe de um caminhão           |
-| GET    | /api/fueling                     | Logs de abastecimento            |
-| GET    | /api/reports/export              | Exportar CSV (params: truck_id, start, end) |
-
----
-
-## Dados Demo
-
-O seed cria automaticamente:
-- **1 gestor** (gestor@ehr.com / Demo@1234)
-- **10 motoristas** com nomes brasileiros
-- **10 caminhões** (Volvo/Scania/Mercedes, placas BR)
-- **30 logs** de abastecimento dos últimos 30 dias
-
-> Todos marcados com `// DADOS DEMO — substituir por dados reais` no arquivo `backend/src/seed/seed.js`.
-
----
-
-## Segurança
-
-- Senhas armazenadas com **bcrypt** (salt rounds = 12)
-- Tokens **JWT** com expiração de 8h
-- Todas as rotas de dados protegidas por middleware
-- Validação de input no backend com **express-validator**
-
----
-
-## Fora de Escopo (MVP Web)
-
-- Firmware / hardware
-- Comunicação LoRa / BLE real
-- App mobile
-- Reconhecimento facial real (simulado nos logs como campo `release_method`)
-
----
-
-## Variáveis de Ambiente e Segurança
-Consulte o `.env.example` para as variáveis necessárias.
-**IMPORTANTE:** Para rodar o `npm run seed` e limpar o banco de dados atual, a variável `ALLOW_SEED_WIPE=true` deve estar definida. **NUNCA** defina isso em produção. O script de seed também abortará se `NODE_ENV=production`.
+A documentação dos endpoints para integração com o aplicativo móvel dos motoristas pode ser encontrada em `docs/API_MOBILE.md`.
