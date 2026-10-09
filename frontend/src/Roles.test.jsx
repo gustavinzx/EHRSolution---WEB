@@ -23,9 +23,10 @@ vi.mock('./hooks/useAlerts', () => ({
 }));
 
 describe('Roles Frontend Tests', () => {
-  it('auditor doesn\'t see resolve alert button', () => {
+  it('auditor doesn\'t see resolve alert button', async () => {
     useAuth.mockReturnValue({ user: { role: 'auditor', name: 'A' } });
     render(<MemoryRouter><AlertsPage /></MemoryRouter>);
+    await screen.findByText('Test');
     expect(screen.queryByText('Resolver')).toBeNull();
   });
 
@@ -35,15 +36,17 @@ describe('Roles Frontend Tests', () => {
     expect(await screen.findByText('Resolver')).toBeDefined();
   });
 
-  it('auditor doesn\'t see save settings button', () => {
+  it('auditor doesn\'t see save settings button', async () => {
     useAuth.mockReturnValue({ user: { role: 'auditor', name: 'A' } });
     render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    await screen.findByText('Configurações do Sistema');
     expect(screen.queryByText('Salvar Regras')).toBeNull();
   });
 
-  it('manager doesn\'t see save settings button', () => {
+  it('manager doesn\'t see save settings button', async () => {
     useAuth.mockReturnValue({ user: { role: 'manager', name: 'M' } });
     render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    await screen.findByText('Configurações do Sistema');
     expect(screen.queryByText('Salvar Regras')).toBeNull();
   });
 
@@ -59,12 +62,15 @@ describe('Roles Frontend Tests', () => {
     expect(await screen.findByText('Usuários')).toBeDefined();
   });
 
-  it('manager doesn\'t see /users link in sidebar', () => {
+  it('manager doesn\'t see /users link in sidebar', async () => {
     useAuth.mockReturnValue({ user: { role: 'manager', name: 'M' }, logout: vi.fn() });
     render(<MemoryRouter><Sidebar /></MemoryRouter>);
+    await screen.findByText('Motoristas');
     expect(screen.queryByText('Usuários')).toBeNull();
   });
 });
+
+
 
 
 

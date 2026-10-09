@@ -8,6 +8,15 @@ if (!process.env.DB_NAME?.endsWith('_test')) {
 }
 
 describe('Roles and Permissions Tests', () => {
+  it('admin can change password, manager cannot, short password fails', async () => {
+    const r1 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${managerToken}`).send({ password: 'newpassword' });
+    expect(r1.status).toBe(403);
+    const r2 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'short' });
+    expect(r2.status).toBe(400);
+    const r3 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'newpassword' });
+    expect(r3.status).toBe(200);
+  });
+
   let adminToken, managerToken, auditorToken, inactiveToken, oldToken;
   let adminId, managerId, auditorId, inactiveId;
 
@@ -54,6 +63,15 @@ describe('Roles and Permissions Tests', () => {
     await db.query('DELETE FROM users');
   });
 
+  it('admin can change password, manager cannot, short password fails', async () => {
+    const r1 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${managerToken}`).send({ password: 'newpassword' });
+    expect(r1.status).toBe(403);
+    const r2 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'short' });
+    expect(r2.status).toBe(400);
+    const r3 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'newpassword' });
+    expect(r3.status).toBe(200);
+  });
+
   it('auditor: GET routes return 200', async () => {
     const r1 = await request(app).get('/api/alerts').set('Authorization', `Bearer ${auditorToken}`);
     expect(r1.status).toBe(200);
@@ -66,23 +84,36 @@ describe('Roles and Permissions Tests', () => {
   it('auditor: Mutations return 403 forbidden_role', async () => {
     const r1 = await request(app).patch('/api/alerts/999/resolve').set('Authorization', `Bearer ${auditorToken}`).send({ resolution_note: 'teste' });
     expect(r1.status).toBe(403);
+    expect(r1.body.error).toBe('forbidden_role');
     const r2 = await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${auditorToken}`).send({ divergence_pct: 10 });
     expect(r2.status).toBe(403);
+    expect(r2.body.error).toBe('forbidden_role');
     const r3 = await request(app).post('/api/drivers/999/face/enroll').set('Authorization', `Bearer ${auditorToken}`);
     expect(r3.status).toBe(403);
+    expect(r3.body.error).toBe('forbidden_role');
     const r4 = await request(app).patch('/api/drivers/999/deactivate').set('Authorization', `Bearer ${auditorToken}`);
     expect(r4.status).toBe(403);
+    expect(r4.body.error).toBe('forbidden_role');
     const r5 = await request(app).post('/api/fueling/emergency-unlock').set('Authorization', `Bearer ${auditorToken}`);
     expect(r5.status).toBe(403);
+    expect(r5.body.error).toBe('forbidden_role');
     const r6 = await request(app).post('/api/drivers').set('Authorization', `Bearer ${auditorToken}`);
     expect(r6.status).toBe(403);
+    expect(r6.body.error).toBe('forbidden_role');
   });
 
-  it('manager: Settings PUT is 403, Users GET is 403', async () => {
+  it('manager: Settings PUT is 403, Users GET is 403, but resolve alert is 200', async () => {
+    // Create a dummy alert to resolve
+    const alertRes = await db.query("INSERT INTO fleet_alerts (truck_id, type, message) VALUES (NULL, 'test', 'msg') RETURNING id");
+    const rResolve = await request(app).patch(`/api/alerts/${alertRes.rows[0].id}/resolve`).set('Authorization', `Bearer ${managerToken}`).send({ resolution_note: 'resolvido' });
+    expect(rResolve.status).toBe(200);
+
     const r1 = await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${managerToken}`).send({ divergence_pct: 10 });
     expect(r1.status).toBe(403);
+    expect(r1.body.error).toBe('forbidden_role');
     const r2 = await request(app).get('/api/users').set('Authorization', `Bearer ${managerToken}`);
     expect(r2.status).toBe(403);
+    expect(r2.body.error).toBe('forbidden_role');
   });
 
   it('admin: Settings PUT is 200, Users POST works (no password_hash in response)', async () => {
@@ -116,9 +147,8 @@ describe('Roles and Permissions Tests', () => {
   it('PATCH usuário inexistente => 404 e pool ok', async () => {
     const r1 = await request(app).patch(`/api/users/999999`).set('Authorization', `Bearer ${adminToken}`).send({ role: 'manager' });
     expect(r1.status).toBe(404);
-    // test pool is not stuck in transaction block
-    const poolRes = await db.query('SELECT 1 as val');
-    expect(poolRes.rows[0].val).toBe(1);
+    const actRes = await db.query("SELECT count(*) as count FROM pg_stat_activity WHERE state = 'idle in transaction' AND datname = current_database()");
+    expect(parseInt(actRes.rows[0].count)).toBe(0);
   });
 
   it('usuário desativado com token válido => 401', async () => {
@@ -132,6 +162,7 @@ describe('Roles and Permissions Tests', () => {
     // Same token used, but should be auditor in DB now
     const r1 = await request(app).post('/api/drivers').set('Authorization', `Bearer ${managerToken}`).send({ name: 'D1' });
     expect(r1.status).toBe(403);
+    expect(r1.body.error).toBe('forbidden_role');
   });
 
   it('token antigo sem role funciona como manager (default no backend)', async () => {
@@ -147,4 +178,14 @@ describe('Roles and Permissions Tests', () => {
     expect(r1.status).toBe(401);
   });
 });
+
+
+
+
+
+
+
+
+
+
 
