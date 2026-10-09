@@ -190,42 +190,67 @@ describe('Divergence and Fuel Rules Tests', () => {
     
     await db.query(`UPDATE fueling_sessions SET status = 'active' WHERE id = $1`, [sessionId]);
     req.actor.type = 'manager';
+    
+    res.json.mockClear();
+    res.status.mockClear();
+    
     await finishSession(req, res);
+    
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(res.status).not.toHaveBeenCalledWith(500);
     spy.mockRestore();
   });
 
-  it('5. settings history', async () => {
-    const res = await request(app)
-      .get('/api/settings/alerts/history')
-      .set('Authorization', `Bearer ${tokenManager}`);
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body[0].changed_by).toBe('Gestor');
+  it('5. settings history validation', async () => {
+    // start by ensuring divergence_pct is 5
+    await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${tokenManager}`)
+      .send({ divergence_pct: 5, divergence_critical_pct: 15, offhours_start_hour: 22, offhours_end_hour: 5, offhours_enabled: 1 });
+      
+    await db.query('DELETE FROM alert_settings_history');
+
+    // change 5 -> 7
+    await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${tokenManager}`)
+      .send({ divergence_pct: 7, divergence_critical_pct: 15, offhours_start_hour: 22, offhours_end_hour: 5, offhours_enabled: 1 });
+
+    const hist1 = await request(app).get('/api/settings/alerts/history').set('Authorization', `Bearer ${tokenManager}`);
+    expect(hist1.body.length).toBe(1);
+    expect(hist1.body[0].key).toBe('divergence_pct');
+    expect(parseFloat(hist1.body[0].old_value)).toBe(5);
+    expect(parseFloat(hist1.body[0].new_value)).toBe(7);
+    expect(hist1.body[0].changed_by).toBe('Gestor');
+
+    // repeat 7 -> 7
+    await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${tokenManager}`)
+      .send({ divergence_pct: 7, divergence_critical_pct: 15, offhours_start_hour: 22, offhours_end_hour: 5, offhours_enabled: 1 });
+      
+    const hist2 = await request(app).get('/api/settings/alerts/history').set('Authorization', `Bearer ${tokenManager}`);
+    expect(hist2.body.length).toBe(1); // No new line
+
+    // restore to 5
+    await request(app).put('/api/settings/alerts').set('Authorization', `Bearer ${tokenManager}`)
+      .send({ divergence_pct: 5, divergence_critical_pct: 15, offhours_start_hour: 22, offhours_end_hour: 5, offhours_enabled: 1 });
   });
 
   it('6. GET /api/fueling?onlyDivergence=true', async () => {
-    await db.query(`INSERT INTO fueling_logs (truck_id, driver_id, data_source, pump_liters, tank_liters_delta) VALUES ($1, $2, 'hardware', 100, 97)`, [truckId, driverId]); // 3%
-    await db.query(`INSERT INTO fueling_logs (truck_id, driver_id, data_source, pump_liters, tank_liters_delta) VALUES ($1, $2, 'hardware', 100, 92)`, [truckId, driverId]); // 8%
-
-    const res = await request(app)
-      .get('/api/fueling?onlyDivergence=true')
-      .set('Authorization', `Bearer ${tokenManager}`);
-    expect(res.status).toBe(200);
-    // limit is 20 from previous test
-    // wait, we changed limit to 20% in PUT, let's restore to 5% first
     await request(app)
       .put('/api/settings/alerts')
       .set('Authorization', `Bearer ${tokenManager}`)
       .send({ divergence_pct: 5, divergence_critical_pct: 15, offhours_start_hour: 22, offhours_end_hour: 5, offhours_enabled: 1 });
-    
+
+    await db.query(`INSERT INTO fueling_logs (truck_id, driver_id, data_source, pump_liters, tank_liters_delta) VALUES ($1, $2, 'hardware', 100, 97)`, [truckId, driverId]);
+    await db.query(`INSERT INTO fueling_logs (truck_id, driver_id, data_source, pump_liters, tank_liters_delta) VALUES ($1, $2, 'hardware', 100, 92)`, [truckId, driverId]);
+
     const res2 = await request(app)
       .get('/api/fueling?onlyDivergence=true')
       .set('Authorization', `Bearer ${tokenManager}`);
     
+    expect(res2.status).toBe(200);
     const logs = res2.body;
-    // 8% should be in, 3% shouldn't (well, there are other logs from previous tests, but we can just check if any divergence < 5% is returned)
-    const belowLimit = logs.filter(l => l.divergence_pct < 5);
-    expect(belowLimit.length).toBe(0);
+    
+    const log8 = logs.find(l => parseFloat(l.divergence_pct) > 7.9 && parseFloat(l.divergence_pct) < 8.1);
+    const log3 = logs.find(l => parseFloat(l.divergence_pct) > 2.9 && parseFloat(l.divergence_pct) < 3.1);
+    
+    expect(log8).toBeDefined();
+    expect(log3).toBeUndefined();
   });
 });

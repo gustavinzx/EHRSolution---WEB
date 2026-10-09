@@ -3,53 +3,28 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const { stringify } = require('csv-stringify');
 
+const { buildFuelingLogsQuery } = require('../services/fuelingQuery');
+
 async function getFuelingLogsForExport(queryReq) {
-  const { truck_id, driver_id, start, end, dataSource, onlyDivergence } = queryReq;
-  let query = `
-    SELECT fl.id, 
-           d.name as motorista, 
-           t.plate as caminhao, 
-           fl.timestamp, 
-           fl.lat, 
-           fl.lng, 
-           fl.level_before, 
-           fl.level_after, 
-           fl.release_method,
-           fl.data_source,
-           fl.pump_liters,
-           fl.tank_liters_delta,
-           CASE 
-             WHEN fl.pump_liters IS NOT NULL AND fl.tank_liters_delta IS NOT NULL AND fl.pump_liters > 0 
-             THEN ABS(fl.pump_liters - fl.tank_liters_delta) 
-             ELSE NULL 
-           END as divergence_liters,
-           CASE 
-             WHEN fl.pump_liters IS NOT NULL AND fl.tank_liters_delta IS NOT NULL AND fl.pump_liters > 0 
-             THEN (ABS(fl.pump_liters - fl.tank_liters_delta) / fl.pump_liters * 100)
-             ELSE NULL 
-           END as divergence_pct
-    FROM fueling_logs fl
-    LEFT JOIN drivers d ON fl.driver_id = d.id
-    LEFT JOIN trucks t ON fl.truck_id = t.id
-    WHERE 1=1
-  `;
-  const values = [];
-  let idx = 1;
-  if (truck_id)  { query += ` AND fl.truck_id = $${idx++}`;   values.push(truck_id); }
-  if (driver_id) { query += ` AND fl.driver_id = $${idx++}`;  values.push(driver_id); }
-  if (dataSource) { query += ` AND fl.data_source = $${idx++}`; values.push(dataSource); }
-  if (onlyDivergence === 'true') {
-    query += ` AND (
-      fl.pump_liters IS NOT NULL AND fl.tank_liters_delta IS NOT NULL AND fl.pump_liters > 0 AND 
-      ABS(fl.pump_liters - fl.tank_liters_delta) > 0
-    )`;
-  }
-  if (start)     { query += ` AND fl.timestamp >= $${idx++}::date`; values.push(start); }
-  if (end)       { query += ` AND fl.timestamp < ($${idx++}::date + INTERVAL '1 day')`; values.push(end); }
-  
-  query += " ORDER BY fl.timestamp DESC LIMIT 1000";
+  let { query, values } = await buildFuelingLogsQuery(queryReq);
+  query += " LIMIT 1000";
   const { rows } = await db.query(query, values);
-  return rows;
+  return rows.map(r => ({
+    id: r.id,
+    motorista: r.driver_name,
+    caminhao: r.plate,
+    timestamp: r.timestamp,
+    lat: r.lat,
+    lng: r.lng,
+    level_before: r.level_before,
+    level_after: r.level_after,
+    release_method: r.release_method,
+    data_source: r.data_source,
+    pump_liters: r.pump_liters,
+    tank_liters_delta: r.tank_liters_delta,
+    divergence_liters: r.divergence_liters,
+    divergence_pct: r.divergence_pct
+  }));
 }
 
 exports.exportPDF = async (req, res) => {
@@ -179,5 +154,6 @@ exports.exportCSV = async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 
