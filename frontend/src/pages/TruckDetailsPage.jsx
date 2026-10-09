@@ -1,5 +1,5 @@
-import React
-import { useAuth } from '../hooks/useAuth';, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { useParams, Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
@@ -412,6 +412,7 @@ export default function TruckDetailsPage() {
     </div>
   );
 }
+
 
 
 
