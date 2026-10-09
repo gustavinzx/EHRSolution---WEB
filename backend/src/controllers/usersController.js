@@ -20,27 +20,35 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
     
-    const exist = await db.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (exist.rows.length > 0) return res.status(409).json({ error: 'Email already exists' });
-    
+    const emailNorm = email.toLowerCase().trim();
     const hash = await bcrypt.hash(password, 10);
-    const { rows } = await db.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, email, hash, role]
-    );
     
-    await security.recordSecurityEvent({
-      truckId: null,
-      type: 'user_created',
-      severity: 'high',
-      source: 'manager',
-      payload: { user_id: rows[0].id, role },
-      io: req.io
-    });
-    
-    res.status(201).json(safeUser(rows[0]));
+    try {
+      const { rows } = await db.query(
+        'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING *',
+        [name, emailNorm, hash, role]
+      );
+      
+      await security.recordSecurityEvent({
+        truckId: null,
+        type: 'user_created',
+        severity: 'high',
+        source: 'manager',
+        payload: { user_id: rows[0].id, role },
+        io: req.io
+      });
+      
+      res.status(201).json(safeUser(rows[0]));
+    } catch (err) {
+      if (err.code === '23505') { // unique_violation
+        return res.status(409).json({ error: 'Email already exists' });
+      }
+      throw err;
+    }
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -57,12 +65,13 @@ exports.update = async (req, res) => {
     
     const currRes = await client.query('SELECT role, is_active FROM users WHERE id = $1 FOR UPDATE', [id]);
     if (currRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       release();
       return res.status(404).json({ error: 'User not found' });
     }
     const curr = currRes.rows[0];
     
-    if (curr.role === 'admin' && (role !== 'admin' || is_active === false)) {
+    if (curr.role === 'admin' && curr.is_active === true && ((role && role !== 'admin') || is_active === false)) {
       const adminCount = await client.query("SELECT count(*) FROM users WHERE role = 'admin' AND is_active = true");
       if (parseInt(adminCount.rows[0].count) <= 1) {
         await client.query('ROLLBACK');
@@ -105,5 +114,34 @@ exports.update = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     release();
+  }
+};
+
+exports.updatePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres' });
+    }
+    
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await db.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING *', [hash, id]);
+    
+    if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    
+    await security.recordSecurityEvent({
+      truckId: null,
+      type: 'user_password_changed',
+      severity: 'high',
+      source: 'manager',
+      payload: { user_id: id },
+      io: req.io
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 };

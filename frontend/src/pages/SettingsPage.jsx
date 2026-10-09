@@ -168,16 +168,22 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+        {user?.role === 'admin' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
           <button type="submit" disabled={saving} style={{ background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: saving ? 0.7 : 1 }}>
             <Save size={18} />
             {saving ? 'Salvando...' : 'Salvar Regras'}
           </button>
         </div>
-      </form>
+      )}
+        </form>
     </div>
   );
 }
+
+
+
+
 
 
 

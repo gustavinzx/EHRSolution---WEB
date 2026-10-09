@@ -6,7 +6,8 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const emailNorm = email.toLowerCase().trim();
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [emailNorm]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -52,8 +53,9 @@ exports.driverLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    const emailNorm = email.toLowerCase().trim();
     // Find driver
-    const result = await db.query('SELECT * FROM drivers WHERE email = $1 AND is_active = true', [email]);
+    const result = await db.query('SELECT * FROM drivers WHERE email = $1 AND is_active = true', [emailNorm]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
@@ -103,3 +105,4 @@ exports.driverLogin = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+

@@ -21,6 +21,12 @@ import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
 import useFleetState    from './store/useFleetState';
 
+export const RequireAdmin = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
+};
+
 export const ProtectedLayout = ({ children }) => {
   const { isAuthenticated } = useAuth();
   useEffect(() => {
@@ -83,5 +89,7 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+
 
 
