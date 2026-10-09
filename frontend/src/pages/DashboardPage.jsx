@@ -111,36 +111,65 @@ export default function DashboardPage() {
 
       {/* ── Hero Banner ── */}
       <div style={{
-        borderRadius: '20px',
-        background: 'linear-gradient(120deg, #1a2a5e 0%, #0f2040 40%, #1a1a3e 100%)',
-        border: '1px solid rgba(79,142,247,0.2)',
-        padding: '28px 32px',
+        borderRadius: '24px',
+        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        padding: '32px 36px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'relative', overflow: 'hidden', minHeight: '140px',
+        position: 'relative', overflow: 'hidden', minHeight: '160px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
       }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '240px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(79,142,247,0.15)', filter: 'blur(40px)' }} />
-        <div style={{ position: 'absolute', bottom: '-30px', right: '100px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(47,190,181,0.1)', filter: 'blur(30px)' }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Bem-vindo de volta</div>
-          <h1 style={{ margin: 0, fontSize: '30px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+        {/* Decorative background glows */}
+        <div style={{ position: 'absolute', top: '-60px', left: '-40px', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(47,190,181,0.15) 0%, transparent 70%)', filter: 'blur(30px)', zIndex: 0 }} />
+        <div style={{ position: 'absolute', bottom: '-80px', right: '150px', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(79,142,247,0.15) 0%, transparent 70%)', filter: 'blur(40px)', zIndex: 0 }} />
+        
+        <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
+          <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600 }}>
+            Visão Geral do Sistema
+          </div>
+          <h1 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#f8fafc', lineHeight: 1.2, letterSpacing: '-0.5px' }}>
             Olá, {(user?.name || 'Gestor').split(' ')[0]}! 👋
           </h1>
-          <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
-            Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#2FBEB5' }}>{enRoute} caminhão{enRoute !== 1 ? 'ões' : ''} em rota</strong> agora.
+          <p style={{ margin: '12px 0 0', color: '#cbd5e1', fontSize: '15px', maxWidth: '450px', lineHeight: 1.5 }}>
+            No momento, há <strong style={{ color: '#f87171' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
+            <strong style={{ color: '#34d399' }}>{enRoute} caminh{enRoute !== 1 ? 'ões' : 'ão'} em rota</strong> operando.
           </p>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button onClick={() => navigate('/fleet')} style={{ background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', border: 'none', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(47,190,181,0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Truck size={14} /> Ver Frota Completa
+          
+          <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+            <button onClick={() => navigate('/fleet')} style={{ 
+              background: 'linear-gradient(135deg, #2FBEB5 0%, #209991 100%)', 
+              border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '12px', 
+              fontSize: '13px', fontWeight: 600, cursor: 'pointer', 
+              boxShadow: '0 8px 16px rgba(47,190,181,0.25)', 
+              display: 'flex', alignItems: 'center', gap: '8px',
+              transition: 'transform 0.1s',
+            }}
+            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <Truck size={16} /> Frota Completa
             </button>
-            <button onClick={refetch} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              Atualizar Dados
+            <button onClick={refetch} style={{ 
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', 
+              color: '#f8fafc', padding: '10px 20px', borderRadius: '12px', 
+              fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}>
+              Atualizar
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '24px', position: 'relative', zIndex: 1 }}>
-          <DonutRing value={avgFuel} color="#2FBEB5" label="Combustível" />
-          <DonutRing value={trucks.length > 0 ? Math.round((enRoute / trucks.length) * 100) : 0} color="#34d399" label="Em rota" />
+
+        <div style={{ 
+          display: 'flex', gap: '28px', position: 'relative', zIndex: 1, 
+          background: 'rgba(15, 23, 42, 0.4)', padding: '24px 32px', 
+          borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.2)'
+        }}>
+          <DonutRing value={avgFuel} color="#2FBEB5" label="Tanques" />
+          <DonutRing value={trucks.length > 0 ? Math.round((enRoute / trucks.length) * 100) : 0} color="#34d399" label="Em Rota" />
           <DonutRing value={trucks.length > 0 ? Math.round((statuses.ok / trucks.length) * 100) : 0} color="#4F8EF7" label="Operacional" />
         </div>
       </div>
