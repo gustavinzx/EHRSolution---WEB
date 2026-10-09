@@ -11,6 +11,7 @@ import FleetPage        from './pages/FleetPage';
 import TruckDetailsPage from './pages/TruckDetailsPage';
 import FuelingPage      from './pages/FuelingPage';
 import ReportsPage      from './pages/ReportsPage';
+import FacialAttemptsPage from './pages/FacialAttemptsPage';
 import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
 import AlertsPage       from './pages/AlertsPage';
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/fueling"            element={<ProtectedLayout><FuelingPage /></ProtectedLayout>} />
         <Route path="/stations"           element={<ProtectedLayout><StationsPage /></ProtectedLayout>} />
         <Route path="/reports"            element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
+        <Route path="/facial-attempts"    element={<ProtectedLayout><FacialAttemptsPage /></ProtectedLayout>} />
         <Route path="/alerts"             element={<ProtectedLayout><AlertsPage /></ProtectedLayout>} />
         <Route path="/settings"           element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
@@ -79,3 +81,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

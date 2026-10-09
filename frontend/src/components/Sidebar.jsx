@@ -11,6 +11,7 @@ const links = [
   { to: '/stations',icon: MapPin,          label: 'Postos' },
   { to: '/alerts',  icon: ShieldAlert,     label: 'Alertas' },
   { to: '/reports', icon: FileText,        label: 'Relatórios' },
+  { to: '/facial-attempts', icon: ScanFace, label: 'Facial' },
 ];
 
 export default function Sidebar() {
@@ -101,3 +102,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+

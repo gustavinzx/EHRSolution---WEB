@@ -28,6 +28,8 @@ router.get("/sessions/pending-emergency", managerOnly, fuelingController.listPen
 
 // Fueling sessions (App do motorista + painel do gestor)
 router.post("/sessions", managerOrDriver, fuelingController.requestSession);
+router.post("/sessions/:id/verify-face", driverOnly, fuelingController.verifyFace);
+router.post("/sessions/:id/ble-confirmed", allow({ hardware: true }), fuelingController.bleConfirmed);
 router.post("/sessions/:id/authorize", managerOrDriver, fuelingController.authorizeSession);
 router.post("/sessions/:id/finish", anyActor, fuelingController.finishSession);
 router.post("/sessions/:id/facial-failure", driverOnly, fuelingController.reportFacialFailure);
@@ -38,3 +40,4 @@ router.post("/sessions/:id/pump-reading", allow({ hardware: true }), fuelingCont
 router.get("/sessions/:truckId/active", anyActor, fuelingController.getActiveSession);
 
 module.exports = router;
+

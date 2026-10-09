@@ -253,4 +253,22 @@ describe('Divergence and Fuel Rules Tests', () => {
     expect(log8).toBeDefined();
     expect(log3).toBeUndefined();
   });
+
+  it('7. GET /api/reports/export?onlyDivergence=true (CSV)', async () => {
+    // Relying on the data inserted in test 6
+    const res = await request(app)
+      .get('/api/reports/export?onlyDivergence=true')
+      .set('Authorization', `Bearer ${tokenManager}`);
+      
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    
+    const csv = res.text;
+    
+    // Check that 8% divergence log is in CSV, but not 3% divergence log
+    // Because CSV format strings differ, we search for '8.0' (since 100-92=8) and not '3.0'
+    // But since there might be other values, we rely on the specific divergence format in reportsController
+    expect(csv).toContain('8.00,8.00');
+    expect(csv).not.toContain('3.00,3.00');
+  });
 });

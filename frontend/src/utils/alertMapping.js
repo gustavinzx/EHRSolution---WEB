@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, Activity, ShieldAlert, Droplet } from 'lucide-react';
+import { AlertTriangle, Clock, Activity, ShieldAlert, Droplet, UserX, Bluetooth } from 'lucide-react';
 
 export function getAlertMeta(type) {
   switch (type) {
@@ -14,6 +14,14 @@ export function getAlertMeta(type) {
       return { label: 'Queda Suspeita de Combustível', icon: Droplet };
     case 'unauthorized_station':
       return { label: 'Posto Não Autorizado', icon: ShieldAlert };
+    case 'facial_auth_failed':
+      return { label: 'Falha na Biometria Facial', icon: UserX };
+    case 'facial_auth_locked':
+      return { label: 'Biometria Facial Bloqueada', icon: UserX };
+    case 'ble_fallback_used':
+      return { label: 'BLE Fallback Utilizado', icon: Bluetooth };
+    case 'unauthorized_fueling_attempt':
+      return { label: 'Tentativa Bloqueada (Geofence)', icon: ShieldAlert };
     default:
       return { label: type, icon: AlertTriangle };
   }

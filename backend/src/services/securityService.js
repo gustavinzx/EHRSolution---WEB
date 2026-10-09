@@ -10,6 +10,7 @@ async function getTruck(truckId) {
 async function requestFuelingSession({ truckId, driverId }) {
   const truck = await getTruck(truckId);
   if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+
   await db.query(`UPDATE fueling_sessions SET status = 'expired'
     WHERE truck_id = $1 AND status IN ('requested','authorized','active')
       AND expires_at IS NOT NULL AND expires_at < NOW()`, [truckId]);
@@ -37,16 +38,23 @@ async function finishFuelingSession(sessionId) {
   return rows[0];
 }
 
-async function recordSecurityEvent({ truckId, type, severity, source = 'device', payload = {}, io }) {
-  const truck = await getTruck(truckId);
-  if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+async function recordSecurityEvent({ truckId, type, severity, source = 'device', payload = {}, io, client }) {
+  const runner = client || db;
+  let truck = null;
+  if (truckId) {
+    const { rows } = await runner.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truckId]);
+    truck = rows[0] || null;
+  }
+  
   const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
   // Eventos que geram alerta visível ao gestor, mas não marcam o caminhão como em risco
-  const noticeTypes = new Set(['facial_auth_locked', 'manager_override']);
+  const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated']);
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
-  const { rows: events } = await db.query(`INSERT INTO security_events
+  
+  const { rows: events } = await runner.query(`INSERT INTO security_events
     (truck_id, type, severity, source, payload) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
     [truckId, type, eventSeverity, source, JSON.stringify(payload)]);
+    
   let alert = null;
   if (criticalTypes.has(type) || noticeTypes.has(type)) {
     const messageByType = {
@@ -57,13 +65,16 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
       unauthorized_fueling_attempt: 'Tentativa bloqueada: Caminhão fora da geofence do posto autorizado.',
       facial_auth_locked: `Motorista excedeu ${payload.max_attempts || 3} tentativas de reconhecimento facial. Liberação manual necessária.`,
       manager_override: `Trava liberada manualmente pelo gestor. Motivo: ${payload.reason || 'não informado'}.`,
+      face_provider_error: 'Falha na comunicação com o provedor de biometria facial.',
+      driver_deactivated: 'Motorista desativado ativamente. Operações suspensas.'
     };
-    const { rows } = await db.query(`INSERT INTO fleet_alerts
+    const { rows } = await runner.query(`INSERT INTO fleet_alerts
       (truck_id, type, severity, message, plate, model) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [truckId, `security_${type}`, eventSeverity, messageByType[type] || 'Evento de segurança detectado.', truck.plate, truck.model]);
+      [truckId, `security_${type}`, eventSeverity, messageByType[type] || 'Evento de segurança detectado.', truck?.plate, truck?.model]);
     alert = rows[0];
-    if (criticalTypes.has(type)) {
-      await db.query(`UPDATE trucks SET status = 'security_alert' WHERE id = $1`, [truckId]);
+    
+    if (criticalTypes.has(type) && truckId) {
+      await runner.query(`UPDATE trucks SET status = 'security_alert' WHERE id = $1`, [truckId]);
     }
     if (io && alert) io.emit('newAlert', alert);
   }
