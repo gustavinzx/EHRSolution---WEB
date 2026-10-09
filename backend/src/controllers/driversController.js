@@ -260,6 +260,7 @@ exports.assignTruck = async (req, res) => {
 };
 
 
+
 const dataProvider = require('../services/fleetDataProvider');
 
 exports.ranking = async (req, res) => {
@@ -281,3 +282,4 @@ exports.getScore = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+

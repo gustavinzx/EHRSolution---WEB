@@ -8,12 +8,16 @@ function checkConfig() {
 
 exports.enroll = async (driverId, imageBuffer) => {
   checkConfig();
-  return { templateRef: 'aws_' + driverId + '_' + Date.now() };
+  const err = new Error('Rekognition enroll not implemented yet');
+  err.code = 'NOT_IMPLEMENTED';
+  throw err;
 };
 
 exports.verify = async (driverId, templateRef, imageBuffer) => {
   checkConfig();
-  return { match: false, score: 0, livenessPassed: false };
+  const err = new Error('Rekognition verify not implemented yet');
+  err.code = 'NOT_IMPLEMENTED';
+  throw err;
 };
 
 exports.remove = async (templateRef) => {

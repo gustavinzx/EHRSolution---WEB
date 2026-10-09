@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useDrivers } from '../hooks/useDrivers';
 import { useFleet } from '../hooks/useFleet';
 import DriverModal    from '../components/DriverModal';
+import EnrollmentModal from '../components/EnrollmentModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { UserPlus, Search, Users, UserX, UserCheck, Truck, Fuel, ShieldCheck, ShieldAlert, Edit2 } from 'lucide-react';
+import { UserPlus, Search, Users, UserX, UserCheck, Truck, Fuel, ShieldCheck, ShieldAlert, Edit2, Camera, Trash2 } from 'lucide-react';
 
 const glass = {
   background: 'rgba(255,255,255,0.03)', 
@@ -13,12 +14,13 @@ const glass = {
 };
 
 export default function DriversPage() {
-  const { drivers, loading, createDriver, updateDriver, deactivateDriver, activateDriver, assignTruck } = useDrivers();
+  const { drivers, loading, createDriver, updateDriver, deactivateDriver, activateDriver, assignTruck, enrollFace, removeFace } = useDrivers();
   const { trucks } = useFleet();
   const [search,       setSearch]       = useState('');
   const [isModalOpen,  setIsModalOpen]  = useState(false);
   const [editingDriver,setEditingDriver] = useState(null);
   const [assigning, setAssigning] = useState({});
+  const [enrollDriverTarget, setEnrollDriverTarget] = useState(null);
 
   const filtered = drivers.filter(d => (d.name || '').toLowerCase().includes(search.toLowerCase()))
     .sort((a,b) => a.name.localeCompare(b.name));
@@ -264,4 +266,9 @@ export default function DriversPage() {
     </div>
   );
 }
+
+
+
+
+
 

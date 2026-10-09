@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 function startRetentionRoutine() {
-  if (process.env.NODE_ENV === 'test') return;
+  if (process.env.NODE_ENV === 'test') return null;
   
   const days = parseInt(process.env.FACIAL_ATTEMPTS_RETENTION_DAYS || '90', 10);
   
@@ -19,11 +19,11 @@ function startRetentionRoutine() {
     }
   };
   
-  // run once at startup
   run();
   
-  // run every 24h
-  setInterval(run, 24 * 60 * 60 * 1000);
+  const timer = setInterval(run, 24 * 60 * 60 * 1000);
+  timer.unref();
+  return timer;
 }
 
 module.exports = { startRetentionRoutine };

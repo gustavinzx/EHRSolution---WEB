@@ -24,7 +24,7 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
         return next();
       } catch (err) {
         console.error('Hardware Auth Error:', err);
-        return res.status(500).json({ error: 'Internal server error during authentication', detail: e.message });
+        return res.status(500).json({ error: 'Internal server error during authentication' });
       }
     }
 
@@ -49,7 +49,7 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
         const { rows } = await db.query('SELECT is_active FROM drivers WHERE id = $1', [decoded.id]);
         if (!rows.length || !rows[0].is_active) return res.status(403).json({ error: 'driver_inactive' });
       } catch(e) {
-        return res.status(500).json({ error: 'Internal server error during authentication', detail: e.message });
+        return res.status(500).json({ error: 'Internal server error during authentication' });
       }
       req.driver = decoded;
     }
@@ -60,5 +60,6 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
 }
 
 module.exports = { allow };
+
 
 

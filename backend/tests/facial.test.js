@@ -79,7 +79,7 @@ describe('Facial & Deactivation Tests', () => {
       "INSERT INTO fueling_sessions (truck_id, driver_id, station_id, status, release_method) VALUES ($1, $2, $3, 'requested', 'facial') RETURNING id",
       [truckId, driverId, stationId]
     );
-    const big = Buffer.alloc(3 * 1024 * 1024).toString('base64');
+    const big = Buffer.alloc(2.1 * 1024 * 1024).toString('base64');
     const res = await request(app).post('/api/fueling/sessions/' + sess.rows[0].id + '/verify-face')
       .set('Authorization', 'Bearer ' + tokenDriver)
       .send({ image_base64: big });
@@ -156,7 +156,7 @@ describe('Facial & Deactivation Tests', () => {
 
     const al = await db.query("SELECT * FROM fleet_alerts WHERE truck_id=$1", [truckId]);
     expect(al.rows.length).toBeGreaterThan(0);
-    expect(al.rows.find(a => a.type === 'facial_failures')).toBeDefined();
+    expect(al.rows.find(a => a.type.includes('facial_auth_locked'))).toBeDefined();
   });
 
   it('authorize facial SEM verify => 403, após verify => 200, reuso => 403', async () => {
@@ -263,4 +263,6 @@ describe('Facial & Deactivation Tests', () => {
     expect(atts.rows.length).toBe(0);
   });
 });
+
+
 

@@ -34,7 +34,10 @@ const io = new Server(server, {
 // FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.use(helmet());
 app.use(cors({ origin: allowedOrigin }));
-app.use(express.json({ limit: '10mb' }));
+// High limit ONLY for facial endpoints
+app.post('/api/drivers/:id/face/enroll', express.json({ limit: '3mb' }));
+app.post('/api/fueling/sessions/:id/verify-face', express.json({ limit: '3mb' }));
+app.use(express.json({ limit: '100kb' }));
 app.use(compression());
 
 // FIX 2.2: General rate limiter for all protected API routes (150 req/min per IP).
@@ -71,11 +74,12 @@ app.use('/api/fueling', generalLimiter, fuelingRoutes);
 app.use('/api/reports', generalLimiter, authMiddleware, reportsRoutes);
 app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'));
 app.use('/api/settings', generalLimiter, authMiddleware, require('./routes/settings'));
-app.use('/api/facial-attempts', require('./routes/facialAttempts'));
+app.use('/api/facial-attempts', generalLimiter, authMiddleware, require('./routes/facialAttempts'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Payload too large' });
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
@@ -120,6 +124,8 @@ if (process.env.NODE_ENV !== 'test') {
       console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
     }
     startAnomalyEngine(io);
+    const { startRetentionRoutine } = require('./services/retentionService');
+    startRetentionRoutine();
   });
 }
 
@@ -127,6 +133,9 @@ module.exports = { app, server, io };
  
  
  
+
+
+
 
 
 
