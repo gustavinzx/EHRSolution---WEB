@@ -268,7 +268,7 @@ describe('Divergence and Fuel Rules Tests', () => {
     // Check that 8% divergence log is in CSV, but not 3% divergence log
     // Because CSV format strings differ, we search for '8.0' (since 100-92=8) and not '3.0'
     // But since there might be other values, we rely on the specific divergence format in reportsController
-    expect(csv).toContain('8.0 L');
-    expect(csv).not.toContain('3.0 L (3.0%)');
+    expect(csv).toContain('8.00,8.00');
+    expect(csv).not.toContain('3.00,3.00');
   });
 });

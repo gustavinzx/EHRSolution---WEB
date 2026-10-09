@@ -24,6 +24,9 @@ router.put('/:id', [
 router.patch('/:id/deactivate', driversController.deactivate);
 router.patch('/:id/activate', driversController.activate);
 
+router.post('/:id/face/enroll', driversController.enrollFace);
+router.delete('/:id/face', driversController.removeFace);
+
 router.post('/:id/trucks', [
   body('truck_id').notEmpty().withMessage('truck_id is required')
 ], validate, driversController.assignTruck);

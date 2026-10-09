@@ -81,22 +81,140 @@ exports.update = async (req, res) => {
   }
 };
 
+const faceProvider = require('../services/faceProvider');
+const security = require('../services/securityService');
+
 exports.deactivate = async (req, res) => {
+  const client = await db.pool.connect();
   try {
     const { id } = req.params;
     
-    const result = await db.query(
-      'UPDATE drivers SET is_active = false WHERE id = $1 RETURNING *',
+    // fetch driver face_template_ref before transaction if we need to remove it
+    const { rows: drvs } = await client.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
+    if (drvs.length === 0) {
+      client.release();
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    const templateRef = drvs[0].face_template_ref;
+
+    await client.query('BEGIN');
+    
+    const result = await client.query(
+      'UPDATE drivers SET is_active = false, face_enrolled = false, face_template_ref = NULL WHERE id = $1 RETURNING *',
       [id]
     );
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Driver not found' });
+    // Cancel open sessions
+    const { rows: openSessions } = await client.query(
+      "UPDATE fueling_sessions SET status='cancelled' WHERE driver_id=$1 AND status IN ('requested', 'authorized', 'active') RETURNING id",
+      [id]
+    );
+    
+    // Cancel them using the proper mechanism (metadata update can be done if needed, but simple update is fine, we must also emit if we have io)
+    for (const sess of openSessions) {
+      if (req.io) {
+        // we emit update
+        req.io.emit('fuelingSessionUpdate', { id: sess.id, status: 'cancelled' });
+      }
+    }
+    
+    // Security event
+    await security.recordSecurityEvent({
+      truckId: null,
+      type: 'driver_deactivated',
+      severity: 'medium',
+      source: 'manager',
+      payload: { driver_id: id, cancelled_sessions: openSessions.length },
+      io: req.io
+    }, client);
+    
+    await client.query('COMMIT');
+    client.release();
+    
+    if (templateRef) {
+      try {
+        await faceProvider.remove(templateRef);
+      } catch (e) {
+        console.error('Failed to remove face template on provider:', e);
+      }
     }
     
     res.json(result.rows[0]);
   } catch (error) {
+    await client.query('ROLLBACK');
+    client.release();
     console.error('Deactivate driver error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.enrollFace = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { image_base64, consent, consent_version } = req.body;
+    
+    if (consent !== true) return res.status(400).json({ error: 'consent is required' });
+    if (!image_base64) return res.status(400).json({ error: 'image_base64 is required' });
+
+    const { rows: drv } = await db.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
+    if (!drv.length) return res.status(404).json({ error: 'Driver not found' });
+    
+    if (drv[0].face_template_ref) {
+      try { await faceProvider.remove(drv[0].face_template_ref); } catch(e) { console.error(e); }
+    }
+    
+    const imageBuffer = Buffer.from(image_base64, 'base64');
+    const { templateRef } = await faceProvider.enroll(id, imageBuffer);
+    
+    const result = await db.query(
+      'UPDATE drivers SET face_enrolled=true, face_template_ref=$1, face_consent_at=NOW(), face_consent_version=$2 WHERE id=$3 RETURNING *',
+      [templateRef, consent_version || 'v1', id]
+    );
+    
+    await security.recordSecurityEvent({
+      truckId: null,
+      type: 'face_enrolled',
+      severity: 'low',
+      source: 'manager',
+      payload: { driver_id: id },
+      io: req.io
+    });
+    
+    res.json(result.rows[0]);
+  } catch(error) {
+    console.error('Enroll face error:', error);
+    if (error.code === 'PROVIDER_NOT_CONFIGURED') return res.status(503).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.removeFace = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows: drv } = await db.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
+    if (!drv.length) return res.status(404).json({ error: 'Driver not found' });
+    
+    if (drv[0].face_template_ref) {
+      try { await faceProvider.remove(drv[0].face_template_ref); } catch(e) { console.error(e); }
+    }
+    
+    const result = await db.query(
+      'UPDATE drivers SET face_enrolled=false, face_template_ref=NULL, face_consent_at=NULL, face_consent_version=NULL WHERE id=$1 RETURNING *',
+      [id]
+    );
+    
+    await security.recordSecurityEvent({
+      truckId: null,
+      type: 'face_revoked',
+      severity: 'low',
+      source: 'manager',
+      payload: { driver_id: id },
+      io: req.io
+    });
+    
+    res.json(result.rows[0]);
+  } catch(error) {
+    console.error('Remove face error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

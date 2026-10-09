@@ -48,7 +48,7 @@ describe('Web Hardening Tests', () => {
       .set('Authorization', `Bearer ${driverToken}`)
       .send({ level_before: 100, level_after: 500 }); // driver tries to send volume
 
-    expect(res.status).toBe(200);
+    console.log(res.body); expect(res.status).toBe(200);
 
     // Check truck level hasn't changed
     const { rows: tRows } = await db.query(`SELECT current_level_liters FROM trucks WHERE id = $1`, [truckId]);
@@ -117,7 +117,7 @@ describe('Web Hardening Tests', () => {
       .post(`/api/fueling/sessions/${sessionId}/pump-reading`)
       .set('x-api-key', hardwareKey)
       .send({ pump_liters: 0 });
-    expect(res.status).toBe(200);
+    console.log(res.body); expect(res.status).toBe(200);
 
     const { rows } = await db.query(`SELECT pump_liters FROM fueling_sessions WHERE id=$1`, [sessionId]);
     expect(parseFloat(rows[0].pump_liters)).toBe(0);
@@ -196,3 +196,4 @@ describe('Web Hardening Tests', () => {
   });
 
 });
+

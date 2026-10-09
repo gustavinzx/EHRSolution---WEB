@@ -8,8 +8,11 @@ async function getTruck(truckId) {
 }
 
 async function requestFuelingSession({ truckId, driverId }) {
-  const truck = await getTruck(truckId);
-  if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+  let truck = null;
+    if (truckId) {
+      truck = await getTruck(truckId);
+      if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+    }
   await db.query(`UPDATE fueling_sessions SET status = 'expired'
     WHERE truck_id = $1 AND status IN ('requested','authorized','active')
       AND expires_at IS NOT NULL AND expires_at < NOW()`, [truckId]);
@@ -38,8 +41,11 @@ async function finishFuelingSession(sessionId) {
 }
 
 async function recordSecurityEvent({ truckId, type, severity, source = 'device', payload = {}, io }) {
-  const truck = await getTruck(truckId);
-  if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+  let truck = null;
+    if (truckId) {
+      truck = await getTruck(truckId);
+      if (!truck) throw Object.assign(new Error('Truck not found'), { status: 404 });
+    }
   const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
   // Eventos que geram alerta visível ao gestor, mas não marcam o caminhão como em risco
   const noticeTypes = new Set(['facial_auth_locked', 'manager_override']);
@@ -76,3 +82,5 @@ module.exports = {
   finishFuelingSession,
   recordSecurityEvent
 };
+
+

@@ -24,7 +24,7 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
         return next();
       } catch (err) {
         console.error('Hardware Auth Error:', err);
-        return res.status(500).json({ error: 'Internal server error during authentication' });
+        return res.status(500).json({ error: 'Internal server error during authentication', detail: e.message });
       }
     }
 
@@ -44,7 +44,15 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
     if (role === 'driver' && !driver) return res.status(403).json({ error: 'Acesso negado para motoristas' });
     if (role === 'manager' && !manager) return res.status(403).json({ error: 'Acesso restrito ao app do motorista' });
 
-    if (role === 'driver') req.driver = decoded;
+    if (role === 'driver') {
+      try {
+        const { rows } = await db.query('SELECT is_active FROM drivers WHERE id = $1', [decoded.id]);
+        if (!rows.length || !rows[0].is_active) return res.status(403).json({ error: 'driver_inactive' });
+      } catch(e) {
+        return res.status(500).json({ error: 'Internal server error during authentication', detail: e.message });
+      }
+      req.driver = decoded;
+    }
     else req.user = decoded;
     req.actor = { type: role, id: decoded.id, email: decoded.email };
     next();
@@ -52,3 +60,5 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
 }
 
 module.exports = { allow };
+
+

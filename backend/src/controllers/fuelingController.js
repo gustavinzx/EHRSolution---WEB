@@ -1,5 +1,6 @@
 "use strict";
 const db = require("../config/db");
+const faceProvider = require("../services/faceProvider");
 const { buildReturnRoute } = require("../services/returnRoute");
 const security = require("../services/securityService");
 
@@ -63,10 +64,11 @@ async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}) {
   const { rows } = await db.query(
     `UPDATE fueling_sessions
         SET status='authorized', authorized_at=NOW(), release_method=$2,
+            facial_consumed_at = CASE WHEN $4 = 'facial' THEN NOW() ELSE facial_consumed_at END,
             expires_at = NOW() + INTERVAL '${SESSION_TTL_MIN} minutes',
             metadata = COALESCE(metadata,'{}'::jsonb) || $3::jsonb
       WHERE id=$1 AND status IN ('requested') RETURNING *`,
-    [sessionId, releaseMethod, JSON.stringify(extraMeta)]
+    [sessionId, releaseMethod, JSON.stringify(extraMeta), releaseMethod]
   );
   if (!rows[0]) return null;
   await db.query(
@@ -154,6 +156,15 @@ exports.authorizeSession = async (req, res) => {
     const session = sessions[0];
     if (!canTouchSession(req, session)) return res.status(403).json({ error: "Sessão pertence a outro motorista" });
 
+    if (session.release_method === 'facial') {
+      if (session.facial_consumed_at) return res.status(403).json({ error: "facial_verification_already_used" });
+      if (!session.facial_verified_at) return res.status(403).json({ error: "facial_verification_required" });
+      const verifiedAt = new Date(session.facial_verified_at).getTime();
+      if (Date.now() - verifiedAt > 2 * 60 * 1000) return res.status(403).json({ error: "facial_verification_expired" });
+    } else if (session.release_method === 'ble_fallback') {
+      if (!session.ble_confirmed_at) return res.status(403).json({ error: "ble_confirmation_required" });
+    }
+
     // Geofence: o caminhão precisa estar no posto (posição atual reportada ou enviada pelo app)
     const lat = req.body?.lat ?? session.truck_lat;
     const lng = req.body?.lng ?? session.truck_lng;
@@ -177,8 +188,11 @@ exports.authorizeSession = async (req, res) => {
     const method = req.actor.type === "manager" ? "manager_override" : (session.release_method || "facial");
     const updated = await authorizeAndUnlock(id, method, { authorized_by: req.actor.type, authorized_by_id: req.actor.id });
     if (!updated) return res.status(409).json({ error: "Sessão já foi processada" });
-
-    const full = await loadSession(id);
+      if (method === 'ble_fallback') {
+        await db.query("INSERT INTO fleet_alerts (truck_id, type, severity, message) VALUES ($1, 'ble_fallback_used', 'medium', 'Abastecimento liberado via BLE Fallback sem biometria facial.')", [session.truck_id]);
+        if (req.io) req.io.emit('newAlert', { truck_id: session.truck_id });
+      }
+      const full = await loadSession(id);
     emitSession(req, full);
     res.json(full);
   } catch (err) {
@@ -552,5 +566,97 @@ exports.reportPumpReading = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+
+exports.verifyFace = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { image_base64 } = req.body;
+    if (!image_base64) return res.status(400).json({ error: "image_base64 é obrigatório" });
+    
+    const imageBuffer = Buffer.from(image_base64, 'base64');
+    if (imageBuffer.length > 2 * 1024 * 1024) return res.status(400).json({ error: "Imagem excede o limite de 2MB" });
+    const signature = imageBuffer.toString('hex', 0, 4);
+    if (!signature.startsWith('ffd8') && !signature.startsWith('8950')) {
+      return res.status(400).json({ error: "Imagem deve ser JPEG ou PNG" });
+    }
+
+    const { rows: sessions } = await db.query("SELECT * FROM fueling_sessions WHERE id=$1 AND status='requested'", [id]);
+    if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada" });
+    const session = sessions[0];
+    
+    if (session.driver_id !== req.actor.id) return res.status(403).json({ error: "Sessão de outro motorista" });
+
+    const { rows: drivers } = await db.query("SELECT face_enrolled, face_template_ref FROM drivers WHERE id=$1", [req.actor.id]);
+    if (!drivers[0]?.face_enrolled || !drivers[0]?.face_template_ref) return res.status(409).json({ error: "face_not_enrolled" });
+
+    const { rows: limits } = await db.query("SELECT COUNT(*) as cnt FROM facial_attempts WHERE driver_id=$1 AND created_at >= NOW() - INTERVAL '1 hour'", [req.actor.id]);
+    if (parseInt(limits[0].cnt) >= 10) return res.status(429).json({ error: "Limite de tentativas por hora atingido." });
+
+    const { rows: sessionAtt } = await db.query("SELECT COUNT(*) as cnt FROM facial_attempts WHERE session_id=$1", [id]);
+    if (parseInt(sessionAtt[0].cnt) >= 3) return res.status(429).json({ error: "Limite de tentativas da sessão atingido." });
+
+    let providerResult;
+    let providerName = process.env.FACE_PROVIDER || 'mock';
+    try {
+      providerResult = await faceProvider.verify(req.actor.id, drivers[0].face_template_ref, imageBuffer);
+    } catch(e) {
+      providerResult = { match: false, score: 0, livenessPassed: false, error: e.message };
+    }
+
+    const threshold = parseFloat(process.env.FACE_MATCH_THRESHOLD || "0.90");
+    const isSuccess = providerResult.match && providerResult.score >= threshold && providerResult.livenessPassed;
+    
+    const { rows: attemptIns } = await db.query(
+      "INSERT INTO facial_attempts (session_id, driver_id, truck_id, success, score, liveness_passed, provider, failure_reason) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+      [id, req.actor.id, session.truck_id, isSuccess, providerResult.score || 0, !!providerResult.livenessPassed, providerName, providerResult.error || null]
+    );
+
+    if (isSuccess) {
+      await db.query("UPDATE fueling_sessions SET facial_verified_at=NOW(), facial_attempt_id=$1 WHERE id=$2", [attemptIns[0].id, id]);
+      return res.json({ verified: true });
+    } else {
+      const attemptsCount = parseInt(sessionAtt[0].cnt) + 1;
+      if (attemptsCount >= 3) {
+        const { rows: trucks } = await db.query("SELECT plate, model FROM trucks WHERE id=$1", [session.truck_id]);
+        await db.query("UPDATE fueling_sessions SET metadata = COALESCE(metadata,'{}'::jsonb) || '{\"needs_manager\":true}'::jsonb WHERE id=$1", [id]);
+        const { rows: alerts } = await db.query(
+          "INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model) VALUES ($1, 'facial_failures', 'high', 'Falhas sucessivas de reconhecimento facial (3x).', $2, $3) RETURNING *",
+          [session.truck_id, trucks[0]?.plate, trucks[0]?.model]
+        );
+        if (req.io && alerts[0]) req.io.emit('newAlert', alerts[0]);
+        await security.recordSecurityEvent({ truckId: session.truck_id, type: "facial_failures_exceeded", severity: "high", source: "app", payload: { driver_id: req.actor.id, session_id: id }, io: req.io });
+      }
+      return res.json({ verified: false, attempts_left: 3 - attemptsCount });
+    }
+  } catch (error) {
+    console.error("Verify face error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.bleConfirmed = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows: sessions } = await db.query("SELECT * FROM fueling_sessions WHERE id=$1 AND status='requested'", [id]);
+    if (!sessions.length) return res.status(409).json({ error: "Sessão não encontrada ou não aguardando" });
+    const session = sessions[0];
+    
+    if (session.truck_id !== req.truck.id) return res.status(403).json({ error: "Esta sessão pertence a outro caminhão" });
+    
+    await db.query("UPDATE fueling_sessions SET ble_confirmed_at=NOW() WHERE id=$1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("BLE confirmed error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+
+
+
 
 

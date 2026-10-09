@@ -32,7 +32,7 @@ export default function DriversPage() {
 
   const handleToggleActive = async (driver) => {
     const action = driver.is_active ? deactivateDriver : activateDriver;
-    if (window.confirm(`${driver.is_active ? 'Desativar' : 'Reativar'} acesso facial e operações deste motorista?`)) {
+    if (window.confirm(`${driver.is_active ? 'Atenção: desativar o motorista cancelará imediatamente qualquer sessão de abastecimento em andamento e cortará o acesso dele ao sistema. Confirmar desativação?' : 'Reativar acesso facial e operações deste motorista?'}`)) {
       await action(driver.id);
     }
   };
@@ -161,6 +161,28 @@ export default function DriversPage() {
               {/* Card Body (Stats & Vehicles) */}
               <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
+                {/* Biometria */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: d.face_enrolled ? 'rgba(47,190,181,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Camera size={16} color={d.face_enrolled ? '#2FBEB5' : '#64748b'} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: d.face_enrolled ? '#e2e8f0' : '#94a3b8' }}>{d.face_enrolled ? 'Biometria Ativa' : 'Sem Biometria'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Autenticação facial</div>
+                    </div>
+                  </div>
+                  {d.face_enrolled ? (
+                    <button onClick={() => window.confirm('Revogar biometria deste motorista?') && removeFace(d.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }} title="Revogar Biometria">
+                      <Trash2 size={14} />
+                    </button>
+                  ) : (
+                    <button onClick={() => setEnrollDriverTarget(d)} style={{ background: 'rgba(47,190,181,0.1)', border: '1px solid rgba(47,190,181,0.2)', color: '#2FBEB5', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                      Cadastrar
+                    </button>
+                  )}
+                </div>
+
                 {/* Vehicles Tags */}
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Veículos Vinculados</div>
@@ -233,6 +255,13 @@ export default function DriversPage() {
         onSave={handleSave}
         driver={editingDriver}
       />
+      <EnrollmentModal
+        isOpen={!!enrollDriverTarget}
+        onClose={() => setEnrollDriverTarget(null)}
+        onEnroll={enrollFace}
+        driver={enrollDriverTarget}
+      />
     </div>
   );
 }
+
