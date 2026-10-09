@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React
+import { useAuth } from '../hooks/useAuth';, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useParams, Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
@@ -41,7 +42,7 @@ import useFleetState from '../store/useFleetState';
 import ErrorMessage from '../components/ErrorMessage';
 
 export default function TruckDetailsPage() {
-  const { user } = require('../hooks/useAuth').useAuth();
+  const { user } = useAuth();
   const { id } = useParams();
   const { fetchTruckDetails, error } = useFleet();
   const [truckDetails, setTruckDetails] = useState(null);
@@ -411,6 +412,10 @@ export default function TruckDetailsPage() {
     </div>
   );
 }
+
+
+
+
 
 
 

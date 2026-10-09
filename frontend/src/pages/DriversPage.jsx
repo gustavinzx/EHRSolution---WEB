@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { useDrivers } from '../hooks/useDrivers';
 import { useFleet } from '../hooks/useFleet';
 import DriverModal    from '../components/DriverModal';
@@ -14,7 +15,7 @@ const glass = {
 };
 
 export default function DriversPage() {
-  const { user } = require('../hooks/useAuth').useAuth();
+  const { user } = useAuth();
   const { drivers, loading, createDriver, updateDriver, deactivateDriver, activateDriver, assignTruck, enrollFace, removeFace } = useDrivers();
   const { trucks } = useFleet();
   const [search,       setSearch]       = useState('');
@@ -267,6 +268,10 @@ export default function DriversPage() {
     </div>
   );
 }
+
+
+
+
 
 
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { ShieldAlert, Search, Filter, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { useAlerts } from '../hooks/useAlerts';
 import { useFleet } from '../hooks/useFleet';
@@ -13,7 +14,7 @@ function fmtDate(ts) {
 }
 
 export default function AlertsPage() {
-  const { user } = require('../hooks/useAuth').useAuth();
+  const { user } = useAuth();
   const [filters, setFilters] = useState({ status: 'all' });
   const { alerts, loading, resolveAlert, refetch } = useAlerts(filters);
   const { trucks } = useFleet();
@@ -162,4 +163,8 @@ const inputStyle = {
   outline: 'none',
   fontSize: '13px'
 };
+
+
+
+
 
