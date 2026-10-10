@@ -11,7 +11,9 @@ describe('Roles and Permissions Tests', () => {
   let adminToken, managerToken, auditorToken, inactiveToken, oldToken;
   let adminId, managerId, auditorId, inactiveId;
 
-  beforeAll(async () => {
+  const clean = require('./clean');
+beforeAll(async () => {
+  await clean();
     process.env.JWT_SECRET = 'test_secret_for_roles';
 
     // Wipe users and alert_settings_history just to be safe

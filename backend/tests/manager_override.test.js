@@ -9,7 +9,9 @@ if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
 
 let tokenManager, tokenDriver, driverId, truckId, stationId;
 
+const clean = require('./clean');
 beforeAll(async () => {
+  await clean();
   await db.query("DELETE FROM fleet_alerts");
   await db.query("DELETE FROM security_events");
   await db.query("DELETE FROM facial_attempts");
