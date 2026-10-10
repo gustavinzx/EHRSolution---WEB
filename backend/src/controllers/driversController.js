@@ -6,7 +6,7 @@ const dataProvider = require('../services/fleetDataProvider');
 
 const safeDriver = (driver) => {
   if (!driver) return driver;
-  return {
+  const result = {
     id: driver.id,
     name: driver.name,
     phone: driver.phone,
@@ -19,6 +19,10 @@ const safeDriver = (driver) => {
     truck_plate: driver.truck_plate,
     truck_model: driver.truck_model
   };
+  if (driver.assigned_trucks && Array.isArray(driver.assigned_trucks)) {
+    result.assigned_trucks = driver.assigned_trucks.map(t => ({ id: t.id, plate: t.plate, model: t.model }));
+  }
+  return result;
 };
 
 exports.list = async (req, res) => {

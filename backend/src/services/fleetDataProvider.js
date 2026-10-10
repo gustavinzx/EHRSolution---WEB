@@ -81,7 +81,7 @@ async function getFleetSnapshot() {
  */
 async function getTruckTelemetry(truckId) {
   const result = await db.query(`
-    SELECT t.*, 
+    SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, t.lat, t.lng, t.status, t.speed_kmh, t.sim_state, t.route_phase, t.route_index, t.route_resume_index, t.route_progress, t.fuel_station_id, t.fueling_ticks, t.origin_name, t.dest_name, t.route_geometry, t.planned_route_geometry, t.created_at,
       json_build_object('name', d.name, 'phone', d.phone) as driver
     FROM trucks t
     LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
