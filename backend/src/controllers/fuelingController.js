@@ -162,9 +162,10 @@ exports.authorizeSession = async (req, res) => {
       [id]
     );
     if (!sessions.length) {
-      const { rows: check } = await db.query("SELECT status FROM fueling_sessions WHERE id=$1", [id]);
-      if (check.length && check[0].status !== 'requested') {
-        return res.status(409).json({ error: "Sessão já foi processada" });
+      const { rows: check } = await db.query("SELECT status, driver_id FROM fueling_sessions WHERE id=$1", [id]);
+      if (check.length) {
+        if (!canTouchSession(req, check[0])) return res.status(404).json({ error: "Sessão não encontrada ou já autorizada" });
+        if (check[0].status !== 'requested') return res.status(409).json({ error: "Sessão já foi processada" });
       }
       return res.status(404).json({ error: "Sessão não encontrada ou já autorizada" });
     }
