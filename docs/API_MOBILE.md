@@ -1,4 +1,4 @@
-Verificado contra o commit b34f208ca91992c16efac38a8c12e8890826beb7
+Verificado contra o commit 32546b9485f80efc4a24dec47a8794c661f88a5a
 
 # EHR Solutions - Documentação da API Mobile & Hardware
 
