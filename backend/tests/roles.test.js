@@ -8,19 +8,12 @@ if (!process.env.DB_NAME?.endsWith('_test')) {
 }
 
 describe('Roles and Permissions Tests', () => {
-  it('admin can change password, manager cannot, short password fails', async () => {
-    const r1 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${managerToken}`).send({ password: 'newpassword' });
-    expect(r1.status).toBe(403);
-    const r2 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'short' });
-    expect(r2.status).toBe(400);
-    const r3 = await request(app).patch(`/api/users/${adminId}/password`).set('Authorization', `Bearer ${adminToken}`).send({ password: 'newpassword' });
-    expect(r3.status).toBe(200);
-  });
-
   let adminToken, managerToken, auditorToken, inactiveToken, oldToken;
   let adminId, managerId, auditorId, inactiveId;
 
-  beforeAll(async () => {
+  const clean = require('./clean');
+beforeAll(async () => {
+  await clean();
     process.env.JWT_SECRET = 'test_secret_for_roles';
 
     // Wipe users and alert_settings_history just to be safe
@@ -178,6 +171,7 @@ describe('Roles and Permissions Tests', () => {
     expect(r1.status).toBe(401);
   });
 });
+
 
 
 

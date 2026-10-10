@@ -68,7 +68,7 @@ exports.driverLogin = async (req, res) => {
 
     // Get assigned truck
     const truckRes = await db.query(`
-      SELECT t.* FROM trucks t
+      SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, t.lat, t.lng, t.status, t.speed_kmh, t.fuel_station_id, t.sim_state FROM trucks t
       JOIN driver_trucks dt ON dt.truck_id = t.id
       WHERE dt.driver_id = $1
       LIMIT 1
@@ -105,4 +105,3 @@ exports.driverLogin = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-

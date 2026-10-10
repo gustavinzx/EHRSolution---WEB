@@ -8,7 +8,9 @@ const jwt = require('jsonwebtoken');
 describe('Web Hardening Tests', () => {
   let managerToken, driverToken, hardwareKey, truckId, driverId, sessionId, alertId;
 
-  beforeAll(async () => {
+  const clean = require('./clean');
+beforeAll(async () => {
+  await clean();
     if (!process.env.DB_NAME?.endsWith('_test')) {
       throw new Error(`Guard fail: DB_NAME deve terminar com '_test'. Atual: ${process.env.DB_NAME}`);
     }

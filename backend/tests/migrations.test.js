@@ -5,7 +5,9 @@ const { runMigrations } = require('../src/migrations/runner');
 const { execSync } = require('child_process');
 
 describe('Migrations and Seed', () => {
-  beforeAll(async () => {
+  const clean = require('./clean');
+beforeAll(async () => {
+  await clean();
     if (!process.env.DB_NAME?.endsWith('_test')) {
       throw new Error(`Guard fail: DB_NAME deve terminar com '_test'. Atual: ${process.env.DB_NAME}`);
     }

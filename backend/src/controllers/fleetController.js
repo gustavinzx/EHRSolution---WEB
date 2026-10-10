@@ -199,7 +199,7 @@ exports.getInvestigation = async (req, res) => {
   try {
     const { id } = req.params;
     const { rows: truckRows } = await db.query(
-      `SELECT t.*, d.name AS driver_name, d.phone AS driver_phone
+      `SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, t.lat, t.lng, t.status, t.speed_kmh, t.sim_state, t.route_phase, t.route_index, t.route_resume_index, t.route_progress, t.fuel_station_id, t.fueling_ticks, t.origin_name, t.dest_name, t.route_geometry, t.planned_route_geometry, t.created_at, d.name AS driver_name, d.phone AS driver_phone
        FROM trucks t
        LEFT JOIN driver_trucks dt ON dt.truck_id = t.id
        LEFT JOIN drivers d ON d.id = dt.driver_id AND d.is_active = true

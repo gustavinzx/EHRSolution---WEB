@@ -161,7 +161,13 @@ exports.authorizeSession = async (req, res) => {
         WHERE s.id=$1 AND s.status='requested'`,
       [id]
     );
-    if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada ou já autorizada" });
+    if (!sessions.length) {
+      const { rows: check } = await db.query("SELECT status FROM fueling_sessions WHERE id=$1", [id]);
+      if (check.length && check[0].status !== 'requested') {
+        return res.status(409).json({ error: "Sessão já foi processada" });
+      }
+      return res.status(404).json({ error: "Sessão não encontrada ou já autorizada" });
+    }
     const session = sessions[0];
     if (!canTouchSession(req, session)) return res.status(403).json({ error: "Sessão pertence a outro motorista" });
 
@@ -721,6 +727,7 @@ exports.bleConfirmed = async (req, res) => {
     const session = sessions[0];
     
     if (session.truck_id !== req.truck.id) return res.status(403).json({ error: "Esta sessão pertence a outro caminhão" });
+    if (session.release_method !== 'ble_fallback') return res.status(409).json({ error: "Sessão não usa BLE fallback" });
     
     await db.query("UPDATE fueling_sessions SET ble_confirmed_at=NOW() WHERE id=$1", [id]);
     res.json({ success: true });

@@ -14,7 +14,9 @@ describe('Divergence and Fuel Rules Tests', () => {
   let truckId;
   let driverId;
 
-  beforeAll(async () => {
+  const clean = require('./clean');
+beforeAll(async () => {
+  await clean();
     process.env.JWT_SECRET = 'test_secret';
     tokenManager = jwt.sign({ id: 999, type: 'manager', email: 'manager@test.com', name: 'Gestor' }, process.env.JWT_SECRET);
     await db.query("INSERT INTO users (id, name, email, password_hash, role) VALUES (999, 'Gestor', 'manager@test.com', 'hash', 'admin') ON CONFLICT DO NOTHING");

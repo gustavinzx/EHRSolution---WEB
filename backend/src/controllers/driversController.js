@@ -6,8 +6,23 @@ const dataProvider = require('../services/fleetDataProvider');
 
 const safeDriver = (driver) => {
   if (!driver) return driver;
-  const { face_template_ref, password, ...safe } = driver;
-  return safe;
+  const result = {
+    id: driver.id,
+    name: driver.name,
+    phone: driver.phone,
+    email: driver.email,
+    is_active: driver.is_active,
+    face_enrolled: driver.face_enrolled,
+    face_consent_at: driver.face_consent_at,
+    face_consent_version: driver.face_consent_version,
+    created_at: driver.created_at,
+    truck_plate: driver.truck_plate,
+    truck_model: driver.truck_model
+  };
+  if (driver.assigned_trucks && Array.isArray(driver.assigned_trucks)) {
+    result.assigned_trucks = driver.assigned_trucks.map(t => ({ id: t.id, plate: t.plate, model: t.model }));
+  }
+  return result;
 };
 
 exports.list = async (req, res) => {
@@ -130,6 +145,7 @@ exports.deactivate = async (req, res) => {
     release();
     
     if (req.io && openSessions.length > 0) {
+      // Require tardio (dentro da função) para evitar dependência circular com fuelingController
       const { emitSession, loadSession } = require('./fuelingController');
       for (const sess of openSessions) {
         try {
