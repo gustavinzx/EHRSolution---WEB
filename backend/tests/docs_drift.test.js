@@ -29,7 +29,7 @@ describe('Docs Drift Tests (API_MOBILE.md)', () => {
     }
     backendFiles = readDir(path.join(__dirname, '../src'));
     
-    apiContractContent = fs.readFileSync(path.join(__dirname, 'api_contract.test.js'), 'utf8');
+    
     
     try {
       envExampleContent = fs.readFileSync(path.join(__dirname, '../.env.example'), 'utf8');
@@ -63,12 +63,15 @@ describe('Docs Drift Tests (API_MOBILE.md)', () => {
     }
   });
 
-  it('Verifica se todos os literais de erro citados no doc existem no código fonte e no api_contract.test.js', () => {
+  it('Verifica se todos os literais de erro citados no doc existem no código fonte e no contractRows.js', () => {
     const errorMatches = [...docContent.matchAll(/"error":\s*"([^"]+)"/g)];
     
     // expect >= 40
     expect(errorMatches.length).toBeGreaterThanOrEqual(40);
     
+    const rows = require('./contractRows');
+    const testedErrors = rows.map(r => r.error).filter(Boolean);
+
     for (const match of errorMatches) {
       const errorMsg = match[1];
       let foundInSrc = false;
@@ -84,9 +87,9 @@ describe('Docs Drift Tests (API_MOBILE.md)', () => {
       }
       expect(foundInSrc).toBe(true);
       
-      const foundInTest = apiContractContent.includes(errorMsg);
+      const foundInTest = testedErrors.includes(errorMsg);
       if (!foundInTest) {
-        console.error(`Erro do doc não testado em api_contract.test.js: "${errorMsg}"`);
+        console.error(`Erro do doc não testado em contractRows.js: "${errorMsg}"`);
       }
       expect(foundInTest).toBe(true);
     }
