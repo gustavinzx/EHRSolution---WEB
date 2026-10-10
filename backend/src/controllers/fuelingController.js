@@ -721,6 +721,7 @@ exports.bleConfirmed = async (req, res) => {
     const session = sessions[0];
     
     if (session.truck_id !== req.truck.id) return res.status(403).json({ error: "Esta sessão pertence a outro caminhão" });
+    if (session.release_method !== 'ble_fallback') return res.status(409).json({ error: "Sessão não usa BLE fallback" });
     
     await db.query("UPDATE fueling_sessions SET ble_confirmed_at=NOW() WHERE id=$1", [id]);
     res.json({ success: true });
