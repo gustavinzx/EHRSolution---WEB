@@ -1,7 +1,7 @@
 export interface Vehicle {
-  id: string;
+  id: number;
   plate: string;
   model: string;
   brand?: string;
-  bleDeviceId?: string;
+  capacity: number;
 }

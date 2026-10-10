@@ -1,16 +1,18 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Driver } from '../types/driver';
 import { Vehicle } from '../types/vehicle';
 import { secureStorage } from '../storage/secureStorage';
 import { apiClient } from '../services/api/apiClient';
+import { Alert } from 'react-native';
 
 interface AuthContextData {
   signed: boolean;
   driver: Driver | null;
   vehicle: Vehicle | null;
   loading: boolean;
-  signIn: (identifier: string, pass: string) => Promise<void>;
+  signIn: (email: string, pass: string) => Promise<void>;
   signOut: () => Promise<void>;
+  onUnauthorized: (message?: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -20,45 +22,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const signOut = useCallback(async () => {
+    await secureStorage.clearAll();
+    setDriver(null);
+    setVehicle(null);
+  }, []);
+
+  const onUnauthorized = useCallback((message?: string) => {
+    if (message) {
+      Alert.alert('Acesso Negado', message);
+    }
+    signOut();
+  }, [signOut]);
+
+  useEffect(() => {
+    // Inject the unauthorized callback into apiClient to handle 401s and 403s
+    apiClient.setOnUnauthorized(onUnauthorized);
+  }, [onUnauthorized]);
+
   useEffect(() => {
     async function loadStorageData() {
       const storedToken = await secureStorage.getToken();
-      const storedDriver = await secureStorage.getDriver<Driver>();
+      const storedDriver = await secureStorage.getDriver();
+      const storedVehicle = await secureStorage.getVehicle();
 
       if (storedToken && storedDriver) {
         setDriver(storedDriver);
-        // Veículo padrão mockado recuperado para demonstração
-        setVehicle({
-          id: 'vec_550',
-          plate: 'EHR-2A26',
-          model: 'Constellation 24.280',
-          brand: 'Volkswagen',
-          bleDeviceId: 'BLE-TRAVA-EHR-01',
-        });
+        if (storedVehicle) {
+          setVehicle(storedVehicle);
+        }
       }
       setLoading(false);
     }
     loadStorageData();
   }, []);
 
-  const signIn = async (identifier: string, pass: string) => {
+  const signIn = async (email: string, pass: string) => {
     setLoading(true);
     try {
-      const response = await apiClient.login(identifier, pass);
+      const response = await apiClient.login(email, pass);
       await secureStorage.saveToken(response.token);
       await secureStorage.saveDriver(response.driver);
-
+      
+      if (response.truck) {
+        await secureStorage.saveVehicle(response.truck);
+        setVehicle(response.truck);
+      } else {
+        await secureStorage.saveVehicle({} as Vehicle); // Wait, if no truck? The backend should return it.
+        setVehicle(null);
+      }
       setDriver(response.driver);
-      setVehicle(response.vehicle);
     } finally {
       setLoading(false);
     }
-  };
-
-  const signOut = async () => {
-    await secureStorage.clearAll();
-    setDriver(null);
-    setVehicle(null);
   };
 
   return (
@@ -70,6 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         signIn,
         signOut,
+        onUnauthorized,
       }}
     >
       {children}

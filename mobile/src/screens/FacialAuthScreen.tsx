@@ -1,93 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
+import React, { useState, useRef, useEffect, useReducer } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Button } from '../components/Button';
-import { facialService } from '../services/biometric/facialService';
-import { useConnection } from '../hooks/useConnection';
 import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { apiClient } from '../services/api/apiClient';
+import { sessionReducer, initialSessionState } from '../session/sessionMachine';
+import * as Location from 'expo-location';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FacialAuth'>;
 
-type AuthState =
-  | 'AGUARDANDO'
-  | 'CAPTURANDO'
-  | 'VALIDANDO'
-  | 'SUCESSO'
-  | 'FALHA';
+export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { sessionId, status, releaseMethod } = route.params;
+  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraReady, setCameraReady] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
 
-export const FacialAuthScreen: React.FC<Props> = ({ navigation }) => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [authState, setAuthState] = useState<AuthState>('AGUARDANDO');
-  const { isOnline } = useConnection();
+  const [state, dispatch] = useReducer(sessionReducer, {
+    ...initialSessionState,
+    status: status === 'authorized' ? 'WAITING_HARDWARE' : 
+            status === 'active' ? 'FUELING' : 
+            status === 'requested' && releaseMethod === 'ble_fallback' ? 'AUTHORIZING' : 'FACIAL_PENDING',
+    sessionId,
+    releaseMethod
+  });
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+    // Navigate automatically if already past facial
+    if (state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE' || state.status === 'FUELING' || state.status === 'BLOCKED_NEEDS_MANAGER') {
+      navigation.replace('OperationResult', { sessionId, initialState: state.status, releaseMethod });
+    }
+  }, [state.status, navigation, sessionId, releaseMethod]);
 
   const handleCapture = async () => {
-    setAuthState('CAPTURANDO');
-    setTimeout(async () => {
-      setAuthState('VALIDANDO');
-      try {
-        const isValid = await facialService.processAndValidate('mock_photo_uri', isOnline);
-        if (isValid) {
-          setAuthState('SUCESSO');
-          setTimeout(() => {
-            navigation.replace('FuelOperation');
-          }, 1000);
-        } else {
-          setAuthState('FALHA');
-        }
-      } catch {
-        setAuthState('FALHA');
+    if (!cameraRef.current) return;
+    dispatch({ type: 'FACIAL_VERIFY_START' });
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.5,
+      });
+
+      if (!photo?.base64) {
+        dispatch({ type: 'FACIAL_VERIFY_FAIL', attempts: state.attempts || 0, attemptsLeft: state.attemptsLeft || 3, error: 'Falha ao capturar imagem.' });
+        return;
       }
-    }, 1200);
+
+      const res = await apiClient.verifyFace(sessionId, photo.base64);
+
+      if (res.verified) {
+        dispatch({ type: 'FACIAL_VERIFY_SUCCESS' });
+      } else {
+        if (res.attempts_left === 0) {
+          await apiClient.reportFacialFailure(sessionId).catch(() => {});
+          dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Rosto não reconhecido. Tentativas esgotadas.' });
+        } else {
+          dispatch({ 
+            type: 'FACIAL_VERIFY_FAIL', 
+            attempts: res.attempts || 0, 
+            attemptsLeft: res.attempts_left || 0, 
+            error: `Rosto não reconhecido. Restam ${res.attempts_left} tentativa(s).` 
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error.status === 409 && error.code === 'face_not_enrolled') {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Seu rosto não está cadastrado. Procure o gestor.' });
+      } else if (error.status === 429) {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Muitas tentativas. Tente mais tarde.' });
+      } else if (error.status === 503) {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Serviço de reconhecimento indisponível. Tente novamente em instantes.' });
+      } else if (error.status === 400) {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Erro na imagem capturada. Tente novamente.' });
+      } else {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Sem conexão. Verifique sua rede e tente novamente.' });
+      }
+    }
   };
 
-  if (hasPermission === null) {
+  if (!permission) return <View style={styles.container} />;
+  
+  if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text>Solicitando permissão da câmera...</Text>
+      <View style={styles.container}>
+        <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 20 }}>Precisamos de acesso à sua câmera.</Text>
+        <Button title="Permitir Câmera" onPress={requestPermission} />
       </View>
     );
   }
 
-  if (hasPermission === false) {
-    return (
-      <View style={styles.center}>
-        <Text>Sem acesso à câmera. Permita o uso para validar biometria.</Text>
-      </View>
-    );
-  }
+  // Prevent retry if user is not enrolled or too many attempts per hour
+  const blockRetry = state.error === 'Seu rosto não está cadastrado. Procure o gestor.' || state.error === 'Muitas tentativas. Tente mais tarde.';
 
   return (
     <View style={styles.container}>
-      <Text style={styles.instructions}>Posicione seu rosto na área indicada</Text>
-
-      <View style={styles.cameraWrapper}>
-        <CameraView style={styles.camera} facing="front" />
-      </View>
-
-      <View style={styles.statusBox}>
-        <Text style={styles.statusText}>Status: {authState}</Text>
-        {authState === 'VALIDANDO' && <Text style={styles.subStatus}>Validando identidade...</Text>}
-        {authState === 'SUCESSO' && <Text style={styles.successText}>Identidade confirmada!</Text>}
-        {authState === 'FALHA' && (
-          <Text style={styles.errorText}>Não foi possível validar sua identidade.</Text>
-        )}
-      </View>
-
-      {authState !== 'VALIDANDO' && authState !== 'SUCESSO' && (
-        <Button
-          title={authState === 'FALHA' ? 'Tentar Novamente' : 'Capturar e Validar'}
-          onPress={handleCapture}
-          style={styles.btn}
-        />
+      {state.status === 'FACIAL_PENDING' || state.status === 'VERIFYING' ? (
+        <>
+          <View style={styles.cameraContainer}>
+            <CameraView 
+              style={styles.camera} 
+              facing="front" 
+              ref={cameraRef}
+              onCameraReady={() => setCameraReady(true)}
+            />
+            {state.status === 'VERIFYING' && (
+              <View style={styles.overlay}>
+                <Text style={styles.overlayText}>Validando Rosto...</Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.infoContainer}>
+            {state.error ? (
+              <Text style={styles.errorText}>{state.error}</Text>
+            ) : (
+              <Text style={styles.instructionText}>Alinhe seu rosto e confirme a identidade para liberar o abastecimento.</Text>
+            )}
+            
+            <Button
+              testID="capture-btn"
+              title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "TIRAR FOTO"}
+              onPress={handleCapture}
+              disabled={state.status === 'VERIFYING' || blockRetry}
+              style={{ marginTop: 20 }}
+            />
+          </View>
+        </>
+      ) : (
+        <View style={styles.infoContainer}>
+          <Text style={styles.instructionText}>Redirecionando...</Text>
+        </View>
       )}
     </View>
   );
@@ -96,55 +140,52 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
   },
-  center: {
+  cameraContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  instructions: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.md,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  cameraWrapper: {
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    position: 'relative',
+    margin: 16,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: theme.colors.secondary,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
   },
   camera: {
     flex: 1,
   },
-  statusBox: {
-    marginVertical: theme.spacing.lg,
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statusText: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
+  overlayText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  subStatus: {
-    color: theme.colors.warning,
-    marginTop: 4,
+  infoContainer: {
+    padding: 24,
+    backgroundColor: theme.colors.white,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
-  successText: {
-    color: theme.colors.success,
-    marginTop: 4,
-    fontWeight: theme.typography.fontWeight.bold,
+  instructionText: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  errorText: {
+    errorText: {
     color: theme.colors.error,
-    marginTop: 4,
-  },
-  btn: {
-    width: '100%',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: 'bold',
   },
 });
