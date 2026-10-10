@@ -1,4 +1,3 @@
-
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -58,8 +57,21 @@ describe('DriversPage', () => {
       expect(enrollFace).toHaveBeenCalledWith(2, expect.objectContaining({ consent: true }));
     });
   });
+
+  it('renders assigned truck plates', () => {
+    useDrivers.mockReturnValue({
+      drivers: [
+        { id: 1, name: 'João Silva', is_active: true, face_enrolled: true, assigned_trucks: [{id:100, plate:'XYZ-9876', model:'Volvo'}] }
+      ],
+      loading: false,
+      error: null,
+      fetchDrivers: vi.fn(),
+      enrollFace: vi.fn(),
+      removeFace: vi.fn(),
+      deactivateDriver: vi.fn(),
+      activateDriver: vi.fn()
+    });
+    render(<DriversPage />);
+    expect(screen.getByText('XYZ-9876')).not.toBeNull();
+  });
 });
-
-
-
-
