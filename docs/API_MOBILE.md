@@ -1,19 +1,40 @@
-# API de Integração (Mobile e Hardware)
 Verificado contra o commit 6eed85a42567e181b977c76ce92875eb41e80afa
 
-Este documento descreve as rotas, os limites e os payloads utilizados pelo App Mobile do Motorista e pelo Hardware IoT do caminhão. A API utiliza tokens JWT para as rotas do motorista e uma chave estática (`x-api-key`) para a rota do hardware.
+# EHR Solutions - Documentação da API Mobile & Hardware
 
-**LGPD**: Nenhuma imagem ou foto é salva em disco ou no banco. O servidor salva apenas um log (metadados de tentativas) na tabela `facial_attempts` para retenção por 90 dias.
+Este documento especifica as rotas expostas para o App Mobile (Motorista) e a comunicação com a Placa IoT (Hardware).
 
-## Autenticação do Motorista
+## Autenticação e Erros Comuns
+
+O backend utiliza middlewares específicos para validar quem está chamando a rota.
+
+### Hardware (Placa IoT)
+Rotas do hardware exigem o envio de um header `x-api-key`.
+- **401 Unauthorized**: `{ "error": "Invalid Hardware API Key" }` (Chave não cadastrada).
+
+### App do Motorista
+Rotas exclusivas do motorista exigem o envio do token no header `Authorization: Bearer <token>`.
+- **401 Unauthorized**: `{ "error": "Driver Authorization token missing or invalid" }` ou `{ "error": "Invalid or expired driver token" }`
+- **403 Forbidden**: `{ "error": "Forbidden: Drivers only" }`
+- **403 Forbidden**: `{ "error": "driver_inactive" }` (Ocorre se o motorista for desativado pelo painel *após* o login. A rota será bloqueada).
+
+### Erros Globais (Dash/Misto)
+Em rotas que aceitam múltiplos atores (`authAny`), gestores recebem:
+- **401 Unauthorized**: `{ "error": "Authorization token missing or invalid" }`, `{ "error": "Invalid or expired token" }`, `{ "error": "User not found" }` ou `{ "error": "User is deactivated" }`
+- **403 Forbidden**: `{ "error": "Acesso restrito ao app do motorista" }` (gestor chamando rota de driver), `{ "error": "Acesso negado para motoristas" }` (driver chamando rota de gestor) ou `{ "error": "forbidden_role" }` (auditor tentando alterar algo).
+- **400 Bad Request**: Erros do `express-validator` respondem no formato `{ "errors": [...] }`.
+
+---
+
+## 1. Login do Motorista
 
 ### `POST /api/auth/driver/login`
-Autentica o motorista e devolve os dados do caminhão vinculado.
+Autentica o motorista, devolvendo o token JWT e dados do caminhão atualmente vinculado (se houver).
 
 **Requisição (Body):**
 ```json
 {
-  "email": "joao@ehr.com",
+  "email": "motorista@ehr.com",
   "password": "senha"
 }
 ```
@@ -22,68 +43,89 @@ Autentica o motorista e devolve os dados do caminhão vinculado.
 - **200 OK**:
   ```json
   {
-    "token": "eyJhbG...",
+    "token": "eyJhbGciOi...",
     "driver": {
       "id": 1,
       "name": "João",
       "email": "joao@ehr.com",
-      "phone": "999999"
+      "phone": "999999999"
     },
     "vehicle": {
-      "id": 10,
+      "id": 5,
       "plate": "ABC-1234",
       "model": "Volvo FH",
       "brand": "Volvo",
-      "capacity": "450.00"
+      "capacity": 500
     }
   }
   ```
-  O `token` do motorista tem validade padrão de 30 dias.
-- **401 Unauthorized**: `{ "error": "Credenciais inválidas" }` (Mesmo erro se a senha estiver incorreta ou se o motorista estiver inativo/deactivated antes do login).
+  *(Nota: o token tem validade de 30d).*
+- **400 Bad Request**: Se `email` ou `password` não forem informados.
+- **401 Unauthorized**: `{ "error": "Credenciais inválidas" }` (Senha incorreta, email inexistente, ou motorista com `is_active` = `false`).
 
-## Rotas de Abastecimento do App (Autenticadas com JWT do Motorista)
+---
 
-O App Mobile nunca envia o nível de combustível ou decide o volume. O App também nunca deve enviar `release_method: "manager_override"`. Os métodos suportados pelo app são `'facial'` e `'ble_fallback'`.
+## 2. Fluxo de Abastecimento
 
 ### `POST /api/fueling/sessions`
-Cria uma nova sessão (status `requested`).
+Inicia um processo de abastecimento. Pode ser invocado por motorista ou gestor.
 
 **Requisição (Body):**
 ```json
 {
   "truck_id": 10,
-  "release_method": "facial"
+  "release_method": "facial",
+  "lat": -23.550520,
+  "lng": -46.633308
 }
 ```
+*(Valores de `release_method`: `facial` ou `ble_fallback`. Se o app tentar usar `manager_override`, o servidor recusará. Gestores iniciam a sessão via Dashboard)*.
 
 **Respostas:**
-- **201 Created**: Devolve a sessão criada, exemplo: `{ "id": 5, "status": "requested", "release_method": "facial", ... }`
-- **400 Bad Request**: `{ "error": "Caminhão não enviado ou método inválido" }` ou `{ "error": "O app não pode iniciar um override do gestor" }` (se enviar `manager_override`).
-- **403 Forbidden**: `{ "error": "Acesso desativado. Contate o gestor." }` (se o motorista foi desativado pós-login).
-- **409 Conflict**: `{ "error": "Já existe uma sessão ativa ou solicitada para este caminhão" }`
+- **201 Created**:
+  ```json
+  {
+    "id": 5,
+    "truck_id": 10,
+    "driver_id": 2,
+    "station_id": 1,
+    "status": "requested",
+    "release_method": "facial",
+    "requested_at": "2026-10-09T12:00:00.000Z"
+  }
+  ```
+- **400 Bad Request**: `{ "error": "truck_id é obrigatório" }` ou `{ "error": "invalid_release_method" }` (se o motorista tentar algo que não seja facial ou ble_fallback).
+- **403 Forbidden**: `{ "error": "Este caminhão não está vinculado a você" }`
+- **404 Not Found**: `{ "error": "Caminhão não encontrado" }`
+- **409 Conflict**: `{ "error": "Já existe uma sessão ativa para este caminhão", "session": { ... }, "session_id": 3 }`
+
+---
 
 ### `POST /api/fueling/sessions/:id/verify-face`
-Valida a foto do motorista com a biometria cadastrada.
+Valida a foto do motorista com a biometria cadastrada. Rota exclusiva do motorista.
 
 **Requisição (Body):**
 ```json
 {
-  "image_base64": "iVBORw0KGgo..." // Base64 puro, sem o prefixo "data:image/jpeg;base64,"
+  "image_base64": "iVBORw0KGgo..." 
 }
 ```
+*(Base64 puro, JPEG ou PNG de até 2 MB, sem o prefixo `data:image/jpeg;base64,`)*.
 
 **Respostas:**
-- **200 OK (Verificado)**: `{ "verified": true }`
-- **200 OK (Não reconhecido)**: `{ "verified": false, "attempts": 1, "attempts_left": 2 }`
-- **400 Bad Request**: `{ "error": "Formato de imagem inválido..." }` (ou tamanho excede 2MB).
+- **200 OK (Sucesso)**: `{ "verified": true }`
+- **200 OK (Falha biométrica)**: `{ "verified": false, "attempts": 2, "attempts_left": 1 }`
+- **400 Bad Request**: `{ "error": "image_base64 é obrigatório" }` ou mensagens base do validador (ex: `"Formato de imagem inválido (permitido: jpg, png) ou tamanho excede 2MB"`).
 - **403 Forbidden**: `{ "error": "Sessão de outro motorista" }`
-- **404 Not Found**: `{ "error": "Sessão não encontrada ou não está em fase de requisição" }`
-- **409 Conflict**: `{ "error": "Motorista não tem rosto cadastrado" }` ou `{ "error": "Sessão já possui biometria validada" }`
-- **429 Too Many Requests**: `{ "error": "Limite de tentativas faciais excedido para esta sessão" }` ou `{ "error": "Limite de requisições excedido. Tente novamente mais tarde." }` (10/hora).
-- **503 Service Unavailable**: `{ "error": "Serviço de reconhecimento facial indisponível." }`
+- **404 Not Found**: `{ "error": "Sessão não encontrada" }`
+- **409 Conflict**: `{ "error": "face_not_enrolled" }`
+- **429 Too Many Requests**: `{ "error": "Limite de tentativas por hora atingido." }` ou `{ "error": "Limite de tentativas da sessão atingido." }`
+- **503 Service Unavailable**: `{ "error": "face_provider_unavailable" }`
+
+---
 
 ### `POST /api/fueling/sessions/:id/authorize`
-O app chama este endpoint para autorizar a trava via GPRS.
+O app chama este endpoint para autorizar a trava final. A localização (lat, lng) no corpo é opcional. A cerca de segurança (geofence) sempre será conferida contra o posto (`station`) da sessão.
 
 **Requisição (Body):**
 ```json
@@ -94,60 +136,87 @@ O app chama este endpoint para autorizar a trava via GPRS.
 ```
 
 **Respostas:**
-- **200 OK**: `{ "id": 5, "status": "authorized" }`
-- **400 Bad Request**: `{ "error": "Localização do app é obrigatória." }`
-- **403 Forbidden**: 
-  - `{ "error": "Validação facial obrigatória para o método facial" }`
-  - `{ "error": "A validação facial expirou (tempo limite de 2 minutos)" }`
-  - `{ "error": "Esta validação facial já foi consumida" }`
-  - `{ "error": "Confirmação do hardware pendente para usar BLE" }`
-  - `{ "error": "A confirmação BLE expirou (tempo limite de 2 minutos)" }`
-  - `{ "error": "Esta confirmação BLE já foi usada" }`
-  - `{ "error": "Motorista não tem permissão para autorizar manager_override" }`
-  - `{ "error": "Caminhão está fora da cerca de abastecimento (... km de distância)" }`
+- **200 OK**: Retorna o corpo completo atualizado da sessão (status `"authorized"`).
+- **403 Forbidden**:
+    - `{ "error": "Sessão pertence a outro motorista" }`
+    - `{ "error": "driver_cannot_use_manager_override" }`
+    - `{ "error": "facial_verification_already_used" }`
+    - `{ "error": "facial_verification_required" }`
+    - `{ "error": "facial_verification_expired" }`
+    - `{ "error": "ble_confirmation_required" }`
+    - `{ "error": "ble_confirmation_already_used" }`
+    - `{ "error": "ble_confirmation_expired" }`
+    - `{ "error": "Caminhão fora da área do posto autorizado. Tentativa bloqueada e alertada." }`
+- **404 Not Found**: `{ "error": "Sessão não encontrada ou já autorizada" }`
 - **409 Conflict**: `{ "error": "Sessão já foi processada" }`
 
+---
+
 ### `POST /api/fueling/sessions/:id/facial-failure`
-App reporta falha severa na câmera/captura.
-**Respostas**: 200 OK. 403 (Sessão de outro motorista). 404.
+App reporta falha severa na câmera/captura. (Motorista)
+
+**Respostas:**
+- **200 OK**: `{ "attempts": 1, "max_attempts": 3, "remaining": 2, "needs_manager": false }`
+- **403 Forbidden**: `{ "error": "Sessão pertence a outro motorista" }`
+- **404 Not Found**: `{ "error": "Sessão não encontrada ou já processada" }`
+
+---
 
 ### `POST /api/fueling/sessions/:id/finish`
-O motorista encerra o processo via App antes do timeout. O caminhão **não** tem o nível atualizado (a API aguarda a telemetria do IoT). A sessão é marcada como `unverified` e um alerta de `unverified_fueling` é gerado.
-**Respostas**: 200 OK. 403, 404, 409 (se já estiver completada).
+Chamado para encerrar manualmente uma sessão (Qualquer ator).
+
+**Nota de Semântica:** Se chamado pelo Motorista, o sistema marcará o abastecimento como `unverified` e criará um alerta `unverified_fueling`, sem alterar o nível do caminhão. (Atualizações de nível são exclusivas do hardware).
+
+**Respostas:**
+- **200 OK**: Retorna o log final salvo (`fueling_logs`).
+- **403 Forbidden**: `{ "error": "Sem permissão para esta sessão" }`
+- **404 Not Found**: `{ "error": "Sessão não encontrada ou não está ativa" }` ou `{ "error": "Caminhão não encontrado" }`
+
+---
+
+## 3. Hardware (Placa IoT)
+
+A placa comunica-se com a API utilizando o cabeçalho `x-api-key`.
 
 ### `GET /api/fueling/sessions/:truckId/active`
-Busca sessão `authorized` para manter tela de abastecimento viva.
+A placa IoT faz chamadas contínuas (polling) para esta rota. É o mecanismo de destravamento: quando `unlock=true`, a válvula deve ser aberta. Aceita hardware ou app.
 
-## Rotas do Hardware IoT (Protegidas por `x-api-key`)
+**Respostas:**
+- **200 OK (Para Hardware)**: `{ "unlock": true, "session_id": 5, "status": "authorized", "expires_at": "..." }`
+- **200 OK (Para App)**: Devolve o objeto completo da sessão, ou `null`.
+- **400 Bad Request**: `{ "error": "truckId inválido" }`
+- **403 Forbidden**: `{ "error": "API Key não pertence a este caminhão" }` (hardware) ou `{ "error": "Este caminhão não está vinculado a você" }` (motorista).
+
+---
 
 ### `POST /api/fueling/sessions/:id/ble-confirmed`
-O hardware confirma que a bomba foi emparelhada via Bluetooth (quando o método é `ble_fallback`).
-
-**Header Obrigatório**: `x-api-key: SEGREDO_DO_HARDWARE`
+O hardware avisa o servidor que pareou com o app mobile do motorista.
 
 **Respostas:**
 - **200 OK**: `{ "success": true }`
-- **403 Forbidden**: `{ "error": "Hardware key inválida" }` ou `{ "error": "Sessão pertence a outro caminhão" }`
-- **404 Not Found**: `{ "error": "Sessão não encontrada ou não está em requisição" }`
-- **409 Conflict**: `{ "error": "Método de liberação não é ble_fallback" }`
+- **403 Forbidden**: `{ "error": "Esta sessão pertence a outro caminhão" }`
+- **409 Conflict**: `{ "error": "Sessão não encontrada ou não aguardando" }` ou `{ "error": "Sessão não usa BLE fallback" }`
 
-### `POST /api/fueling/pump-reading`
-A placa IoT envia a leitura de volume após fechar a válvula. Atualiza o nível do tanque, marca a sessão como `completed` e cria um `fueling_logs`.
+---
 
-**Header Obrigatório**: `x-api-key: SEGREDO_DO_HARDWARE`
+### `POST /api/fueling/sessions/:id/pump-reading`
+A placa envia a leitura de volume após fechar a válvula. Atualiza o nível do tanque e marca a sessão como `completed`.
+
 **Requisição (Body):**
 ```json
 {
-  "truck_id": 10,
   "pump_liters": 150.5
 }
 ```
+
 **Respostas:**
-- **200 OK**: `{ "success": true, "volume_liters": 150.5, "duration_minutes": "2.5" }`
-- **400 Bad Request**: `{ "error": "truck_id e pump_liters (número positivo) são obrigatórios" }` ou `{ "error": "O volume abastecido excede a capacidade total do tanque" }`
-- **403 Forbidden**: `{ "error": "Hardware key inválida" }`
-- **404 Not Found**: `{ "error": "Caminhão não encontrado" }`
-- **409 Conflict**: `{ "error": "Nenhuma sessão 'active' ou 'completed' recente encontrada para este caminhão" }`
+- **200 OK**: `{ "success": true, "pump_liters": 150.5 }`
+- **400 Bad Request**: `{ "error": "pump_liters é obrigatório e numérico" }` ou `{ "error": "pump_liters inválido (fora do limite da capacidade)" }`
+- **403 Forbidden**: `{ "error": "Hardware API Key não pertence a este caminhão" }`
+- **404 Not Found**: `{ "error": "Sessão não encontrada" }`
+- **409 Conflict**: `{ "error": "Sessão não está ativa nem concluída" }`
+
+---
 
 ## Configurações / Constantes
 - **SESSION_TTL_MIN**: Fixo em 30 minutos no código (uma rotina encerra sessões expiradas).
@@ -158,50 +227,62 @@ A placa IoT envia a leitura de volume após fechar a válvula. Atualiza o nível
   - `FACE_MATCH_THRESHOLD`: Define a confiança mínima aceita (padrão 0.90).
   - `FACIAL_MAX_ATTEMPTS`: Padrão 3 tentativas.
   - `FACIAL_ATTEMPTS_RETENTION_DAYS`: Padrão de 90 dias para apagar os metadados antigos.
-  - `GEOFENCE_KM`: Distância máxima tolerada entre o caminhão e o App no `authorize` (padrão 0.2 km).
 
-## Socket.IO
-Todas as conexões via Socket.IO requerem envio de um token JWT válido na propriedade `auth: { token: '...' }` do handshake.
+## Privacidade e LGPD
+**Nenhuma imagem facial é salva em disco ou banco de dados.**  
+A API valida a imagem via AWS Rekognition (ou Mock), e descarta os bytes imediatamente. Apenas os metadados temporários (ex.: `confidence`, horário) são gravados em `facial_attempts` para auditoria, e estes são expurgados com a regra de retenção (padrão 90 dias).
 
-**Eventos Emitidos pela API:**
-- `newAlert`: Disparado quando um novo alerta de segurança ou divergência é criado.
-- `fleetUpdate`: Envia um snapshot atualizado de todos os caminhões e níveis.
-- `fuelingSessionUpdate`: Atualiza o painel quando a sessão muda de estado (ex: `authorized`, `completed`).
-- `liveEventsUpdate`: Dados crus de telemetria simulada.
-- `emergencyUnlockRequest`: Disparado ao painel web quando o App ou o hardware solicia override emergencial, pedindo confirmação de um Gestor.
+## Integração via Socket.IO
+O App Mobile pode conectar-se ao WebSocket (usando namespace principal `/` ou default) do backend. É obrigatório passar o token JWT no handshake da conexão (`auth: { token: "..." }`).
+- `newAlert`: Disparado sempre que surge um alerta no caminhão vinculado.
+- `fleetUpdate`: Atualizações completas de frota (mais útil para painel de controle).
+- `fuelingSessionUpdate`: Status atualizado (ex: a sessão mudou para 'authorized').
+- `liveEventsUpdate`: Log de telemetria geral (gestor).
+- `emergencyUnlockRequest`: Transmitido quando o gestor autoriza remotamente a trava.
 
-## Diagramas de Fluxo
+## Diagramas de Arquitetura
 
 ```mermaid
 sequenceDiagram
-    participant D as Driver (App)
-    participant B as Backend
-    participant H as Hardware (IoT)
-    
-    %% Fluxo 1: Facial (Normal)
+    participant D as Driver App (Mobile)
+    participant H as Hardware (Placa IoT)
+    participant B as Backend API
+
+    %% Fluxo 1: Reconhecimento Facial (Polling na placa)
     D->>B: POST /sessions (facial)
-    B-->>D: Sessão criada
+    B-->>D: Sessão criada (status: requested)
+    
+    loop Placa verifica o status (Polling)
+        H->>B: GET /sessions/{truckId}/active
+        B-->>H: { unlock: false }
+    end
+    
     D->>B: POST /sessions/{id}/verify-face
     B-->>D: {verified: true}
+    
     D->>B: POST /sessions/{id}/authorize (lat, lng)
     B-->>D: Status 200 (authorized)
-    B->>H: (Envio via GPRS/MQTT para destravar)
-    H->>B: POST /pump-reading (volume)
-    B-->>H: Sessão completed
     
+    H->>B: GET /sessions/{truckId}/active
+    B-->>H: { unlock: true, session_id: id } (Hardware destrava)
+    
+    H->>B: POST /sessions/{id}/pump-reading (pump_liters)
+    B-->>H: Sessão completed
+
     %% Fluxo 2: BLE Fallback
     D->>B: POST /sessions (ble_fallback)
     B-->>D: Sessão criada
+    
     D->>H: (Conexão Bluetooth local)
     H->>B: POST /sessions/{id}/ble-confirmed
     B-->>H: Success
+    
     D->>B: POST /sessions/{id}/authorize (lat, lng)
     B-->>D: Status 200 (authorized)
-    B->>H: (Envio via GPRS/MQTT para destravar)
-    H->>B: POST /pump-reading (volume)
+    
+    H->>B: GET /sessions/{truckId}/active
+    B-->>H: { unlock: true, session_id: id } (Hardware destrava)
+    
+    H->>B: POST /sessions/{id}/pump-reading (pump_liters)
     B-->>H: Sessão completed
-
-    %% Fluxo 3: Manager Override
-    D->>B: POST /sessions (manager_override) (Gera erro 400 - Driver não pode!)
-    Note right of D: Override é iniciado por Manager via Painel ou emergência
 ```

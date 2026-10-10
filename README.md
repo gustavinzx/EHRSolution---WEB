@@ -3,7 +3,8 @@
 O **EHR Solutions Fleet Management** é um sistema completo para controle de frotas focadas em abastecimento e prevenção contra desvios de combustível. A solução foi arquitetada para unir telemetria veicular, comunicação direta com hardware IoT (válvulas e bombas) e um App mobile que realiza validação biométrica facial antes de liberar a trava de combustível, atendendo também aos preceitos da LGPD.
 
 ## Tecnologias e Camadas
-- **Backend**: Node.js, Express, PostgreSQL, JWT, Socket.IO. Conta com um motor de regras para detecção de fraudes em tempo real e integração via AWS Rekognition para biometria facial.
+- **Backend**: Node.js, Express, PostgreSQL, JWT, Socket.IO. Conta com um motor de regras para detecção de fraudes em tempo real.
+  - **AVISO IMPORTANTE (Provedor Facial):** A integração com provedores faciais reais é um esqueleto e lançará erro explícito (NOT_IMPLEMENTED) em modo `rekognition`. A prova de vida (liveness) real não existe neste código base. Para desenvolvimento, utilize apenas o modo `mock`. Sem configurar `FACE_PROVIDER`, as rotas faciais respondem 503.
 - **Frontend Web**: React, Vite, Axios, React Router, React Leaflet (dashboard live com mapas). Painel administrativo com controle de papéis e permissões (RBAC).
 - **Hardening e LGPD**: As imagens do reconhecimento facial NUNCA são salvas em disco. Apenas metadados são mantidos temporariamente na tabela `facial_attempts` (apagados após 90 dias, padrão definido por `FACIAL_ATTEMPTS_RETENTION_DAYS`). E-mails normalizados em letras minúsculas (Migration 011).
 

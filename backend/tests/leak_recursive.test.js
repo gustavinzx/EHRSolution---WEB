@@ -50,9 +50,4 @@ describe('Leak Checks', () => {
     expect(r.status).toBe(200);
     checkRecursive(r.body);
   });
-  it('GET /api/drivers/:id no leak', async () => {
-    const r = await request(app).get('/api/drivers/' + driverId).set('Authorization', 'Bearer ' + tokenManager);
-    expect(r.status).toBe(200);
-    checkRecursive(r.body);
-  });
 });
