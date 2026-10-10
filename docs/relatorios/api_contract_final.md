@@ -20,3 +20,11 @@ As seguintes buscas retornaram vazias (exit code 1 no grep), provando a remoçã
 5. `git grep -n "password_hash" -- backend/src/controllers/driversController.js` -> VAZIO
 
 Tudo verificado e aderente ao código-fonte da aplicação (fonte da verdade).
+| A1 (Regressão) | ackend/src/controllers/driversController.js | 
+pm test tests/leak_recursive.test.js | PASS. ssigned_trucks incluído na resposta sem vazar. | Tudo resolvido. |
+| A2 (Vazamento Hardware) | ackend/src/controllers/authController.js, leetController.js, leetDataProvider.js | git grep -n "t\.\*\|SELECT \* FROM trucks\|trucks\.\*\|json_agg(t" | PASS. 	.* e SELECT * limpos das rotas de HTTP e Socket. | Tudo resolvido. |
+| B1-B5 | docs/API_MOBILE.md | 
+pm test tests/docs_drift.test.js | PASS. Documentação reflete os erros e status reais. | Tudo resolvido. |
+| C1 | ackend/tests/api_contract.test.js | 
+pm test tests/api_contract.test.js | PASS. 40 literais de erro mapeados e testados por dados. | Tudo resolvido. |
+| C4 (Frontend) | rontend/src/DriversPage.test.jsx | cd frontend && npm test | PASS. Verifica a renderização de ssigned_trucks. | Tudo resolvido. |
