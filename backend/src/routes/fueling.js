@@ -11,6 +11,20 @@ const anyActor = allow({ manager: true, driver: true, hardware: true });
 const managerOnly = allow({ manager: true });
 const driverOnly = allow({ driver: true });
 
+router.param('id', (req, res, next, id) => {
+  if (!/^[1-9]\d*$/.test(id)) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+  next();
+});
+
+router.param('truckId', (req, res, next, truckId) => {
+  if (!/^[1-9]\d*$/.test(truckId)) {
+    return res.status(400).json({ error: 'truckId inválido' });
+  }
+  next();
+});
+
 // Fueling logs (Manager)
 router.get("/", authMiddleware, fuelingController.list);
 
