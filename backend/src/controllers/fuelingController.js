@@ -3,6 +3,23 @@ const db = require("../config/db");
 const faceProvider = require("../services/faceProvider");
 const { buildReturnRoute } = require("../services/returnRoute");
 const security = require("../services/securityService");
+const { releaseTruckIfIdle } = require("../services/sessionRelease");
+
+function safeSessionProjection(s) {
+  if (!s) return null;
+  return {
+    id: s.id,
+    truck_id: s.truck_id,
+    status: s.status,
+    release_method: s.release_method,
+    station_name: s.station_name || null,
+    requested_at: s.requested_at || null,
+    authorized_at: s.authorized_at || null,
+    started_at: s.started_at || null,
+    completed_at: s.completed_at || null,
+    expires_at: s.expires_at || null,
+  };
+}
 
 const FACIAL_MAX_ATTEMPTS = parseInt(process.env.FACIAL_MAX_ATTEMPTS || "3", 10);
 const GEOFENCE_KM = parseFloat(process.env.GEOFENCE_KM || "0.2"); // 200 m
@@ -747,9 +764,92 @@ exports.bleConfirmed = async (req, res) => {
 
 
 
+exports.cancelSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actorType = req.actor?.type;
+
+    const meta = {
+      cancelled_by: actorType,
+      cancelled_at: new Date().toISOString(),
+    };
+
+    let query = `UPDATE fueling_sessions
+                    SET status='cancelled',
+                        metadata = COALESCE(metadata,'{}'::jsonb) || $2::jsonb
+                  WHERE id=$1 AND status IN ('requested','authorized')`;
+    const params = [id, JSON.stringify(meta)];
+
+    if (actorType === "driver") {
+      query += " AND driver_id = $3";
+      params.push(req.actor.id);
+    }
+
+    query += " RETURNING id, truck_id, status, driver_id";
+
+    const { rows: updatedRows } = await db.query(query, params);
+
+    let sessionToHandle = updatedRows[0];
+
+    if (!sessionToHandle) {
+      const { rows: existingRows } = await db.query(
+        "SELECT id, truck_id, driver_id, status FROM fueling_sessions WHERE id=$1",
+        [id]
+      );
+      if (!existingRows.length) {
+        return res.status(404).json({ error: "Sessão não encontrada" });
+      }
+      const existing = existingRows[0];
+
+      if (actorType === "driver" && existing.driver_id !== req.actor.id) {
+        return res.status(404).json({ error: "Sessão não encontrada" });
+      }
+
+      if (existing.status === "active") {
+        return res.status(409).json({ error: "Sessão em andamento não pode ser cancelada" });
+      }
+
+      if (["completed", "expired"].includes(existing.status)) {
+        return res.status(409).json({ error: "Sessão já foi processada" });
+      }
+
+      if (existing.status === "cancelled") {
+        return res.json({ success: true, status: "cancelled" });
+      }
+
+      return res.status(409).json({ error: "Sessão já foi processada" });
+    }
+
+    await releaseTruckIfIdle(sessionToHandle.truck_id);
+
+    await security.recordSecurityEvent({
+      truckId: sessionToHandle.truck_id,
+      type: "session_cancelled",
+      severity: "low",
+      source: actorType === "driver" ? "app" : "manager",
+      payload: {
+        session_id: sessionToHandle.id,
+        driver_id: sessionToHandle.driver_id,
+        cancelled_by: actorType,
+      },
+      io: req.io,
+    });
+
+    const fullSession = await loadSession(sessionToHandle.id);
+    emitSession(req, safeSessionProjection(fullSession));
+
+    return res.json({ success: true, status: "cancelled" });
+  } catch (err) {
+    console.error("Cancel session error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 exports.emitSession = emitSession;
 
 exports.loadSession = loadSession;
+
+exports.safeSessionProjection = safeSessionProjection;
 
 
 
