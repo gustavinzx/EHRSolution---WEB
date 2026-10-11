@@ -4,7 +4,7 @@ import { Vehicle } from './vehicle';
 export interface LoginResponse {
   token: string;
   driver: Driver;
-  truck?: Vehicle;
+  vehicle: Vehicle | null;
 }
 
 export interface ApiError {

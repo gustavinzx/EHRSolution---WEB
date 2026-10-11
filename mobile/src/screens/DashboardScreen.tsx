@@ -60,7 +60,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.infoSub}>Capacidade: {vehicle.capacity}L</Text>
             </>
           ) : (
-            <Text style={styles.infoSub}>Nenhum veículo vinculado.</Text>
+            <Text style={styles.infoSub}>Nenhum veículo vinculado. Procure o gestor.</Text>
           )}
         </View>
 

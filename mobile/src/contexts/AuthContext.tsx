@@ -36,7 +36,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [signOut]);
 
   useEffect(() => {
-    // Inject the unauthorized callback into apiClient to handle 401s and 403s
     apiClient.setOnUnauthorized(onUnauthorized);
   }, [onUnauthorized]);
 
@@ -64,11 +63,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await secureStorage.saveToken(response.token);
       await secureStorage.saveDriver(response.driver);
       
-      if (response.truck) {
-        await secureStorage.saveVehicle(response.truck);
-        setVehicle(response.truck);
+      if (response.vehicle) {
+        await secureStorage.saveVehicle(response.vehicle);
+        setVehicle(response.vehicle);
       } else {
-        await secureStorage.saveVehicle({} as Vehicle); // Wait, if no truck? The backend should return it.
         setVehicle(null);
       }
       setDriver(response.driver);

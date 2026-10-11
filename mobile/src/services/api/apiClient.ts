@@ -67,7 +67,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     const errorMessage = data.error || 'Ocorreu um erro inesperado.';
     
     if (response.status === 401) {
-      if (onUnauthorizedCb) onUnauthorizedCb();
+      if (endpoint !== '/auth/driver/login' && onUnauthorizedCb) {
+        onUnauthorizedCb();
+      }
     } else if (response.status === 403 && errorMessage === 'driver_inactive') {
       if (onUnauthorizedCb) onUnauthorizedCb('Seu acesso foi desativado. Procure o gestor.');
     }

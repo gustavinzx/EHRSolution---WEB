@@ -25,22 +25,101 @@ describe('apiClient', () => {
     return 'http://localhost:3001/api';
   };
 
-  it('login sends correct data and returns LoginResponse', async () => {
+  it('login sends correct data and returns LoginResponse with vehicle', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      text: async () => JSON.stringify({ token: 'abc', driver: { id: 1 } }),
+      text: async () => JSON.stringify({
+        token: 'mock_jwt_token',
+        driver: {
+          id: 1,
+          name: 'João Silva',
+          email: 'motorista1@ehr.com',
+          phone: '11999999999'
+        },
+        vehicle: {
+          id: 10,
+          plate: 'ABC-1234',
+          model: 'Volvo FH 540',
+          brand: 'Volvo',
+          capacity: 500
+        }
+      }),
     });
 
-    const res = await apiClient.login('test@test.com', 'pass');
-    expect(res.token).toBe('abc');
+    const res = await apiClient.login('motorista1@ehr.com', 'Demo@1234');
+    expect(res.token).toBe('mock_jwt_token');
+    expect(res.driver).toEqual({
+      id: 1,
+      name: 'João Silva',
+      email: 'motorista1@ehr.com',
+      phone: '11999999999'
+    });
+    expect(res.vehicle).toEqual({
+      id: 10,
+      plate: 'ABC-1234',
+      model: 'Volvo FH 540',
+      brand: 'Volvo',
+      capacity: 500
+    });
     expect(mockFetch).toHaveBeenCalledWith(
       `${getBaseUrl()}/auth/driver/login`,
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'test@test.com', password: 'pass' })
+        body: JSON.stringify({ email: 'motorista1@ehr.com', password: 'Demo@1234' })
       })
     );
+  });
+
+  it('login with vehicle: null returns null vehicle', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => JSON.stringify({
+        token: 'mock_jwt_token_2',
+        driver: {
+          id: 2,
+          name: 'Maria Oliveira',
+          email: 'motorista2@ehr.com',
+          phone: '11988888888'
+        },
+        vehicle: null
+      }),
+    });
+
+    const res = await apiClient.login('motorista2@ehr.com', 'Demo@1234');
+    expect(res.token).toBe('mock_jwt_token_2');
+    expect(res.vehicle).toBeNull();
+  });
+
+  it('401 on login throws ApiError with Credenciais inválidas and does NOT call onUnauthorized', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ error: 'Credenciais inválidas' }),
+    });
+
+    await expect(apiClient.login('test@test.com', 'wrong_pass')).rejects.toMatchObject({
+      status: 401,
+      message: 'Credenciais inválidas',
+      code: 'Credenciais inválidas',
+    });
+
+    expect(onUnauthorizedMock).not.toHaveBeenCalled();
+  });
+
+  it('401 on another route calls onUnauthorized', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ error: 'token_expired' }),
+    });
+
+    await expect(apiClient.getActiveSession(1)).rejects.toMatchObject({
+      status: 401,
+      code: 'token_expired',
+    });
+
+    expect(onUnauthorizedMock).toHaveBeenCalledWith();
   });
 
   it('verifyFace sends correct data without data prefix', async () => {
@@ -94,21 +173,6 @@ describe('apiClient', () => {
         body: JSON.stringify({})
       })
     );
-  });
-
-  it('handles 401 and calls onUnauthorized', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      text: async () => JSON.stringify({ error: 'token_expired' }),
-    });
-
-    await expect(apiClient.getActiveSession(1)).rejects.toMatchObject({
-      status: 401,
-      code: 'token_expired',
-    });
-    
-    expect(onUnauthorizedMock).toHaveBeenCalledWith();
   });
 
   it('handles 403 driver_inactive and calls onUnauthorized with specific message', async () => {
