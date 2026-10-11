@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
-import { ConnectionStatus } from '../components/ConnectionStatus';
 import { theme } from '../theme/theme';
 
 export const LoginScreen: React.FC = () => {
@@ -29,7 +28,6 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ConnectionStatus />
       <View style={styles.content}>
         <Text style={styles.logoText}>EHR SOLUTIONS</Text>
         <Text style={styles.subtitle}>Gestão de Abastecimento de Frota</Text>

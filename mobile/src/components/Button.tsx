@@ -20,6 +20,7 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   disabled,
   style,
+  testID,
   ...rest
 }) => {
   const getBgColor = () => {
@@ -38,6 +39,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <TouchableOpacity
+      testID={testID}
       style={[styles.container, { backgroundColor: getBgColor() }, style]}
       disabled={disabled || loading}
       activeOpacity={0.8}

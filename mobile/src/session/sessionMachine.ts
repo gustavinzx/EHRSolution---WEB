@@ -1,0 +1,106 @@
+export type MachineState = 
+  | 'IDLE' 
+  | 'REQUESTING' 
+  | 'FACIAL_PENDING' 
+  | 'VERIFYING' 
+  | 'AUTHORIZING' 
+  | 'WAITING_HARDWARE' 
+  | 'FUELING' 
+  | 'DONE' 
+  | 'BLOCKED_NEEDS_MANAGER' 
+  | 'ERROR';
+
+export interface SessionState {
+  status: MachineState;
+  sessionId?: number;
+  error?: string;
+  attempts?: number;
+  attemptsLeft?: number;
+  releaseMethod?: 'facial' | 'ble_fallback' | 'manager_override';
+  seenActive?: boolean;
+  waitingStartTime?: number;
+}
+
+export type SessionAction =
+  | { type: 'REQUEST_START' }
+  | { type: 'REQUEST_SUCCESS'; sessionId: number; releaseMethod?: 'facial' | 'ble_fallback' | 'manager_override'; status?: string }
+  | { type: 'REQUEST_ERROR'; error: string }
+  | { type: 'FACIAL_VERIFY_START' }
+  | { type: 'FACIAL_VERIFY_SUCCESS' }
+  | { type: 'FACIAL_VERIFY_FAIL'; attempts: number; attemptsLeft: number; error?: string }
+  | { type: 'FACIAL_VERIFY_LOCKED'; error?: string }
+  | { type: 'FACIAL_VERIFY_ERROR'; error: string }
+  | { type: 'AUTHORIZE_START' }
+  | { type: 'AUTHORIZE_SUCCESS' }
+  | { type: 'AUTHORIZE_ERROR'; error: string }
+  | { type: 'POLL_AUTHORIZED' }
+  | { type: 'POLL_ACTIVE' }
+  | { type: 'POLL_DONE' }
+  | { type: 'POLL_EXPIRED' }
+  | { type: 'POLL_ERROR'; error: string }
+  | { type: 'RESET' };
+
+export const initialSessionState: SessionState = {
+  status: 'IDLE',
+};
+
+export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+  switch (action.type) {
+    case 'REQUEST_START':
+      return { status: 'REQUESTING' };
+    case 'REQUEST_SUCCESS': {
+      let nextStatus: MachineState = 'FACIAL_PENDING';
+      let seenActive = state.seenActive;
+      if (action.status === 'authorized') {
+        nextStatus = 'WAITING_HARDWARE';
+      } else if (action.status === 'active') {
+        nextStatus = 'FUELING';
+        seenActive = true;
+      } else if (action.releaseMethod === 'ble_fallback' && (!action.status || action.status === 'requested')) {
+        nextStatus = 'AUTHORIZING';
+      }
+      return { 
+        status: nextStatus, 
+        sessionId: action.sessionId, 
+        releaseMethod: action.releaseMethod,
+        seenActive,
+        waitingStartTime: nextStatus === 'WAITING_HARDWARE' ? Date.now() : undefined
+      };
+    }
+    case 'REQUEST_ERROR':
+      return { status: 'ERROR', error: action.error };
+    case 'FACIAL_VERIFY_START':
+      return { ...state, status: 'VERIFYING', error: undefined };
+    case 'FACIAL_VERIFY_SUCCESS':
+      return { ...state, status: 'AUTHORIZING', error: undefined };
+    case 'FACIAL_VERIFY_FAIL':
+      return { ...state, status: 'FACIAL_PENDING', attempts: action.attempts, attemptsLeft: action.attemptsLeft, error: action.error };
+    case 'FACIAL_VERIFY_LOCKED':
+      return { ...state, status: 'BLOCKED_NEEDS_MANAGER', error: action.error };
+    case 'FACIAL_VERIFY_ERROR':
+      return { ...state, status: 'FACIAL_PENDING', error: action.error };
+    case 'AUTHORIZE_START':
+      return { ...state, status: 'AUTHORIZING', error: undefined };
+    case 'AUTHORIZE_SUCCESS':
+      return { ...state, status: 'WAITING_HARDWARE', error: undefined, waitingStartTime: state.waitingStartTime || Date.now() };
+    case 'AUTHORIZE_ERROR':
+      return { ...state, status: 'ERROR', error: action.error };
+    case 'POLL_AUTHORIZED':
+      return { ...state, status: 'WAITING_HARDWARE', waitingStartTime: state.waitingStartTime || Date.now() };
+    case 'POLL_ACTIVE':
+      return { ...state, status: 'FUELING', seenActive: true };
+    case 'POLL_DONE':
+      if (state.seenActive) {
+        return { ...state, status: 'DONE', error: undefined };
+      }
+      return { ...state, status: 'ERROR', error: 'Sessão encerrada sem abastecimento. Se precisar, inicie novamente.' };
+    case 'POLL_EXPIRED':
+      return { ...state, status: 'ERROR', error: 'Tempo da sessão esgotado. Inicie novamente.' };
+    case 'POLL_ERROR':
+      return { ...state, status: 'ERROR', error: action.error };
+    case 'RESET':
+      return initialSessionState;
+    default:
+      return state;
+  }
+}
