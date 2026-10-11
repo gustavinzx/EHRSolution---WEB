@@ -8,6 +8,7 @@ import { apiClient } from '../services/api/apiClient';
 import { sessionReducer, initialSessionState } from '../session/sessionMachine';
 import { useAuth } from '../hooks/useAuth';
 import * as Location from 'expo-location';
+import { getBleLock } from '../services/bluetooth/bleLock';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OperationResult'>;
 
@@ -70,15 +71,16 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
     if (state.status === 'AUTHORIZING') {
       const authorize = async () => {
         try {
-          // If BLE fallback, we mock the bluetooth connection
           if (state.releaseMethod === 'ble_fallback') {
-            if (process.env.EXPO_PUBLIC_BLE_MOCK === 'true' && __DEV__) {
-              // Mock BLE connect
-              await new Promise(r => setTimeout(r, 1000));
-            } else {
-              dispatch({ type: 'AUTHORIZE_ERROR', error: 'Bluetooth indisponível nesta versão. Peça liberação ao gestor.' });
+            const bleLock = getBleLock();
+            if (!bleLock.isAvailable()) {
+              dispatch({
+                type: 'AUTHORIZE_ERROR',
+                error: 'Esta sessão foi iniciada por Bluetooth, que não está disponível. Procure o gestor.',
+              });
               return;
             }
+            await bleLock.connect();
           }
 
           let coords;

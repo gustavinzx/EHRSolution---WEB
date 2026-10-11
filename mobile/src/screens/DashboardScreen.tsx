@@ -6,6 +6,7 @@ import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
+import { getBleLock } from '../services/bluetooth/bleLock';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -15,17 +16,37 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleStartOperation = async (releaseMethod: 'facial' | 'ble_fallback' = 'facial') => {
     if (!vehicle) return;
+    if (releaseMethod === 'ble_fallback' && !getBleLock().isAvailable()) {
+      return;
+    }
     setLoading(true);
     try {
       const session = await apiClient.requestSession(vehicle.id, releaseMethod);
-      navigation.navigate('FacialAuth', { sessionId: session.id, status: session.status, releaseMethod: session.release_method });
+      if (session.release_method === 'ble_fallback') {
+        navigation.navigate('OperationResult', {
+          sessionId: session.id,
+          initialState: 'AUTHORIZING',
+          releaseMethod: 'ble_fallback'
+        });
+      } else {
+        navigation.navigate('FacialAuth', { sessionId: session.id, status: session.status, releaseMethod: session.release_method });
+      }
     } catch (error: any) {
       if (error.status === 409 && error.session) {
-        navigation.navigate('FacialAuth', { 
-          sessionId: error.session.id, 
-          status: error.session.status, 
-          releaseMethod: error.session.release_method 
-        });
+        const sess = error.session;
+        if (sess.release_method === 'ble_fallback') {
+          navigation.navigate('OperationResult', {
+            sessionId: sess.id,
+            initialState: sess.status === 'active' ? 'FUELING' : sess.status === 'authorized' ? 'WAITING_HARDWARE' : 'AUTHORIZING',
+            releaseMethod: 'ble_fallback'
+          });
+        } else {
+          navigation.navigate('FacialAuth', { 
+            sessionId: sess.id, 
+            status: sess.status, 
+            releaseMethod: sess.release_method 
+          });
+        }
         setLoading(false);
         return;
       }
@@ -39,6 +60,8 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  const isBleAvailable = getBleLock().isAvailable();
 
   return (
     <View style={styles.container}>
@@ -72,13 +95,15 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           disabled={loading || !vehicle}
         />
 
-        <Button 
-          title="Usar Bluetooth" 
-          variant="secondary" 
-          onPress={() => handleStartOperation('ble_fallback')} 
-          style={{ marginTop: 10, marginBottom: 20 }}
-          disabled={loading || !vehicle}
-        />
+        {isBleAvailable && (
+          <Button 
+            title="Usar Bluetooth" 
+            variant="secondary" 
+            onPress={() => handleStartOperation('ble_fallback')} 
+            style={{ marginTop: 10, marginBottom: 20 }}
+            disabled={loading || !vehicle}
+          />
+        )}
 
         <Button title="Sair do Aplicativo" variant="danger" onPress={signOut} disabled={loading} />
       </ScrollView>

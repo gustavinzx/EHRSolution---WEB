@@ -46,9 +46,13 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { status: 'REQUESTING' };
     case 'REQUEST_SUCCESS': {
       let nextStatus: MachineState = 'FACIAL_PENDING';
-      if (action.status === 'authorized') nextStatus = 'WAITING_HARDWARE';
-      if (action.status === 'active') nextStatus = 'FUELING';
-      if (action.releaseMethod === 'ble_fallback') nextStatus = 'AUTHORIZING';
+      if (action.status === 'authorized') {
+        nextStatus = 'WAITING_HARDWARE';
+      } else if (action.status === 'active') {
+        nextStatus = 'FUELING';
+      } else if (action.releaseMethod === 'ble_fallback' && (!action.status || action.status === 'requested')) {
+        nextStatus = 'AUTHORIZING';
+      }
       return { status: nextStatus, sessionId: action.sessionId, releaseMethod: action.releaseMethod };
     }
     case 'REQUEST_ERROR':
@@ -62,7 +66,6 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case 'FACIAL_VERIFY_LOCKED':
       return { ...state, status: 'BLOCKED_NEEDS_MANAGER', error: action.error };
     case 'FACIAL_VERIFY_ERROR':
-      // like 503, just go back to pending but show error
       return { ...state, status: 'FACIAL_PENDING', error: action.error };
     case 'AUTHORIZE_START':
       return { ...state, status: 'AUTHORIZING', error: undefined };
