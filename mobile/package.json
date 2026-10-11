@@ -18,6 +18,7 @@
     "@react-navigation/stack": "^6.4.1",
     "expo": "~57.0.26",
     "expo-camera": "~57.0.6",
+    "expo-image-manipulator": "~57.0.20",
     "expo-location": "~57.0.20",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
@@ -32,14 +33,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native/jest-preset": "^0.87.1",
-    "@testing-library/jest-native": "^5.4.3",
+    "@react-native/jest-preset": "^0.86.3",
     "@testing-library/react-native": "^12.9.0",
-    "@types/jest": "^30.0.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.2.4",
-    "jest": "^30.5.2",
+    "jest": "^29.7.0",
     "jest-expo": "^57.0.5",
-    "react-test-renderer": "^19.2.3",
+    "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
   "private": true
