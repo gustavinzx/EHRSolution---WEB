@@ -845,11 +845,89 @@ exports.cancelSession = async (req, res) => {
   }
 };
 
+exports.getSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actorType = req.actor?.type;
+
+    const { rows: checkRows } = await db.query(
+      "SELECT truck_id FROM fueling_sessions WHERE id=$1",
+      [id]
+    );
+    if (checkRows.length > 0) {
+      await expireStaleSessions(checkRows[0].truck_id);
+    }
+
+    const { rows: sessionRows } = await db.query(
+      `SELECT s.id, s.truck_id, s.driver_id, s.status, s.release_method,
+              fs.name AS station_name, s.requested_at, s.authorized_at,
+              s.started_at, s.completed_at, s.expires_at
+         FROM fueling_sessions s
+         LEFT JOIN fuel_stations fs ON fs.id = s.station_id
+        WHERE s.id = $1`,
+      [id]
+    );
+    if (!sessionRows.length) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+    const session = sessionRows[0];
+
+    if (actorType === "driver" && session.driver_id !== req.actor.id) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+    if (actorType === "hardware" && session.truck_id !== req.actor.id) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+
+    const response = {
+      id: session.id,
+      truck_id: session.truck_id,
+      status: session.status,
+      release_method: session.release_method,
+      station_name: session.station_name || null,
+      requested_at: session.requested_at,
+      authorized_at: session.authorized_at,
+      started_at: session.started_at,
+      completed_at: session.completed_at,
+      expires_at: session.expires_at,
+    };
+
+    if (session.status === "completed") {
+      const { rows: logs } = await db.query(
+        "SELECT volume_liters, duration_minutes, data_source FROM fueling_logs WHERE session_id = $1 ORDER BY id DESC LIMIT 1",
+        [session.id]
+      );
+      if (logs.length > 0) {
+        const log = logs[0];
+        const volume = log.data_source === "unverified"
+          ? null
+          : (log.volume_liters != null ? parseFloat(log.volume_liters) : null);
+        const duration = log.duration_minutes != null ? parseFloat(log.duration_minutes) : null;
+        response.result = {
+          volume_liters: volume,
+          duration_minutes: duration,
+        };
+      } else {
+        response.result = {
+          volume_liters: null,
+          duration_minutes: null,
+        };
+      }
+    }
+
+    return res.json(response);
+  } catch (err) {
+    console.error("Get session error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 exports.emitSession = emitSession;
 
 exports.loadSession = loadSession;
 
 exports.safeSessionProjection = safeSessionProjection;
+
 
 
 
