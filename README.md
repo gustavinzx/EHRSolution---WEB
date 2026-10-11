@@ -19,6 +19,7 @@ Crie um `.env` em `backend/` com base no `.env.example`.
 
 Variáveis de Controle Importantes:
 - `FACE_PROVIDER`: Configura o provedor facial. Aceita `mock` (em ambiente de dev) ou `rekognition` (produção). Se deixado em branco ou não configurado, a API retorna erro `503 Service Unavailable` em rotas biométricas. (Nota: `mock` é **recusado com erro fatal** se a API iniciar em `NODE_ENV=production`).
+- `FACE_MOCK_MODE`: Modo de validação do provedor facial mock. Aceita `marker` (padrão, exige marcador na imagem) ou `always_match` (somente desenvolvimento; nunca em produção). Permite testar o app mobile com fotos reais da câmera sem reprovação biométrica.
 - `FACE_MATCH_THRESHOLD`: Define o nível de confiança (Confidence) biométrico (padrão `0.90`).
 - `FACIAL_ATTEMPTS_RETENTION_DAYS`: Dias de retenção dos metadados de biometria facial (padrão `90`).
 - `GEOFENCE_KM`: Distância em km permitida para autorizar via geofence (padrão `0.2`).

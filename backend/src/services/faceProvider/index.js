@@ -17,8 +17,17 @@ const disabledProvider = {
 
 const providerName = process.env.FACE_PROVIDER;
 
-if (providerName === 'mock' && process.env.NODE_ENV === 'production') {
-  throw new Error("MOCK FACE PROVIDER IS FORBIDDEN IN PRODUCTION");
+if (providerName === 'mock') {
+  const mode = process.env.FACE_MOCK_MODE || 'marker';
+  if (mode !== 'marker' && mode !== 'always_match') {
+    throw new Error(`FACE_MOCK_MODE inválido: "${mode}". Valores permitidos: "marker", "always_match".`);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    if (mode !== 'marker') {
+      throw new Error(`FACE_MOCK_MODE "${mode}" não é permitido em produção. Apenas "marker" é aceito.`);
+    }
+    throw new Error("MOCK FACE PROVIDER IS FORBIDDEN IN PRODUCTION");
+  }
 }
 
 let activeProvider = disabledProvider;
