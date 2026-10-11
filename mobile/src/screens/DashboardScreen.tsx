@@ -88,6 +88,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <Button
+          testID="main-action-btn"
           title={loading ? "AGUARDE..." : "INICIAR ABASTECIMENTO"}
           variant="success"
           onPress={() => handleStartOperation('facial')}
@@ -97,6 +98,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {isBleAvailable && (
           <Button 
+            testID="ble-action-btn"
             title="Usar Bluetooth" 
             variant="secondary" 
             onPress={() => handleStartOperation('ble_fallback')} 

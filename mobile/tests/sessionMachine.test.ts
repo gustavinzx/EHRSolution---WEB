@@ -1,37 +1,164 @@
 import { sessionReducer, initialSessionState } from '../src/session/sessionMachine';
 
 describe('sessionMachine', () => {
-  it('handles facial success correctly', () => {
-    const s1 = sessionReducer(initialSessionState, { type: 'REQUEST_SUCCESS', sessionId: 1, releaseMethod: 'facial' });
-    expect(s1.status).toBe('FACIAL_PENDING');
-
-    const s2 = sessionReducer(s1, { type: 'FACIAL_VERIFY_SUCCESS' });
-    expect(s2.status).toBe('AUTHORIZING');
+  it('handles REQUEST_START transition', () => {
+    const state = sessionReducer(initialSessionState, { type: 'REQUEST_START' });
+    expect(state.status).toBe('REQUESTING');
   });
 
-  it('handles facial failures and limits', () => {
-    const s1 = sessionReducer(initialSessionState, { type: 'REQUEST_SUCCESS', sessionId: 1, releaseMethod: 'facial' });
-    
-    const s2 = sessionReducer(s1, { type: 'FACIAL_VERIFY_FAIL', attempts: 1, attemptsLeft: 2, error: 'Restam 2' });
-    expect(s2.status).toBe('FACIAL_PENDING');
-    expect(s2.attemptsLeft).toBe(2);
-
-    const s3 = sessionReducer(s2, { type: 'FACIAL_VERIFY_LOCKED', error: 'Locked' });
-    expect(s3.status).toBe('BLOCKED_NEEDS_MANAGER');
+  it('handles REQUEST_SUCCESS with requested status and facial release method', () => {
+    const state = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 10,
+      status: 'requested',
+      releaseMethod: 'facial',
+    });
+    expect(state.status).toBe('FACIAL_PENDING');
+    expect(state.sessionId).toBe(10);
+    expect(state.releaseMethod).toBe('facial');
   });
 
-  it('handles 409 resumed by status', () => {
-    const s1 = sessionReducer(initialSessionState, { type: 'REQUEST_SUCCESS', sessionId: 2, status: 'authorized' });
-    expect(s1.status).toBe('WAITING_HARDWARE');
-
-    const s2 = sessionReducer(initialSessionState, { type: 'REQUEST_SUCCESS', sessionId: 2, status: 'active' });
-    expect(s2.status).toBe('FUELING');
+  it('handles REQUEST_SUCCESS with requested status and ble_fallback (rule C5)', () => {
+    const state = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 11,
+      status: 'requested',
+      releaseMethod: 'ble_fallback',
+    });
+    expect(state.status).toBe('AUTHORIZING');
+    expect(state.releaseMethod).toBe('ble_fallback');
   });
 
-  it('handles 503 provider error without counting attempts', () => {
-    const s1 = sessionReducer({ status: 'FACIAL_PENDING', attemptsLeft: 3 }, { type: 'FACIAL_VERIFY_ERROR', error: '503 erro' });
-    expect(s1.status).toBe('FACIAL_PENDING');
-    expect(s1.error).toBe('503 erro');
-    expect(s1.attemptsLeft).toBe(3); // untouched
+  it('handles REQUEST_SUCCESS with authorized status (never overwritten by ble_fallback)', () => {
+    const stateFacial = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 12,
+      status: 'authorized',
+      releaseMethod: 'facial',
+    });
+    expect(stateFacial.status).toBe('WAITING_HARDWARE');
+
+    const stateBle = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 13,
+      status: 'authorized',
+      releaseMethod: 'ble_fallback',
+    });
+    expect(stateBle.status).toBe('WAITING_HARDWARE');
+  });
+
+  it('handles REQUEST_SUCCESS with active status (never overwritten by ble_fallback)', () => {
+    const stateFacial = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 14,
+      status: 'active',
+      releaseMethod: 'facial',
+    });
+    expect(stateFacial.status).toBe('FUELING');
+    expect(stateFacial.seenActive).toBe(true);
+
+    const stateBle = sessionReducer(initialSessionState, {
+      type: 'REQUEST_SUCCESS',
+      sessionId: 15,
+      status: 'active',
+      releaseMethod: 'ble_fallback',
+    });
+    expect(stateBle.status).toBe('FUELING');
+    expect(stateBle.seenActive).toBe(true);
+  });
+
+  it('handles REQUEST_ERROR', () => {
+    const state = sessionReducer(initialSessionState, {
+      type: 'REQUEST_ERROR',
+      error: 'Caminhão não encontrado.',
+    });
+    expect(state.status).toBe('ERROR');
+    expect(state.error).toBe('Caminhão não encontrado.');
+  });
+
+  it('handles facial verification flow: START, SUCCESS, FAIL, LOCKED, ERROR', () => {
+    const start = sessionReducer(initialSessionState, { type: 'FACIAL_VERIFY_START' });
+    expect(start.status).toBe('VERIFYING');
+
+    const success = sessionReducer(start, { type: 'FACIAL_VERIFY_SUCCESS' });
+    expect(success.status).toBe('AUTHORIZING');
+
+    const fail = sessionReducer(start, {
+      type: 'FACIAL_VERIFY_FAIL',
+      attempts: 1,
+      attemptsLeft: 2,
+      error: 'Rosto não reconhecido. Restam 2 tentativa(s).',
+    });
+    expect(fail.status).toBe('FACIAL_PENDING');
+    expect(fail.attempts).toBe(1);
+    expect(fail.attemptsLeft).toBe(2);
+
+    const locked = sessionReducer(fail, {
+      type: 'FACIAL_VERIFY_LOCKED',
+      error: 'Rosto não reconhecido. Tentativas esgotadas.',
+    });
+    expect(locked.status).toBe('BLOCKED_NEEDS_MANAGER');
+
+    const verifyError = sessionReducer(initialSessionState, {
+      type: 'FACIAL_VERIFY_ERROR',
+      error: 'Serviço de reconhecimento indisponível.',
+    });
+    expect(verifyError.status).toBe('FACIAL_PENDING');
+    expect(verifyError.error).toBe('Serviço de reconhecimento indisponível.');
+  });
+
+  it('handles AUTHORIZE_START, AUTHORIZE_SUCCESS and AUTHORIZE_ERROR', () => {
+    const start = sessionReducer(initialSessionState, { type: 'AUTHORIZE_START' });
+    expect(start.status).toBe('AUTHORIZING');
+
+    const success = sessionReducer(start, { type: 'AUTHORIZE_SUCCESS' });
+    expect(success.status).toBe('WAITING_HARDWARE');
+    expect(success.waitingStartTime).toBeDefined();
+
+    const error = sessionReducer(start, {
+      type: 'AUTHORIZE_ERROR',
+      error: 'Caminhão fora da área do posto autorizado.',
+    });
+    expect(error.status).toBe('ERROR');
+    expect(error.error).toBe('Caminhão fora da área do posto autorizado.');
+  });
+
+  it('handles POLL_AUTHORIZED and POLL_ACTIVE', () => {
+    const authState = sessionReducer(initialSessionState, { type: 'POLL_AUTHORIZED' });
+    expect(authState.status).toBe('WAITING_HARDWARE');
+
+    const activeState = sessionReducer(authState, { type: 'POLL_ACTIVE' });
+    expect(activeState.status).toBe('FUELING');
+    expect(activeState.seenActive).toBe(true);
+  });
+
+  it('distinguishes POLL_DONE with seenActive (DONE) from without seenActive (ERROR)', () => {
+    const seenActiveState = { ...initialSessionState, seenActive: true, status: 'FUELING' as const };
+    const doneState = sessionReducer(seenActiveState, { type: 'POLL_DONE' });
+    expect(doneState.status).toBe('DONE');
+
+    const unactiveState = { ...initialSessionState, seenActive: false, status: 'WAITING_HARDWARE' as const };
+    const errorState = sessionReducer(unactiveState, { type: 'POLL_DONE' });
+    expect(errorState.status).toBe('ERROR');
+    expect(errorState.error).toBe('Sessão encerrada sem abastecimento. Se precisar, inicie novamente.');
+  });
+
+  it('handles POLL_EXPIRED and POLL_ERROR', () => {
+    const expired = sessionReducer(initialSessionState, { type: 'POLL_EXPIRED' });
+    expect(expired.status).toBe('ERROR');
+    expect(expired.error).toBe('Tempo da sessão esgotado. Inicie novamente.');
+
+    const error = sessionReducer(initialSessionState, {
+      type: 'POLL_ERROR',
+      error: 'Sessão cancelada.',
+    });
+    expect(error.status).toBe('ERROR');
+    expect(error.error).toBe('Sessão cancelada.');
+  });
+
+  it('handles RESET', () => {
+    const modified = { status: 'FUELING' as const, sessionId: 42, seenActive: true };
+    const reset = sessionReducer(modified, { type: 'RESET' });
+    expect(reset).toEqual(initialSessionState);
   });
 });
