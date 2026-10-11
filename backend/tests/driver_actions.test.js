@@ -118,4 +118,59 @@ describe('Drivers Controller Actions', () => {
     expect(res.body[0].face_template_ref).toBeUndefined();
     expect(res.body[0].password).toBeUndefined();
   });
+
+  it('POST /cancel emite fuelingSessionUpdate e NÃO cria alerta em fleet_alerts', async () => {
+    const s = await db.query(
+      "INSERT INTO fueling_sessions (truck_id, status, release_method) VALUES ($1, 'requested', 'facial') RETURNING id",
+      [truckId]
+    );
+    const sessId = s.rows[0].id;
+
+    const { io } = require('../src/index');
+    const emitSpy = jest.spyOn(io, 'emit');
+
+    const res = await request(app)
+      .post(`/api/fueling/sessions/${sessId}/cancel`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, status: 'cancelled' });
+
+    expect(emitSpy).toHaveBeenCalledWith('fuelingSessionUpdate', expect.objectContaining({
+      id: sessId,
+      status: 'cancelled',
+      truck_id: truckId,
+    }));
+
+    const alerts = await db.query("SELECT * FROM fleet_alerts WHERE type='session_cancelled'");
+    expect(alerts.rows.length).toBe(0);
+
+    emitSpy.mockRestore();
+  });
+
+  it('não regressão do deactivate: cancela sessões abertas, libera caminhão via sessionRelease e não altera trucks.status', async () => {
+    const drvRes = await db.query("INSERT INTO drivers (name, is_active) VALUES ('Driver Regr', true) RETURNING id");
+    const dId = drvRes.rows[0].id;
+    const trkRes = await db.query(
+      "INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state, route_phase, fueling_ticks) VALUES ('REGR-1111', 'Model', 100, 50, 'low_fuel', 'fueling', 'fueling', 5) RETURNING id"
+    );
+    const tId = trkRes.rows[0].id;
+
+    const s1 = await db.query("INSERT INTO fueling_sessions (truck_id, driver_id, status) VALUES ($1, $2, 'requested') RETURNING id", [tId, dId]);
+    const s2 = await db.query("INSERT INTO fueling_sessions (truck_id, driver_id, status) VALUES ($1, $2, 'authorized') RETURNING id", [tId, dId]);
+    const s3 = await db.query("INSERT INTO fueling_sessions (truck_id, driver_id, status) VALUES ($1, $2, 'active') RETURNING id", [tId, dId]);
+
+    const res = await request(app).patch(`/api/drivers/${dId}/deactivate`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(res.status).toBe(200);
+
+    const { rows: sessions } = await db.query("SELECT id, status FROM fueling_sessions WHERE id IN ($1, $2, $3)", [s1.rows[0].id, s2.rows[0].id, s3.rows[0].id]);
+    expect(sessions.every(s => s.status === 'cancelled')).toBe(true);
+
+    const { rows: trucks } = await db.query("SELECT status, sim_state, route_phase, fueling_ticks FROM trucks WHERE id = $1", [tId]);
+    expect(trucks[0].status).toBe('low_fuel');
+    expect(trucks[0].sim_state).toBe('idle');
+    expect(trucks[0].route_phase).toBe('planned');
+    expect(trucks[0].fueling_ticks).toBe(0);
+  });
 });
