@@ -17,6 +17,8 @@ export interface SessionState {
   attempts?: number;
   attemptsLeft?: number;
   releaseMethod?: 'facial' | 'ble_fallback' | 'manager_override';
+  seenActive?: boolean;
+  waitingStartTime?: number;
 }
 
 export type SessionAction =
@@ -31,9 +33,11 @@ export type SessionAction =
   | { type: 'AUTHORIZE_START' }
   | { type: 'AUTHORIZE_SUCCESS' }
   | { type: 'AUTHORIZE_ERROR'; error: string }
+  | { type: 'POLL_AUTHORIZED' }
   | { type: 'POLL_ACTIVE' }
   | { type: 'POLL_DONE' }
-  | { type: 'POLL_AUTHORIZED' }
+  | { type: 'POLL_EXPIRED' }
+  | { type: 'POLL_ERROR'; error: string }
   | { type: 'RESET' };
 
 export const initialSessionState: SessionState = {
@@ -46,14 +50,22 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { status: 'REQUESTING' };
     case 'REQUEST_SUCCESS': {
       let nextStatus: MachineState = 'FACIAL_PENDING';
+      let seenActive = state.seenActive;
       if (action.status === 'authorized') {
         nextStatus = 'WAITING_HARDWARE';
       } else if (action.status === 'active') {
         nextStatus = 'FUELING';
+        seenActive = true;
       } else if (action.releaseMethod === 'ble_fallback' && (!action.status || action.status === 'requested')) {
         nextStatus = 'AUTHORIZING';
       }
-      return { status: nextStatus, sessionId: action.sessionId, releaseMethod: action.releaseMethod };
+      return { 
+        status: nextStatus, 
+        sessionId: action.sessionId, 
+        releaseMethod: action.releaseMethod,
+        seenActive,
+        waitingStartTime: nextStatus === 'WAITING_HARDWARE' ? Date.now() : undefined
+      };
     }
     case 'REQUEST_ERROR':
       return { status: 'ERROR', error: action.error };
@@ -70,15 +82,22 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case 'AUTHORIZE_START':
       return { ...state, status: 'AUTHORIZING', error: undefined };
     case 'AUTHORIZE_SUCCESS':
-      return { ...state, status: 'WAITING_HARDWARE', error: undefined };
+      return { ...state, status: 'WAITING_HARDWARE', error: undefined, waitingStartTime: state.waitingStartTime || Date.now() };
     case 'AUTHORIZE_ERROR':
       return { ...state, status: 'ERROR', error: action.error };
     case 'POLL_AUTHORIZED':
-      return { ...state, status: 'WAITING_HARDWARE' };
+      return { ...state, status: 'WAITING_HARDWARE', waitingStartTime: state.waitingStartTime || Date.now() };
     case 'POLL_ACTIVE':
-      return { ...state, status: 'FUELING' };
+      return { ...state, status: 'FUELING', seenActive: true };
     case 'POLL_DONE':
-      return { ...state, status: 'DONE' };
+      if (state.seenActive) {
+        return { ...state, status: 'DONE', error: undefined };
+      }
+      return { ...state, status: 'ERROR', error: 'Sessão encerrada sem abastecimento. Se precisar, inicie novamente.' };
+    case 'POLL_EXPIRED':
+      return { ...state, status: 'ERROR', error: 'Tempo da sessão esgotado. Inicie novamente.' };
+    case 'POLL_ERROR':
+      return { ...state, status: 'ERROR', error: action.error };
     case 'RESET':
       return initialSessionState;
     default:

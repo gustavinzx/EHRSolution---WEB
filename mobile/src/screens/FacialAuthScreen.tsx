@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Button } from '../components/Button';
 import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { sessionReducer, initialSessionState } from '../session/sessionMachine';
-import * as Location from 'expo-location';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FacialAuth'>;
 
@@ -15,6 +15,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   const { sessionId, status, releaseMethod } = route.params;
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
+  const [retryBlocked, setRetryBlocked] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   const [state, dispatch] = useReducer(sessionReducer, {
@@ -27,7 +28,6 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   });
 
   useEffect(() => {
-    // Navigate automatically if already past facial
     if (state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE' || state.status === 'FUELING' || state.status === 'BLOCKED_NEEDS_MANAGER') {
       navigation.replace('OperationResult', { sessionId, initialState: state.status, releaseMethod });
     }
@@ -38,38 +38,70 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
     dispatch({ type: 'FACIAL_VERIFY_START' });
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
-        quality: 0.5,
-      });
+      const photo = await cameraRef.current.takePictureAsync();
 
-      if (!photo?.base64) {
+      if (!photo?.uri && !photo?.base64) {
         dispatch({ type: 'FACIAL_VERIFY_FAIL', attempts: state.attempts || 0, attemptsLeft: state.attemptsLeft || 3, error: 'Falha ao capturar imagem.' });
         return;
       }
 
-      const res = await apiClient.verifyFace(sessionId, photo.base64);
+      let base64ToSend = '';
+      if (photo.uri) {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [{ resize: { width: 720 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        base64ToSend = manipulated.base64 || '';
+      } else if (photo.base64) {
+        base64ToSend = photo.base64;
+      }
+
+      base64ToSend = base64ToSend.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+
+      const decodedBytes = (base64ToSend.length * 3) / 4;
+      if (decodedBytes > 2 * 1024 * 1024) {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Imagem muito grande. Tente capturar novamente.' });
+        return;
+      }
+
+      const res = await apiClient.verifyFace(sessionId, base64ToSend);
 
       if (res.verified) {
         dispatch({ type: 'FACIAL_VERIFY_SUCCESS' });
       } else {
-        if (res.attempts_left === 0) {
+        const attemptsLeft = res.attempts_left;
+        if (attemptsLeft === 0) {
           await apiClient.reportFacialFailure(sessionId).catch(() => {});
           dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Rosto não reconhecido. Tentativas esgotadas.' });
+        } else if (typeof attemptsLeft === 'number' && attemptsLeft > 0) {
+          dispatch({ 
+            type: 'FACIAL_VERIFY_FAIL', 
+            attempts: res.attempts || 0, 
+            attemptsLeft: attemptsLeft, 
+            error: `Rosto não reconhecido. Restam ${attemptsLeft} tentativa(s).` 
+          });
         } else {
           dispatch({ 
             type: 'FACIAL_VERIFY_FAIL', 
             attempts: res.attempts || 0, 
-            attemptsLeft: res.attempts_left || 0, 
-            error: `Rosto não reconhecido. Restam ${res.attempts_left} tentativa(s).` 
+            attemptsLeft: 0, 
+            error: 'Rosto não reconhecido. Tente novamente.' 
           });
         }
       }
     } catch (error: any) {
       if (error.status === 409 && error.code === 'face_not_enrolled') {
+        setRetryBlocked(true);
         dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Seu rosto não está cadastrado. Procure o gestor.' });
       } else if (error.status === 429) {
-        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Muitas tentativas. Tente mais tarde.' });
+        if (typeof error.message === 'string' && error.message.includes('sessão')) {
+          await apiClient.reportFacialFailure(sessionId).catch(() => {});
+          dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Limite de tentativas da sessão atingido.' });
+        } else {
+          setRetryBlocked(true);
+          dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Muitas tentativas. Tente mais tarde.' });
+        }
       } else if (error.status === 503) {
         dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Serviço de reconhecimento indisponível. Tente novamente em instantes.' });
       } else if (error.status === 400) {
@@ -90,9 +122,6 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
     );
   }
-
-  // Prevent retry if user is not enrolled or too many attempts per hour
-  const blockRetry = state.error === 'Seu rosto não está cadastrado. Procure o gestor.' || state.error === 'Muitas tentativas. Tente mais tarde.';
 
   return (
     <View style={styles.container}>
@@ -123,7 +152,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
               testID="capture-btn"
               title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "TIRAR FOTO"}
               onPress={handleCapture}
-              disabled={state.status === 'VERIFYING' || blockRetry}
+              disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
               style={{ marginTop: 20 }}
             />
           </View>
@@ -181,7 +210,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-    errorText: {
+  errorText: {
     color: theme.colors.error,
     fontSize: 16,
     textAlign: 'center',
