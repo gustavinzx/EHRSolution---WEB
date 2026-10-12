@@ -142,5 +142,172 @@ describe('Facial & Misc Extra Tests', () => {
       .send({ email: 'gestor4@test.com', password: 'hash', dummy: bigPayload });
     expect(res.status).toBe(413);
   });
+
+  describe('FACE_MOCK_MODE tests', () => {
+    const validImageBuffer = Buffer.from('ffd8ffe000104a46494600010100000100010000PLAIN_IMAGE_DATA');
+    const nomatchBuffer = Buffer.from('ffd8ffe000104a46494600010100000100010000NOMATCH_DATA');
+    const noliveBuffer = Buffer.from('ffd8ffe000104a46494600010100000100010000NOLIVE_DATA');
+
+    it('marker (padrão) sem marcador => match false', async () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = 'test';
+
+      let provider;
+      jest.isolateModules(() => {
+        provider = require('../src/services/faceProvider');
+      });
+      const result = await provider.verify('drv1', 'ref1', validImageBuffer);
+      expect(result.match).toBe(false);
+      expect(result.livenessPassed).toBe(true);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('always_match com imagem sem marcador => match true', async () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'always_match';
+      process.env.NODE_ENV = 'test';
+
+      let provider;
+      jest.isolateModules(() => {
+        provider = require('../src/services/faceProvider');
+      });
+      const result = await provider.verify('drv1', 'ref1', validImageBuffer);
+      expect(result.match).toBe(true);
+      expect(result.livenessPassed).toBe(true);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('always_match com NOMATCH => false', async () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'always_match';
+      process.env.NODE_ENV = 'test';
+
+      let provider;
+      jest.isolateModules(() => {
+        provider = require('../src/services/faceProvider');
+      });
+      const result = await provider.verify('drv1', 'ref1', nomatchBuffer);
+      expect(result.match).toBe(false);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('always_match com NOLIVE => liveness false', async () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'always_match';
+      process.env.NODE_ENV = 'test';
+
+      let provider;
+      jest.isolateModules(() => {
+        provider = require('../src/services/faceProvider');
+      });
+      const result = await provider.verify('drv1', 'ref1', noliveBuffer);
+      expect(result.livenessPassed).toBe(false);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('valor inválido de FACE_MOCK_MODE => lança', () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'invalid_mode';
+      process.env.NODE_ENV = 'test';
+
+      expect(() => {
+        jest.isolateModules(() => {
+          require('../src/services/faceProvider');
+        });
+      }).toThrow(/FACE_MOCK_MODE inválido/i);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('production + always_match => lança', () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'always_match';
+      process.env.NODE_ENV = 'production';
+
+      expect(() => {
+        jest.isolateModules(() => {
+          require('../src/services/faceProvider');
+        });
+      }).toThrow();
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('production + mock => lança', () => {
+      const origProvider = process.env.FACE_PROVIDER;
+      const origMode = process.env.FACE_MOCK_MODE;
+      const origNodeEnv = process.env.NODE_ENV;
+      process.env.FACE_PROVIDER = 'mock';
+      process.env.FACE_MOCK_MODE = 'marker';
+      process.env.NODE_ENV = 'production';
+
+      expect(() => {
+        jest.isolateModules(() => {
+          require('../src/services/faceProvider');
+        });
+      }).toThrow(/MOCK FACE PROVIDER IS FORBIDDEN IN PRODUCTION/i);
+
+      process.env.FACE_PROVIDER = origProvider;
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+      process.env.NODE_ENV = origNodeEnv;
+    });
+
+    it('com FACE_MOCK_MODE=always_match, POST verify-face com JPEG válido SEM marcador => 200 {verified:true}', async () => {
+      const origMode = process.env.FACE_MOCK_MODE;
+      process.env.FACE_MOCK_MODE = 'always_match';
+
+      const s = await db.query(
+        "INSERT INTO fueling_sessions (truck_id, driver_id, station_id, status, release_method) VALUES ($1, $2, $3, 'requested', 'facial') RETURNING id",
+        [truckId, driverId, stationId]
+      );
+      const validPlainJPEG = Buffer.concat([
+        Buffer.from('ffd8ffe000104a46494600010100000100010000', 'hex'),
+        Buffer.from('CLEAN_PHOTO_NO_MARKER')
+      ]).toString('base64');
+      const res = await request(app).post(`/api/fueling/sessions/${s.rows[0].id}/verify-face`)
+        .set('Authorization', 'Bearer ' + tokenDriver)
+        .send({ image_base64: validPlainJPEG });
+
+      if (origMode !== undefined) process.env.FACE_MOCK_MODE = origMode; else delete process.env.FACE_MOCK_MODE;
+
+      expect(res.status).toBe(200);
+      expect(res.body.verified).toBe(true);
+    });
+  });
 });
 

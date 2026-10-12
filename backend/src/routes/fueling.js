@@ -40,8 +40,12 @@ router.post("/emergency-unlock", managerOnly, fuelingController.emergencyUnlockT
 // Pedidos de liberação manual pendentes (motoristas que estouraram as tentativas faciais)
 router.get("/sessions/pending-emergency", managerOnly, fuelingController.listPendingEmergency);
 
+// Consulta de sessão por ID (Motorista, Gestor, Hardware)
+router.get("/sessions/:id", anyActor, fuelingController.getSession);
+
 // Fueling sessions (App do motorista + painel do gestor)
 router.post("/sessions", managerOrDriver, fuelingController.requestSession);
+router.post("/sessions/:id/cancel", managerOrDriver, fuelingController.cancelSession);
 router.post("/sessions/:id/verify-face", driverOnly, fuelingController.verifyFace);
 router.post("/sessions/:id/ble-confirmed", allow({ hardware: true }), fuelingController.bleConfirmed);
 router.post("/sessions/:id/authorize", managerOrDriver, fuelingController.authorizeSession);

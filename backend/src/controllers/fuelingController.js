@@ -3,6 +3,23 @@ const db = require("../config/db");
 const faceProvider = require("../services/faceProvider");
 const { buildReturnRoute } = require("../services/returnRoute");
 const security = require("../services/securityService");
+const { releaseTruckIfIdle } = require("../services/sessionRelease");
+
+function safeSessionProjection(s) {
+  if (!s) return null;
+  return {
+    id: s.id,
+    truck_id: s.truck_id,
+    status: s.status,
+    release_method: s.release_method,
+    station_name: s.station_name || null,
+    requested_at: s.requested_at || null,
+    authorized_at: s.authorized_at || null,
+    started_at: s.started_at || null,
+    completed_at: s.completed_at || null,
+    expires_at: s.expires_at || null,
+  };
+}
 
 const FACIAL_MAX_ATTEMPTS = parseInt(process.env.FACIAL_MAX_ATTEMPTS || "3", 10);
 const GEOFENCE_KM = parseFloat(process.env.GEOFENCE_KM || "0.2"); // 200 m
@@ -747,9 +764,170 @@ exports.bleConfirmed = async (req, res) => {
 
 
 
+exports.cancelSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actorType = req.actor?.type;
+
+    const meta = {
+      cancelled_by: actorType,
+      cancelled_at: new Date().toISOString(),
+    };
+
+    let query = `UPDATE fueling_sessions
+                    SET status='cancelled',
+                        metadata = COALESCE(metadata,'{}'::jsonb) || $2::jsonb
+                  WHERE id=$1 AND status IN ('requested','authorized')`;
+    const params = [id, JSON.stringify(meta)];
+
+    if (actorType === "driver") {
+      query += " AND driver_id = $3";
+      params.push(req.actor.id);
+    }
+
+    query += " RETURNING id, truck_id, status, driver_id";
+
+    const { rows: updatedRows } = await db.query(query, params);
+
+    let sessionToHandle = updatedRows[0];
+
+    if (!sessionToHandle) {
+      const { rows: existingRows } = await db.query(
+        "SELECT id, truck_id, driver_id, status FROM fueling_sessions WHERE id=$1",
+        [id]
+      );
+      if (!existingRows.length) {
+        return res.status(404).json({ error: "Sessão não encontrada" });
+      }
+      const existing = existingRows[0];
+
+      if (actorType === "driver" && existing.driver_id !== req.actor.id) {
+        return res.status(404).json({ error: "Sessão não encontrada" });
+      }
+
+      if (existing.status === "active") {
+        return res.status(409).json({ error: "Sessão em andamento não pode ser cancelada" });
+      }
+
+      if (["completed", "expired"].includes(existing.status)) {
+        return res.status(409).json({ error: "Sessão já foi processada" });
+      }
+
+      if (existing.status === "cancelled") {
+        return res.json({ success: true, status: "cancelled" });
+      }
+
+      return res.status(409).json({ error: "Sessão já foi processada" });
+    }
+
+    await releaseTruckIfIdle(sessionToHandle.truck_id);
+
+    await security.recordSecurityEvent({
+      truckId: sessionToHandle.truck_id,
+      type: "session_cancelled",
+      severity: "low",
+      source: actorType === "driver" ? "app" : "manager",
+      payload: {
+        session_id: sessionToHandle.id,
+        driver_id: sessionToHandle.driver_id,
+        cancelled_by: actorType,
+      },
+      io: req.io,
+    });
+
+    const fullSession = await loadSession(sessionToHandle.id);
+    emitSession(req, safeSessionProjection(fullSession));
+
+    return res.json({ success: true, status: "cancelled" });
+  } catch (err) {
+    console.error("Cancel session error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.getSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actorType = req.actor?.type;
+
+    const { rows: checkRows } = await db.query(
+      "SELECT truck_id FROM fueling_sessions WHERE id=$1",
+      [id]
+    );
+    if (checkRows.length > 0) {
+      await expireStaleSessions(checkRows[0].truck_id);
+    }
+
+    const { rows: sessionRows } = await db.query(
+      `SELECT s.id, s.truck_id, s.driver_id, s.status, s.release_method,
+              fs.name AS station_name, s.requested_at, s.authorized_at,
+              s.started_at, s.completed_at, s.expires_at
+         FROM fueling_sessions s
+         LEFT JOIN fuel_stations fs ON fs.id = s.station_id
+        WHERE s.id = $1`,
+      [id]
+    );
+    if (!sessionRows.length) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+    const session = sessionRows[0];
+
+    if (actorType === "driver" && session.driver_id !== req.actor.id) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+    if (actorType === "hardware" && session.truck_id !== req.actor.id) {
+      return res.status(404).json({ error: "Sessão não encontrada" });
+    }
+
+    const response = {
+      id: session.id,
+      truck_id: session.truck_id,
+      status: session.status,
+      release_method: session.release_method,
+      station_name: session.station_name || null,
+      requested_at: session.requested_at,
+      authorized_at: session.authorized_at,
+      started_at: session.started_at,
+      completed_at: session.completed_at,
+      expires_at: session.expires_at,
+    };
+
+    if (session.status === "completed") {
+      const { rows: logs } = await db.query(
+        "SELECT volume_liters, duration_minutes, data_source FROM fueling_logs WHERE session_id = $1 ORDER BY id DESC LIMIT 1",
+        [session.id]
+      );
+      if (logs.length > 0) {
+        const log = logs[0];
+        const volume = log.data_source === "unverified"
+          ? null
+          : (log.volume_liters != null ? parseFloat(log.volume_liters) : null);
+        const duration = log.duration_minutes != null ? parseFloat(log.duration_minutes) : null;
+        response.result = {
+          volume_liters: volume,
+          duration_minutes: duration,
+        };
+      } else {
+        response.result = {
+          volume_liters: null,
+          duration_minutes: null,
+        };
+      }
+    }
+
+    return res.json(response);
+  } catch (err) {
+    console.error("Get session error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 exports.emitSession = emitSession;
 
 exports.loadSession = loadSession;
+
+exports.safeSessionProjection = safeSessionProjection;
+
 
 
 

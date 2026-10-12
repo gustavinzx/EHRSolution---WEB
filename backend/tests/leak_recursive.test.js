@@ -28,6 +28,7 @@ beforeAll(async () => {
 
   const d = await db.query("INSERT INTO drivers (name, email, phone, password_hash, face_enrolled, face_template_ref, is_active) VALUES ('Leaky Driver', 'leakd@test.com', '999', 'secret_hash_123', true, 'secret_template_456', true) RETURNING id");
   driverId = d.rows[0].id;
+  tokenDriver = jwt.sign({ id: driverId, role: 'driver' }, process.env.JWT_SECRET);
   
   const s = await db.query("INSERT INTO fuel_stations (name, lat, lng) VALUES ('S', -23, -46) RETURNING id");
   const stationId = s.rows[0].id;
@@ -39,6 +40,8 @@ beforeAll(async () => {
   
   await db.query("INSERT INTO fueling_sessions (driver_id, truck_id, station_id, status) VALUES ($1, $2, $3, 'active')", [driverId, truckId, stationId]);
 });
+
+let tokenDriver;
 
 function checkRecursive(obj) {
   if (!obj) return;
@@ -58,6 +61,43 @@ function checkRecursive(obj) {
         }
       }
       checkRecursive(val);
+    }
+  }
+}
+
+function checkRecursiveSession(obj) {
+  if (!obj) return;
+  if (Array.isArray(obj)) {
+    obj.forEach(checkRecursiveSession);
+    return;
+  }
+  if (typeof obj === 'object') {
+    for (const key of Object.keys(obj)) {
+      if (
+        key.includes('password') ||
+        key.includes('face_template_ref') ||
+        key.includes('api_key') ||
+        key.includes('metadata') ||
+        key.startsWith('facial_') ||
+        key.startsWith('ble_') ||
+        key === 'pump_liters' ||
+        key === 'data_source'
+      ) {
+        throw new Error('SESSION LEAK DETECTED (KEY): ' + key);
+      }
+      const val = obj[key];
+      if (typeof val === 'string') {
+        if (
+          val.includes('secret_hash_123') ||
+          val.includes('secret_template_456') ||
+          val.includes('hw_secret_123') ||
+          val.includes('secret_meta_val') ||
+          val.includes('secret_source')
+        ) {
+          throw new Error('SESSION LEAK DETECTED (VALUE): ' + val);
+        }
+      }
+      checkRecursiveSession(val);
     }
   }
 }
@@ -116,5 +156,28 @@ describe('Leak Checks', () => {
       checkRecursive(snap);
       done();
     });
+  });
+
+  it('GET /api/fueling/sessions/:id e POST .../cancel sem leak de chaves ou valores secretos', async () => {
+    const s = await db.query(`
+      INSERT INTO fueling_sessions
+        (driver_id, truck_id, status, release_method, metadata, facial_consumed_at, ble_consumed_at, pump_liters, data_source)
+      VALUES
+        ($1, $2, 'requested', 'facial', $3, NOW(), NOW(), 42.5, 'manager')
+      RETURNING id
+    `, [driverId, truckId, JSON.stringify({ secret_meta_val: 'secret_meta_val', facial_failures: 2 })]);
+    const sessId = s.rows[0].id;
+
+    const rGetDriver = await request(app).get(`/api/fueling/sessions/${sessId}`).set('Authorization', 'Bearer ' + tokenDriver);
+    expect(rGetDriver.status).toBe(200);
+    checkRecursiveSession(rGetDriver.body);
+
+    const rGetMgr = await request(app).get(`/api/fueling/sessions/${sessId}`).set('Authorization', 'Bearer ' + tokenManager);
+    expect(rGetMgr.status).toBe(200);
+    checkRecursiveSession(rGetMgr.body);
+
+    const rCancel = await request(app).post(`/api/fueling/sessions/${sessId}/cancel`).set('Authorization', 'Bearer ' + tokenDriver);
+    expect(rCancel.status).toBe(200);
+    checkRecursiveSession(rCancel.body);
   });
 });

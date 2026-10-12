@@ -11,6 +11,10 @@ exports.verify = async (driverId, templateRef, imageBuffer) => {
   } else if (content.includes('MATCH')) {
     return { match: true, score: 0.98, livenessPassed: true };
   }
+  const mode = process.env.FACE_MOCK_MODE || 'marker';
+  if (mode === 'always_match') {
+    return { match: true, score: 0.98, livenessPassed: true };
+  }
   return { match: false, score: 0.20, livenessPassed: true };
 };
 

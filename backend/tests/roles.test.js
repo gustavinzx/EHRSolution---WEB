@@ -170,6 +170,34 @@ beforeAll(async () => {
     const r1 = await request(app).post('/api/auth/login').send({ email: 'i@i.com', password: 'h' });
     expect(r1.status).toBe(401);
   });
+
+  it('auditor em POST .../cancel => 403 forbidden_role; auditor em GET /sessions/:id => 200', async () => {
+    let tRes = await db.query("SELECT id FROM trucks LIMIT 1");
+    let tId;
+    if (tRes.rows.length === 0) {
+      const insT = await db.query("INSERT INTO trucks (plate, model, capacity_liters, current_level_liters) VALUES ('AUD-1234', 'Model', 100, 50) RETURNING id");
+      tId = insT.rows[0].id;
+    } else {
+      tId = tRes.rows[0].id;
+    }
+    const s = await db.query(
+      "INSERT INTO fueling_sessions (truck_id, status, release_method) VALUES ($1, 'requested', 'facial') RETURNING id",
+      [tId]
+    );
+    const sessId = s.rows[0].id;
+
+    const rPost = await request(app)
+      .post(`/api/fueling/sessions/${sessId}/cancel`)
+      .set('Authorization', `Bearer ${auditorToken}`);
+    expect(rPost.status).toBe(403);
+    expect(rPost.body.error).toBe('forbidden_role');
+
+    const rGet = await request(app)
+      .get(`/api/fueling/sessions/${sessId}`)
+      .set('Authorization', `Bearer ${auditorToken}`);
+    expect(rGet.status).toBe(200);
+    expect(rGet.body.id).toBe(sessId);
+  });
 });
 
 

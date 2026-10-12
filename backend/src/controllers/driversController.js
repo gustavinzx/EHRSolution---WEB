@@ -3,6 +3,7 @@ const faceProvider = require('../services/faceProvider');
 const security = require('../services/securityService');
 const { validateImageBase64 } = require('../services/imageValidation');
 const dataProvider = require('../services/fleetDataProvider');
+const { releaseTruckIfIdle } = require('../services/sessionRelease');
 
 const safeDriver = (driver) => {
   if (!driver) return driver;
@@ -125,10 +126,7 @@ exports.deactivate = async (req, res) => {
     );
     
     for (const sess of openSessions) {
-      await client.query(
-        "UPDATE trucks SET sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$1 AND sim_state='fueling'",
-        [sess.truck_id]
-      );
+      await releaseTruckIfIdle(sess.truck_id, client);
     }
     
     await security.recordSecurityEvent({
