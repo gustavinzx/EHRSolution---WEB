@@ -208,9 +208,6 @@ export default function FleetPage() {
                     <Users size={11}/> Motorista
                   </span>
                   <span style={{ color:'var(--teal)', fontWeight:500, fontSize:'12px', display:'flex', alignItems:'center', gap:'6px' }}>
-                    {truck.current_drivers?.length > 0 && (
-                      <img src={truck.current_drivers[0].face_photo || `https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} alt="avatar" style={{ width:'16px', height:'16px', borderRadius:'50%', objectFit:'cover' }} />
-                    )}
                     {drivers}
                   </span>
                 </div>

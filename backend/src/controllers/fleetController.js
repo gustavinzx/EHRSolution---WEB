@@ -288,7 +288,7 @@ exports.ingestTelemetry = async (req, res) => {
            WHEN COALESCE($1, current_level_liters) < capacity_liters * 0.2 THEN 'low_fuel'
            ELSE 'ok' END,
          updated_at = NOW()
-       WHERE id=$5 RETURNING *`,
+       WHERE id=$5 RETURNING id, status, current_level_liters, lat, lng, speed_kmh`,
       [fuel, lat, lng, speed, id]
     );
     if (updated.length === 0) return res.status(404).json({ error: 'Truck not found' });
@@ -324,7 +324,7 @@ exports.createTruck = async (req, res) => {
     const { rows } = await db.query(
       `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
        VALUES ($1, $2, $3, $4, 'ok', 'idle')
-       RETURNING *`,
+       RETURNING id, plate, model, capacity_liters, current_level_liters, status, created_at`,
       [plateUpper, modelTrim, cap, lvl]
     );
     broadcastFleet(req.io);

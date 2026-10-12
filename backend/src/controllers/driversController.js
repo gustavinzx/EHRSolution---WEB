@@ -6,8 +6,9 @@ const { validateImageBase64 } = require('../services/imageValidation');
 const dataProvider = require('../services/fleetDataProvider');
 const { releaseTruckIfIdle } = require('../services/sessionRelease');
 
-const safeDriver = (driver) => {
+const safeDriver = (driver, actorRole) => {
   if (!driver) return driver;
+  const isPanelUser = ['admin', 'manager', 'auditor'].includes(actorRole);
   const result = {
     id: driver.id,
     name: driver.name,
@@ -20,8 +21,10 @@ const safeDriver = (driver) => {
     created_at: driver.created_at,
     truck_plate: driver.truck_plate,
     truck_model: driver.truck_model,
-    face_photo: driver.face_photo || null
   };
+  if (isPanelUser) {
+    result.face_photo = driver.face_photo || null;
+  }
   if (driver.assigned_trucks && Array.isArray(driver.assigned_trucks)) {
     result.assigned_trucks = driver.assigned_trucks.map(t => ({ id: t.id, plate: t.plate, model: t.model }));
   }
@@ -48,7 +51,7 @@ exports.list = async (req, res) => {
     query += ` GROUP BY d.id ORDER BY d.name ASC`;
     
     const { rows } = await db.query(query, params);
-    res.json(rows.map(safeDriver));
+    res.json(rows.map(d => safeDriver(d, req.user?.role)));
   } catch (error) {
     console.error('List drivers error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -74,7 +77,7 @@ exports.create = async (req, res) => {
     const { rows } = await db.query(
       `INSERT INTO drivers (name, phone, email, password_hash, face_enrolled, face_template_ref, face_consent_at, face_consent_version) 
        VALUES ($1, $2, $3, $4, $5, $6, ${enrollFace ? 'NOW()' : 'NULL'}, ${enrollFace ? "'v1.0'" : 'NULL'}) 
-       RETURNING *`,
+       RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo`,
       [name.trim(), phone || null, emailNorm, password_hash, enrollFace, faceTemplate]
     );
 
@@ -134,12 +137,12 @@ exports.update = async (req, res) => {
     if (password && String(password).trim()) {
       const password_hash = await bcrypt.hash(String(password).trim(), 10);
       result = await db.query(
-        'UPDATE drivers SET name = $1, phone = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING *',
+        'UPDATE drivers SET name = $1, phone = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo',
         [name.trim(), phone || null, emailNorm, password_hash, id]
       );
     } else {
       result = await db.query(
-        'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING *',
+        'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo',
         [name.trim(), phone || null, emailNorm, id]
       );
     }
@@ -220,7 +223,7 @@ exports.deactivate = async (req, res) => {
     await client.query('BEGIN');
     
     const result = await client.query(
-      'UPDATE drivers SET is_active = false, face_enrolled = false, face_template_ref = NULL WHERE id = $1 RETURNING *',
+      'UPDATE drivers SET is_active = false, face_enrolled = false, face_template_ref = NULL WHERE id = $1 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo',
       [id]
     );
     
@@ -299,7 +302,7 @@ exports.enrollFace = async (req, res) => {
     
     const formattedPhoto = image_base64.startsWith('data:') ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
     const result = await db.query(
-      'UPDATE drivers SET face_enrolled=true, face_template_ref=$1, face_consent_at=NOW(), face_consent_version=$2, face_photo=$4 WHERE id=$3 RETURNING *',
+      'UPDATE drivers SET face_enrolled=true, face_template_ref=$1, face_consent_at=NOW(), face_consent_version=$2, face_photo=$4 WHERE id=$3 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo',
       [templateRef, consent_version || 'v1', id, formattedPhoto]
     );
     
@@ -316,7 +319,7 @@ exports.enrollFace = async (req, res) => {
       io: req.io
     });
     
-    res.json(safeDriver(result.rows[0]));
+    res.json(safeDriver(result.rows[0], req.user?.role));
   } catch(error) {
     console.error('Enroll face error:', error);
     if (error.status === 400) return res.status(400).json({ error: error.message });
@@ -336,7 +339,7 @@ exports.removeFace = async (req, res) => {
     }
     
     const result = await db.query(
-      'UPDATE drivers SET face_enrolled=false, face_template_ref=NULL, face_consent_at=NULL, face_consent_version=NULL, face_photo=NULL WHERE id=$1 RETURNING *',
+      'UPDATE drivers SET face_enrolled=false, face_template_ref=NULL, face_consent_at=NULL, face_consent_version=NULL, face_photo=NULL WHERE id=$1 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo',
       [id]
     );
     
@@ -349,7 +352,7 @@ exports.removeFace = async (req, res) => {
       io: req.io
     });
     
-    res.json(safeDriver(result.rows[0]));
+    res.json(safeDriver(result.rows[0], req.user?.role));
   } catch(error) {
     console.error('Remove face error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -358,9 +361,9 @@ exports.removeFace = async (req, res) => {
 
 exports.activate = async (req, res) => {
   try {
-    const { rows } = await db.query('UPDATE drivers SET is_active = true WHERE id = $1 RETURNING *', [req.params.id]);
+    const { rows } = await db.query('UPDATE drivers SET is_active = true WHERE id = $1 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Driver not found' });
-    res.json(safeDriver(rows[0]));
+    res.json(safeDriver(rows[0], req.user?.role));
   } catch (error) {
     console.error('Activate driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -383,7 +386,7 @@ exports.assignTruck = async (req, res) => {
     }
     
     await db.query(
-      'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+      'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING driver_id, truck_id, assigned_at',
       [id, truck_id]
     );
     
