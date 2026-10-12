@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock, Truck, Mail, Phone, User, PlusCircle, CheckSquare, Square, ShieldCheck } from 'lucide-react';
+import { X, Lock, Truck, Mail, Phone, User, PlusCircle, CheckSquare, Square, ShieldCheck, Key, Copy, Check } from 'lucide-react';
 
 export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = [] }) {
+  const [temporaryPassword, setTemporaryPassword] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -17,6 +19,8 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
 
   useEffect(() => {
     if (!isOpen) return;
+    setTemporaryPassword(null);
+    setCopied(false);
     if (driver) {
       const assignedTruckId = driver.assigned_trucks && driver.assigned_trucks.length > 0
         ? String(driver.assigned_trucks[0].id)
@@ -51,6 +55,12 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
 
   if (!isOpen) return null;
 
+  const handleClose = () => {
+    setTemporaryPassword(null);
+    setCopied(false);
+    onClose();
+  };
+
   const inputStyle = {
     background: 'rgba(0,0,0,0.4)',
     border: '1px solid rgba(255,255,255,0.1)',
@@ -73,7 +83,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
     e.target.style.boxShadow = 'none';
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
       name: formData.name.trim(),
@@ -98,7 +108,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
       payload.truck_id = parseInt(formData.truck_id, 10);
     }
 
-    onSave(payload);
+    const res = await onSave(payload);
+    if (res && res.temporary_password) {
+      setTemporaryPassword(res.temporary_password);
+    }
   };
 
   return (
@@ -106,7 +119,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
       position: 'fixed', inset: 0, zIndex: 999,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
-    }} onClick={e => e.target === e.currentTarget && onClose()}>
+    }} onClick={e => e.target === e.currentTarget && handleClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby="driver-modal-title" style={{
         background: 'rgba(11,20,36,0.98)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
         border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px',
@@ -116,7 +129,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
         position: 'relative',
       }}>
         {/* Close Button */}
-        <button aria-label="Fechar" onClick={onClose} style={{
+        <button aria-label="Fechar" onClick={handleClose} style={{
           position: 'absolute', top: '20px', right: '20px',
           background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '8px',
           width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -126,13 +139,101 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
         </button>
 
         <h2 id="driver-modal-title" style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '6px', paddingRight: '40px' }}>
-          {driver ? `Editar: ${driver.name}` : 'Cadastrar Novo Motorista'}
+          {temporaryPassword ? 'Motorista Cadastrado' : (driver ? `Editar: ${driver.name}` : 'Cadastrar Novo Motorista')}
         </h2>
         <p style={{ color: 'var(--text-muted, #8BA3BC)', fontSize: '13px', marginBottom: '22px' }}>
-          {driver ? 'Atualize as credenciais, caminhão e biometria facial' : 'Crie a conta de acesso ao App Mobile e vincule um caminhão'}
+          {temporaryPassword
+            ? 'Copie a credencial provisória para repassar ao motorista.'
+            : (driver ? 'Atualize as credenciais, caminhão e biometria facial' : 'Crie a conta de acesso ao App Mobile e vincule um caminhão')}
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        {temporaryPassword ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div
+              data-testid="temporary-password-notice"
+              style={{
+                background: 'rgba(47,190,181,0.12)',
+                border: '2px solid #2FBEB5',
+                borderRadius: '14px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2FBEB5', fontWeight: 700, fontSize: '15px' }}>
+                <Key size={18} />
+                <span>Atenção: Senha Temporária Gerada</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '14px', color: '#e2e8f0', lineHeight: 1.6 }}>
+                {`Senha temporária do app: ${temporaryPassword}. Copie agora; ela não será exibida de novo.`}
+              </p>
+              <div style={{
+                background: 'rgba(0,0,0,0.4)',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontFamily: 'monospace',
+                fontSize: '15px',
+                color: '#2FBEB5',
+                wordBreak: 'break-all',
+                border: '1px solid rgba(47,190,181,0.3)',
+              }}>
+                {temporaryPassword}
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator?.clipboard?.writeText) {
+                      navigator.clipboard.writeText(temporaryPassword);
+                    }
+                    setCopied(true);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '10px 20px',
+                    background: copied ? '#34d399' : '#2FBEB5',
+                    color: '#0b1424',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={handleClose}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+                  color: '#fff',
+                  fontFamily: 'var(--font-display, Inter)',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Concluir e Fechar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {/* Nome */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <label htmlFor="driver-name" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted, #8BA3BC)', letterSpacing: '0.8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -368,7 +469,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
 
           {/* Botões */}
           <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-            <button type="button" onClick={onClose} style={{
+            <button type="button" onClick={handleClose} style={{
               flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)',
               background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary, #94a3b8)',
               fontFamily: 'var(--font-display, Inter)', fontWeight: 600, fontSize: '14px', cursor: 'pointer',
@@ -385,6 +486,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

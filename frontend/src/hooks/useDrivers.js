@@ -32,10 +32,10 @@ export function useDrivers() {
       const response = await client.post('/drivers', driverData);
       setDrivers(prev => [...prev, response.data]);
       toast.success('Motorista criado com sucesso');
-      return true;
+      return response.data;
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao criar motorista');
-      return false;
+      return null;
     }
   };
 

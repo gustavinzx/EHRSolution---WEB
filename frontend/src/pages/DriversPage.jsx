@@ -28,10 +28,17 @@ export default function DriversPage() {
     .sort((a,b) => a.name.localeCompare(b.name));
 
   const handleSave = async (data) => {
-    const ok = editingDriver
+    const res = editingDriver
       ? await updateDriver(editingDriver.id, data)
       : await createDriver(data);
-    if (ok) { setIsModalOpen(false); setEditingDriver(null); }
+    if (res) {
+      if (!res.temporary_password) {
+        setIsModalOpen(false);
+        setEditingDriver(null);
+      }
+      return res;
+    }
+    return null;
   };
 
   const handleToggleActive = async (driver) => {
