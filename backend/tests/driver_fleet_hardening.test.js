@@ -163,16 +163,23 @@ describe('BLOCO D2 — Drivers & Truck Transactional Registration', () => {
     expect(rNonExistent.body.error).toBe('Caminhão não encontrado');
   });
 
-  it('POST com senha < 8 chars => 400; sem senha => 201 com temporary_password retornado e hash gravado', async () => {
+  it('POST com senha < 8 chars => 400 (sem vazar valor da senha); sem senha => 201 com temporary_password retornado e hash gravado', async () => {
+    const sensitiveShortPass = 'curta';
     const rShort = await request(app)
       .post('/api/drivers')
       .set('Authorization', 'Bearer ' + tokenManager)
       .send({
         name: 'Motorista Senha Curta',
-        password: '123'
+        password: sensitiveShortPass
       });
     expect(rShort.status).toBe(400);
     expect(rShort.body.error).toBe('Senha deve ter ao menos 8 caracteres');
+    expect(JSON.stringify(rShort.body)).not.toContain(sensitiveShortPass);
+    if (rShort.body.errors) {
+      rShort.body.errors.forEach(err => {
+        expect(err.value).toBeUndefined();
+      });
+    }
 
     const rNoPass = await request(app)
       .post('/api/drivers')
@@ -381,16 +388,28 @@ describe('BLOCO D4 — Face Photo Leak Checks', () => {
     expect(res.body.face_photo).toBeUndefined();
   });
 
-  it('POST /api/auth/login (motorista) NÃO contém face_photo no body', async () => {
+  it('POST /api/auth/login com credenciais de motorista => 401 (sem fallback)', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({
         email: 'leak_drv@test.com',
         password: 'SenhaForte123'
       });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid email or password');
+    expect(res.body.token).toBeUndefined();
+  });
+
+  it('POST /api/auth/driver/login (motorista) responde 200 e NÃO contém face_photo no body', async () => {
+    const res = await request(app)
+      .post('/api/auth/driver/login')
+      .send({
+        email: 'leak_drv@test.com',
+        password: 'SenhaForte123'
+      });
     expect(res.status).toBe(200);
-    expect(res.body.user).toBeDefined();
-    expect(res.body.user.face_photo).toBeUndefined();
+    expect(res.body.driver).toBeDefined();
+    expect(res.body.driver.face_photo).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toContain(validJPEGBase64);
   });
 
