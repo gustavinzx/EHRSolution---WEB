@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Button } from '../components/Button';
@@ -26,6 +26,52 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
     sessionId,
     releaseMethod
   });
+
+  const handleCancelPress = () => {
+    Alert.alert(
+      'Cancelar abastecimento',
+      'Deseja realmente cancelar o abastecimento?',
+      [
+        { text: 'Não', style: 'cancel' },
+        { text: 'Sim, cancelar', style: 'destructive', onPress: executeCancel }
+      ]
+    );
+  };
+
+  const executeCancel = async () => {
+    try {
+      await apiClient.cancelSession(sessionId);
+      dispatch({ type: 'CANCELLED' });
+      navigation.popToTop();
+    } catch (error: any) {
+      const status = error.status;
+      const msg = typeof error.message === 'string' ? error.message : '';
+      const code = error.code;
+
+      if (status === 409 && (msg.includes('em andamento') || code === 'Sessão em andamento não pode ser cancelada')) {
+        Alert.alert('Aviso', 'O abastecimento já começou e não pode ser cancelado.');
+        dispatch({ type: 'POLL_ACTIVE' });
+      } else if (status === 409 && (msg.includes('já foi processada') || code === 'Sessão já foi processada')) {
+        try {
+          const cur = await apiClient.getSession(sessionId);
+          if (cur.status === 'completed') {
+            navigation.replace('OperationResult', { sessionId, initialState: 'DONE', releaseMethod });
+          } else if (cur.status === 'active') {
+            navigation.replace('OperationResult', { sessionId, initialState: 'FUELING', releaseMethod });
+          } else {
+            navigation.popToTop();
+          }
+        } catch {
+          navigation.popToTop();
+        }
+      } else if (status === 404) {
+        dispatch({ type: 'CANCELLED' });
+        navigation.popToTop();
+      } else {
+        Alert.alert('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+      }
+    }
+  };
 
   useEffect(() => {
     if (state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE' || state.status === 'FUELING' || state.status === 'BLOCKED_NEEDS_MANAGER') {
@@ -155,6 +201,16 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
               disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
               style={{ marginTop: 20 }}
             />
+
+            {state.status === 'FACIAL_PENDING' && (
+              <Button
+                testID="cancel-btn"
+                title="Cancelar abastecimento"
+                variant="danger"
+                onPress={handleCancelPress}
+                style={{ marginTop: 10 }}
+              />
+            )}
           </View>
         </>
       ) : (

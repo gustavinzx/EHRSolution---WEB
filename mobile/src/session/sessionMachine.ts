@@ -38,6 +38,8 @@ export type SessionAction =
   | { type: 'POLL_DONE' }
   | { type: 'POLL_EXPIRED' }
   | { type: 'POLL_ERROR'; error: string }
+  | { type: 'CANCEL_REQUESTED' }
+  | { type: 'CANCELLED' }
   | { type: 'RESET' };
 
 export const initialSessionState: SessionState = {
@@ -98,6 +100,12 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       return { ...state, status: 'ERROR', error: 'Tempo da sessão esgotado. Inicie novamente.' };
     case 'POLL_ERROR':
       return { ...state, status: 'ERROR', error: action.error };
+    case 'CANCEL_REQUESTED':
+    case 'CANCELLED':
+      if (state.status === 'FUELING') {
+        return state;
+      }
+      return initialSessionState;
     case 'RESET':
       return initialSessionState;
     default:

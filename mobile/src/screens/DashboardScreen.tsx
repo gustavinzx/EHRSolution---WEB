@@ -34,19 +34,71 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error: any) {
       if (error.status === 409 && error.session) {
         const sess = error.session;
-        if (sess.release_method === 'ble_fallback') {
-          navigation.navigate('OperationResult', {
-            sessionId: sess.id,
-            initialState: sess.status === 'active' ? 'FUELING' : sess.status === 'authorized' ? 'WAITING_HARDWARE' : 'AUTHORIZING',
-            releaseMethod: 'ble_fallback'
-          });
-        } else {
-          navigation.navigate('FacialAuth', { 
-            sessionId: sess.id, 
-            status: sess.status, 
-            releaseMethod: sess.release_method 
-          });
+
+        const resumeSession = () => {
+          if (sess.release_method === 'ble_fallback') {
+            navigation.navigate('OperationResult', {
+              sessionId: sess.id,
+              initialState: sess.status === 'active' ? 'FUELING' : sess.status === 'authorized' ? 'WAITING_HARDWARE' : 'AUTHORIZING',
+              releaseMethod: 'ble_fallback'
+            });
+          } else {
+            navigation.navigate('FacialAuth', { 
+              sessionId: sess.id, 
+              status: sess.status, 
+              releaseMethod: sess.release_method 
+            });
+          }
+        };
+
+        if (sess.status === 'active') {
+          resumeSession();
+          setLoading(false);
+          return;
         }
+
+        Alert.alert(
+          'Sessão pendente',
+          'Já existe uma sessão de abastecimento pendente para este caminhão.',
+          [
+            {
+              text: 'Retomar sessão',
+              onPress: resumeSession,
+            },
+            {
+              text: 'Cancelar e começar de novo',
+              style: 'destructive',
+              onPress: async () => {
+                setLoading(true);
+                try {
+                  await apiClient.cancelSession(sess.id);
+                  const newSession = await apiClient.requestSession(vehicle.id, releaseMethod);
+                  if (newSession.release_method === 'ble_fallback') {
+                    navigation.navigate('OperationResult', {
+                      sessionId: newSession.id,
+                      initialState: 'AUTHORIZING',
+                      releaseMethod: 'ble_fallback'
+                    });
+                  } else {
+                    navigation.navigate('FacialAuth', {
+                      sessionId: newSession.id,
+                      status: newSession.status,
+                      releaseMethod: newSession.release_method
+                    });
+                  }
+                } catch (err: any) {
+                  Alert.alert('Erro', err.message || 'Não foi possível reiniciar a sessão.');
+                } finally {
+                  setLoading(false);
+                }
+              },
+            },
+            {
+              text: 'Voltar',
+              style: 'cancel',
+            }
+          ]
+        );
         setLoading(false);
         return;
       }
