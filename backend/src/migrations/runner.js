@@ -5,8 +5,10 @@ const db = require('../config/db');
 
 const MIGRATION_LOCK_KEY = 10001; // Arbitrary fixed key for advisory lock
 
-function getChecksum(content) {
-  return crypto.createHash('sha256').update(content).digest('hex');
+function getChecksums(content) {
+  const lf = crypto.createHash('sha256').update(content.replace(/\r\n/g, '\n')).digest('hex');
+  const crlf = crypto.createHash('sha256').update(content.replace(/\r?\n/g, '\r\n')).digest('hex');
+  return { lf, crlf };
 }
 
 async function runMigrations() {
@@ -38,7 +40,7 @@ async function runMigrations() {
 
     for (const file of files) {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      const currentChecksum = getChecksum(sql);
+      const { lf, crlf } = getChecksums(sql);
 
       const { rows } = await client.query('SELECT checksum FROM migrations WHERE name = $1', [file]);
       
@@ -46,10 +48,10 @@ async function runMigrations() {
         const storedChecksum = rows[0].checksum;
         if (!storedChecksum) {
           // Baseline existing migration without checksum
-          await client.query('UPDATE migrations SET checksum = $1 WHERE name = $2', [currentChecksum, file]);
+          await client.query('UPDATE migrations SET checksum = $1 WHERE name = $2', [lf, file]);
           console.log(`[Migrations] Set baseline checksum for existing migration: ${file}`);
-        } else if (storedChecksum !== currentChecksum) {
-          throw new Error(`Checksum mismatch for migration ${file}. Stored: ${storedChecksum}, Current: ${currentChecksum}`);
+        } else if (storedChecksum !== lf && storedChecksum !== crlf) {
+          throw new Error(`Checksum mismatch for migration ${file}. Stored: ${storedChecksum}, Current (LF): ${lf}, Current (CRLF): ${crlf}`);
         }
         // Already executed and checksum matches, skip
         continue;
@@ -60,7 +62,7 @@ async function runMigrations() {
       try {
         await client.query('BEGIN');
         await client.query(sql);
-        await client.query('INSERT INTO migrations (name, checksum) VALUES ($1, $2)', [file, currentChecksum]);
+        await client.query('INSERT INTO migrations (name, checksum) VALUES ($1, $2)', [file, lf]);
         await client.query('COMMIT');
         console.log(`[Migrations] ${file} executed successfully.`);
       } catch (err) {

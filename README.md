@@ -23,6 +23,7 @@ Variáveis de Controle Importantes:
 - `FACE_MATCH_THRESHOLD`: Define o nível de confiança (Confidence) biométrico (padrão `0.90`).
 - `FACIAL_ATTEMPTS_RETENTION_DAYS`: Dias de retenção dos metadados de biometria facial (padrão `90`).
 - `GEOFENCE_KM`: Distância em km permitida para autorizar via geofence (padrão `0.2`).
+- `VIRTUAL_HARDWARE_ENABLED`: Ativa a simulação de bomba e trava física de hardware (somente desenvolvimento/demonstração; nunca em produção; desligar quando o hardware real for integrado). Padrão `false`.
 
 ## Como rodar localmente
 1. **Banco de Dados**: Suba via `docker-compose up -d`.

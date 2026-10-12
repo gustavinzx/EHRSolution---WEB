@@ -1,5 +1,7 @@
 "use strict";
 const db = require("../config/db");
+const { loadSession, safeSessionProjection } = require("../controllers/fuelingController");
+const { releaseTruckIfIdle } = require("./sessionRelease");
 
 let isRunning = false;
 let checkInterval = null;
@@ -10,7 +12,8 @@ async function checkAndProcessSessions(io) {
   try {
     // 1. Sessões autorizadas (rosto ou BLE aprovado pelo app) -> Iniciar bomba
     const { rows: authorizedSessions } = await db.query(`
-      SELECT s.*, t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
+      SELECT s.id, s.truck_id, s.driver_id, s.status, s.station_id, s.release_method, s.authorized_at, s.started_at,
+             t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
              fs.name AS station_name
       FROM fueling_sessions s
       JOIN trucks t ON t.id = s.truck_id
@@ -36,14 +39,15 @@ async function checkAndProcessSessions(io) {
       `, [sess.truck_id]);
 
       if (io) {
-        const { rows: updated } = await db.query(`SELECT * FROM fueling_sessions WHERE id = $1`, [sess.id]);
-        if (updated[0]) io.emit('fuelingSessionUpdate', updated[0]);
+        const full = await loadSession(sess.id);
+        if (full) io.emit('fuelingSessionUpdate', safeSessionProjection(full));
       }
     }
 
     // 2. Sessões em andamento há mais de 8s -> Finalizar com medição de combustível
     const { rows: activeSessions } = await db.query(`
-      SELECT s.*, t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
+      SELECT s.id, s.truck_id, s.driver_id, s.status, s.station_id, s.release_method, s.authorized_at, s.started_at,
+             t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
              fs.name AS station_name
       FROM fueling_sessions s
       JOIN trucks t ON t.id = s.truck_id
@@ -68,7 +72,7 @@ async function checkAndProcessSessions(io) {
           (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
            station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
            pump_liters, tank_liters_delta, data_source)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, 'hardware')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, 'simulated')
         RETURNING id
       `, [
         sess.id, sess.driver_id, sess.truck_id, sess.lat, sess.lng,
@@ -79,21 +83,23 @@ async function checkAndProcessSessions(io) {
 
       await db.query(`
         UPDATE fueling_sessions
-        SET status = 'completed', completed_at = NOW(), tank_liters_delta = $2, data_source = 'hardware'
+        SET status = 'completed', completed_at = NOW(), tank_liters_delta = $2, data_source = 'simulated'
         WHERE id = $1
       `, [sess.id, volume]);
 
       await db.query(`
         UPDATE trucks
-        SET current_level_liters = $1, status = 'ok', sim_state = 'idle', route_phase = 'planned'
+        SET current_level_liters = $1
         WHERE id = $2
       `, [levelAfter, sess.truck_id]);
+
+      await releaseTruckIfIdle(sess.truck_id);
 
       console.log(`[VIRTUAL-HARDWARE] Sucesso: +${volume}L abastecidos (${currentLevel}L -> ${levelAfter}L). Log #${insertedLogs[0]?.id}`);
 
       if (io) {
-        const { rows: updated } = await db.query(`SELECT * FROM fueling_sessions WHERE id = $1`, [sess.id]);
-        if (updated[0]) io.emit('fuelingSessionUpdate', updated[0]);
+        const full = await loadSession(sess.id);
+        if (full) io.emit('fuelingSessionUpdate', safeSessionProjection(full));
       }
     }
   } catch (err) {
@@ -104,6 +110,9 @@ async function checkAndProcessSessions(io) {
 }
 
 function startVirtualHardware(io) {
+  if (process.env.VIRTUAL_HARDWARE_ENABLED === 'true' && process.env.NODE_ENV === 'production') {
+    throw new Error('VIRTUAL_HARDWARE_ENABLED não pode ser ativado em ambiente de produção!');
+  }
   if (process.env.VIRTUAL_HARDWARE_ENABLED !== 'true') {
     return;
   }
@@ -112,4 +121,16 @@ function startVirtualHardware(io) {
   checkInterval = setInterval(() => checkAndProcessSessions(io), 2000);
 }
 
-module.exports = { startVirtualHardware };
+function stopVirtualHardware() {
+  if (checkInterval) {
+    clearInterval(checkInterval);
+    checkInterval = null;
+  }
+  isRunning = false;
+}
+
+module.exports = {
+  startVirtualHardware,
+  stopVirtualHardware,
+  checkAndProcessSessions,
+};
