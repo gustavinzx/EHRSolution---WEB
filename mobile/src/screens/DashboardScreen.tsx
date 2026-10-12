@@ -7,6 +7,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { getBleLock } from '../services/bluetooth/bleLock';
+import { getCancelErrorMessage } from '../utils/cancelError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -76,6 +77,13 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 setLoading(true);
                 try {
                   await apiClient.cancelSession(sess.id);
+                } catch (cancelErr: any) {
+                  Alert.alert('Erro', getCancelErrorMessage(cancelErr));
+                  setLoading(false);
+                  return;
+                }
+
+                try {
                   const newSession = await apiClient.requestSession(vehicle.id, releaseMethod);
                   if (newSession.release_method === 'ble_fallback') {
                     navigation.navigate('OperationResult', {
