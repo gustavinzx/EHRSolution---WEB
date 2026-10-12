@@ -50,7 +50,7 @@ async function getFleetSnapshot() {
         t.route_phase, t.route_resume_index, t.fuel_station_id,
         t.planned_route_geometry,
         fs.name AS station_name, fs.lat AS station_lat, fs.lng AS station_lng,
-        json_agg(json_build_object('id', d.id, 'name', d.name)) FILTER (WHERE d.id IS NOT NULL) as current_drivers
+        json_agg(json_build_object('id', d.id, 'name', d.name, 'face_photo', d.face_photo)) FILTER (WHERE d.id IS NOT NULL) as current_drivers
       FROM trucks t
       LEFT JOIN fuel_stations fs ON t.fuel_station_id = fs.id
       LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
@@ -82,7 +82,7 @@ async function getFleetSnapshot() {
 async function getTruckTelemetry(truckId) {
   const result = await db.query(`
     SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, t.lat, t.lng, t.status, t.speed_kmh, t.sim_state, t.route_phase, t.route_index, t.route_resume_index, t.route_progress, t.fuel_station_id, t.fueling_ticks, t.origin_name, t.dest_name, t.route_geometry, t.planned_route_geometry, t.created_at,
-      json_build_object('name', d.name, 'phone', d.phone) as driver
+      json_build_object('name', d.name, 'phone', d.phone, 'face_photo', d.face_photo) as driver
     FROM trucks t
     LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
     LEFT JOIN drivers d ON dt.driver_id = d.id AND d.is_active = true

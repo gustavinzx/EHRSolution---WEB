@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.get("/live-events", authMiddleware, fleetController.liveEvents);
 router.get("/", authMiddleware, fleetController.list);
+router.post("/", authMiddleware, requireRole, fleetController.createTruck);
 router.get("/dashboard-stats", authMiddleware, fleetController.getDashboardStats);
 router.get("/:id", authMiddleware, fleetController.getOne);
 router.get("/:id/unloading-events", authMiddleware, fleetController.getUnloadingEvents);

@@ -212,6 +212,19 @@ const useFleetState = create((set, get) => ({
       return { ok: false };
     }
   },
+
+  createTruck: async (truckData) => {
+    try {
+      const res = await client.post('/fleet', truckData);
+      toast.success(`Caminhão ${res.data.plate} cadastrado com sucesso!`);
+      await get().fetchFleet();
+      return { ok: true, truck: res.data };
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Erro ao cadastrar caminhão.';
+      toast.error(msg);
+      return { ok: false, error: msg };
+    }
+  },
 }));
 
 export default useFleetState;

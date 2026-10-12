@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const bcrypt = require('bcrypt');
 const faceProvider = require('../services/faceProvider');
 const security = require('../services/securityService');
 const { validateImageBase64 } = require('../services/imageValidation');
@@ -18,7 +19,8 @@ const safeDriver = (driver) => {
     face_consent_version: driver.face_consent_version,
     created_at: driver.created_at,
     truck_plate: driver.truck_plate,
-    truck_model: driver.truck_model
+    truck_model: driver.truck_model,
+    face_photo: driver.face_photo || null
   };
   if (driver.assigned_trucks && Array.isArray(driver.assigned_trucks)) {
     result.assigned_trucks = driver.assigned_trucks.map(t => ({ id: t.id, plate: t.plate, model: t.model }));
@@ -55,17 +57,62 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, password, truck_id, new_truck, auto_enroll_face } = req.body;
     
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'O campo nome é obrigatório' });
     }
+
+    const emailNorm = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
+    const rawPass = password && String(password).trim() ? String(password).trim() : 'Demo@1234';
+    const password_hash = await bcrypt.hash(rawPass, 10);
     
+    // Auto enrollment flag (defaults to true if not specified false)
+    const enrollFace = auto_enroll_face !== false;
+    const faceTemplate = enrollFace ? ('mock_template_' + Date.now()) : null;
+
     const { rows } = await db.query(
-      'INSERT INTO drivers (name, phone, email) VALUES ($1, $2, $3) RETURNING *',
-      [name.trim(), phone || null, email || null]
+      `INSERT INTO drivers (name, phone, email, password_hash, face_enrolled, face_template_ref, face_consent_at, face_consent_version) 
+       VALUES ($1, $2, $3, $4, $5, $6, ${enrollFace ? 'NOW()' : 'NULL'}, ${enrollFace ? "'v1.0'" : 'NULL'}) 
+       RETURNING *`,
+      [name.trim(), phone || null, emailNorm, password_hash, enrollFace, faceTemplate]
     );
-    res.status(201).json(safeDriver(rows[0]));
+
+    const newDriver = rows[0];
+    let assignedTrucks = [];
+
+    // Handle new truck creation if provided
+    if (new_truck && new_truck.plate && new_truck.model) {
+      const cap = parseFloat(new_truck.capacity_liters) || 500;
+      const plateUpper = String(new_truck.plate).trim().toUpperCase();
+      const modelTrim = String(new_truck.model).trim();
+      const { rows: trkIns } = await db.query(
+        `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
+         VALUES ($1, $2, $3, $4, 'ok', 'idle')
+         ON CONFLICT (plate) DO UPDATE SET model = EXCLUDED.model, capacity_liters = EXCLUDED.capacity_liters
+         RETURNING id, plate, model`,
+        [plateUpper, modelTrim, cap, cap]
+      );
+      if (trkIns.length > 0) {
+        await db.query(
+          'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [newDriver.id, trkIns[0].id]
+        );
+        assignedTrucks.push(trkIns[0]);
+      }
+    } else if (truck_id) {
+      await db.query(
+        'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [newDriver.id, truck_id]
+      );
+      const { rows: trkRows } = await db.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truck_id]);
+      if (trkRows.length > 0) {
+        assignedTrucks.push(trkRows[0]);
+      }
+    }
+
+    newDriver.assigned_trucks = assignedTrucks;
+    res.status(201).json(safeDriver(newDriver));
   } catch (error) {
     console.error('Create driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -75,22 +122,79 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, email } = req.body;
+    const { name, phone, email, password, truck_id, new_truck, auto_enroll_face } = req.body;
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'O campo nome é obrigatório' });
     }
 
-    const result = await db.query(
-      'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING *',
-      [name.trim(), phone || null, email || null, id]
-    );
+    const emailNorm = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
+
+    let result;
+    if (password && String(password).trim()) {
+      const password_hash = await bcrypt.hash(String(password).trim(), 10);
+      result = await db.query(
+        'UPDATE drivers SET name = $1, phone = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING *',
+        [name.trim(), phone || null, emailNorm, password_hash, id]
+      );
+    } else {
+      result = await db.query(
+        'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING *',
+        [name.trim(), phone || null, emailNorm, id]
+      );
+    }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Driver not found' });
     }
-    
-    res.json(safeDriver(result.rows[0]));
+
+    if (auto_enroll_face !== undefined) {
+      if (auto_enroll_face) {
+        await db.query(
+          "UPDATE drivers SET face_enrolled=true, face_template_ref=COALESCE(face_template_ref, $1), face_consent_at=NOW(), face_consent_version='v1.0' WHERE id=$2",
+          ['mock_template_' + id, id]
+        );
+      } else {
+        await db.query(
+          "UPDATE drivers SET face_enrolled=false WHERE id=$1",
+          [id]
+        );
+      }
+    }
+
+    if (new_truck && new_truck.plate && new_truck.model) {
+      const cap = parseFloat(new_truck.capacity_liters) || 500;
+      const plateUpper = String(new_truck.plate).trim().toUpperCase();
+      const modelTrim = String(new_truck.model).trim();
+      const { rows: trkIns } = await db.query(
+        `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
+         VALUES ($1, $2, $3, $4, 'ok', 'idle')
+         ON CONFLICT (plate) DO UPDATE SET model = EXCLUDED.model, capacity_liters = EXCLUDED.capacity_liters
+         RETURNING id, plate, model`,
+        [plateUpper, modelTrim, cap, cap]
+      );
+      if (trkIns.length > 0) {
+        await db.query(
+          'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, trkIns[0].id]
+        );
+      }
+    } else if (truck_id) {
+      await db.query(
+        'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [id, truck_id]
+      );
+    }
+
+    const { rows: trkRows } = await db.query(`
+      SELECT t.id, t.plate, t.model
+      FROM driver_trucks dt
+      JOIN trucks t ON dt.truck_id = t.id
+      WHERE dt.driver_id = $1
+    `, [id]);
+
+    const updatedDriver = { ...result.rows[0], assigned_trucks: trkRows };
+    res.json(safeDriver(updatedDriver));
   } catch (error) {
     console.error('Update driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -193,9 +297,10 @@ exports.enrollFace = async (req, res) => {
     const imageBuffer = Buffer.from(image_base64, 'base64');
     const { templateRef } = await faceProvider.enroll(id, imageBuffer);
     
+    const formattedPhoto = image_base64.startsWith('data:') ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
     const result = await db.query(
-      'UPDATE drivers SET face_enrolled=true, face_template_ref=$1, face_consent_at=NOW(), face_consent_version=$2 WHERE id=$3 RETURNING *',
-      [templateRef, consent_version || 'v1', id]
+      'UPDATE drivers SET face_enrolled=true, face_template_ref=$1, face_consent_at=NOW(), face_consent_version=$2, face_photo=$4 WHERE id=$3 RETURNING *',
+      [templateRef, consent_version || 'v1', id, formattedPhoto]
     );
     
     if (oldTemplate && oldTemplate !== templateRef) {
@@ -231,7 +336,7 @@ exports.removeFace = async (req, res) => {
     }
     
     const result = await db.query(
-      'UPDATE drivers SET face_enrolled=false, face_template_ref=NULL, face_consent_at=NULL, face_consent_version=NULL WHERE id=$1 RETURNING *',
+      'UPDATE drivers SET face_enrolled=false, face_template_ref=NULL, face_consent_at=NULL, face_consent_version=NULL, face_photo=NULL WHERE id=$1 RETURNING *',
       [id]
     );
     

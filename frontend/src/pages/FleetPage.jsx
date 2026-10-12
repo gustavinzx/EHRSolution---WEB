@@ -4,9 +4,10 @@ import toast from 'react-hot-toast';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import { RefreshCw, MapPin, Users, Gauge, Droplets , Truck} from 'lucide-react';
+import { RefreshCw, MapPin, Users, Gauge, Droplets , Truck, PlusCircle } from 'lucide-react';
 import MapView from '../components/MapView';
 import RouteModal from '../components/RouteModal';
+import NewTruckModal from '../components/NewTruckModal';
 import useFleetState from '../store/useFleetState';
 const glass = {
   background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', overflow: 'hidden',
@@ -22,10 +23,11 @@ const STATUS_META = {
 };
 
 export default function FleetPage() {
-  const { trucks, loading, error, refetch } = useFleet();
+  const { trucks, loading, error, refetch, createTruck } = useFleet();
   const fetchTruckRoute = useFleetState(state => state.fetchTruckRoute);
   const cancelTruckRoute = useFleetState(state => state.cancelTruckRoute);
   const [routeTruckId, setRouteTruckId] = useState(null);
+  const [isNewTruckModalOpen, setIsNewTruckModalOpen] = useState(false);
 
   if (loading && trucks.length === 0) return <LoadingSpinner />;
   if (error && trucks.length === 0) return <ErrorMessage message={error} />;
@@ -80,14 +82,24 @@ export default function FleetPage() {
             {counts.total} veículos monitorados
           </p>
         </div>
-        <button onClick={refetch} style={{
-          display:'flex', alignItems:'center', gap:'7px', padding:'9px 16px',
-          borderRadius:'10px', fontSize:'13px', fontWeight:500,
-          border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)',
-          color:'var(--text-secondary)', cursor:'pointer',
-        }}>
-          <RefreshCw size={14}/> Atualizar
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={() => setIsNewTruckModalOpen(true)} style={{
+            display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 16px',
+            borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+            border: 'none', background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+            color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(47,190,181,0.25)',
+          }}>
+            <PlusCircle size={15} /> Cadastrar Caminhão
+          </button>
+          <button onClick={refetch} style={{
+            display:'flex', alignItems:'center', gap:'7px', padding:'9px 16px',
+            borderRadius:'10px', fontSize:'13px', fontWeight:500,
+            border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)',
+            color:'var(--text-secondary)', cursor:'pointer',
+          }}>
+            <RefreshCw size={14}/> Atualizar
+          </button>
+        </div>
       </div>
 
       {/* Summary pills */}
@@ -197,7 +209,7 @@ export default function FleetPage() {
                   </span>
                   <span style={{ color:'var(--teal)', fontWeight:500, fontSize:'12px', display:'flex', alignItems:'center', gap:'6px' }}>
                     {truck.current_drivers?.length > 0 && (
-                      <img src={`https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} alt="avatar" style={{ width:'16px', height:'16px', borderRadius:'50%', objectFit:'cover' }} />
+                      <img src={truck.current_drivers[0].face_photo || `https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} alt="avatar" style={{ width:'16px', height:'16px', borderRadius:'50%', objectFit:'cover' }} />
                     )}
                     {drivers}
                   </span>
@@ -238,6 +250,7 @@ export default function FleetPage() {
         </div>
       </div>
       <RouteModal isOpen={Boolean(routeTruckId)} truckId={routeTruckId} onClose={()=>setRouteTruckId(null)} onConfigured={(id)=>{ refetch(); fetchTruckRoute(id); }} />
+      <NewTruckModal isOpen={isNewTruckModalOpen} onClose={() => setIsNewTruckModalOpen(false)} onSave={createTruck} />
     </div>
   );
 }

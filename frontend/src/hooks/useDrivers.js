@@ -87,6 +87,30 @@ export function useDrivers() {
     }
   };
 
+  const enrollFace = async (driverId, data) => {
+    try {
+      const response = await client.post(`/drivers/${driverId}/face/enroll`, data);
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, ...response.data, face_enrolled: true } : d));
+      toast.success('Biometria facial cadastrada com sucesso!');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao cadastrar biometria facial');
+      return false;
+    }
+  };
+
+  const removeFace = async (driverId) => {
+    try {
+      await client.delete(`/drivers/${driverId}/face`);
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, face_enrolled: false, face_photo: null } : d));
+      toast.success('Biometria facial revogada com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao revogar biometria');
+      return false;
+    }
+  };
+
   const fetchRanking = useCallback(async () => {
     try {
       const response = await client.get('/drivers/ranking');
@@ -116,6 +140,8 @@ export function useDrivers() {
     updateDriver, 
     deactivateDriver, activateDriver,
     assignTruck,
+    enrollFace,
+    removeFace,
     fetchRanking,
     fetchDriverScore
   };

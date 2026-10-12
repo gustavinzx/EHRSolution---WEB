@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import useFleetState from '../store/useFleetState';
 
 export function useFleet() {
-  const { fleet, loading, error, fetchFleet } = useFleetState();
+  const { fleet, loading, error, fetchFleet, createTruck } = useFleetState();
 
   useEffect(() => {
     fetchFleet();
@@ -28,7 +28,7 @@ export function useFleet() {
     }
   }, []);
 
-  return { trucks: fleet, loading, error, refetch: fetchFleet, fetchTruckDetails };
+  return { trucks: fleet, loading, error, refetch: fetchFleet, fetchTruckDetails, createTruck };
 }
 
 export function useLiveEvents() {

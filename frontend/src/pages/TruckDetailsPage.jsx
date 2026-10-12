@@ -248,7 +248,7 @@ export default function TruckDetailsPage() {
             {truck.current_drivers?.length > 0 ? (
               <>
                 <img 
-                  src={`https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} 
+                  src={truck.current_drivers[0].face_photo || `https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} 
                   alt="Driver" 
                   style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', objectFit: 'cover', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }} 
                 />

@@ -306,3 +306,35 @@ exports.ingestTelemetry = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+exports.createTruck = async (req, res) => {
+  try {
+    const { plate, model, capacity_liters, current_level_liters } = req.body;
+    if (!plate || !model || !capacity_liters) {
+      return res.status(400).json({ error: 'Placa, modelo e capacidade são obrigatórios.' });
+    }
+    const cap = parseFloat(capacity_liters);
+    if (isNaN(cap) || cap <= 0) {
+      return res.status(400).json({ error: 'Capacidade deve ser um número positivo.' });
+    }
+    const lvl = current_level_liters != null && !isNaN(parseFloat(current_level_liters)) ? parseFloat(current_level_liters) : cap;
+    const plateUpper = String(plate).trim().toUpperCase();
+    const modelTrim = String(model).trim();
+    
+    const { rows } = await db.query(
+      `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
+       VALUES ($1, $2, $3, $4, 'ok', 'idle')
+       RETURNING *`,
+      [plateUpper, modelTrim, cap, lvl]
+    );
+    broadcastFleet(req.io);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Já existe um caminhão cadastrado com esta placa.' });
+    }
+    console.error('Create truck error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
