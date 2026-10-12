@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import * as Location from 'expo-location';
 import { getBleLock } from '../services/bluetooth/bleLock';
 import { Session } from '../types/session';
+import { getCancelErrorMessage } from '../utils/cancelError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OperationResult'>;
 
@@ -77,7 +78,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         dispatch({ type: 'CANCELLED' });
         navigation.popToTop();
       } else {
-        Alert.alert('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+        Alert.alert('Erro', getCancelErrorMessage(error));
       }
     }
   };

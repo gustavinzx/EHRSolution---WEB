@@ -8,6 +8,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { sessionReducer, initialSessionState } from '../session/sessionMachine';
+import { getCancelErrorMessage } from '../utils/cancelError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FacialAuth'>;
 
@@ -68,7 +69,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
         dispatch({ type: 'CANCELLED' });
         navigation.popToTop();
       } else {
-        Alert.alert('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+        Alert.alert('Erro', getCancelErrorMessage(error));
       }
     }
   };
