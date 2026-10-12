@@ -7,15 +7,10 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     const emailNorm = email.toLowerCase().trim();
-    let result = await db.query('SELECT * FROM users WHERE email = $1', [emailNorm]);
-    let isDriver = false;
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [emailNorm]);
 
     if (result.rows.length === 0) {
-      result = await db.query('SELECT * FROM drivers WHERE email = $1 AND is_active = true', [emailNorm]);
-      if (result.rows.length === 0) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-      isDriver = true;
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
@@ -32,12 +27,12 @@ exports.login = async (req, res) => {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
 
-    const role = isDriver ? 'driver' : (user.role || 'manager');
+    const role = user.role || 'manager';
 
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role },
       process.env.JWT_SECRET,
-      { expiresIn: isDriver ? '30d' : (process.env.JWT_EXPIRES_IN || '8h') }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
 
     res.json({
