@@ -93,7 +93,7 @@ describe('DashboardScreen', () => {
       );
     });
 
-    const resumeAction = alertSpy.mock.calls[0][2][0];
+    const resumeAction = (alertSpy.mock.calls[0]![2] as any[])[0];
     act(() => {
       resumeAction.onPress();
     });
@@ -147,7 +147,7 @@ describe('DashboardScreen', () => {
         );
       });
 
-      const cancelRestartAction = alertSpy.mock.calls[0][2][1];
+      const cancelRestartAction = (alertSpy.mock.calls[0]![2] as any[])[1];
       expect(cancelRestartAction.text).toBe('Cancelar e começar de novo');
 
       await act(async () => {

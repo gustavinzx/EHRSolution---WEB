@@ -268,7 +268,7 @@ describe('FacialAuthScreen', () => {
       );
 
       fireEvent.press(getByTestId('cancel-btn'));
-      const confirmAction = alertSpy.mock.calls[0][2][1];
+      const confirmAction = (alertSpy.mock.calls[0]![2] as any[])[1];
       await act(async () => {
         confirmAction.onPress();
       });
@@ -294,7 +294,7 @@ describe('FacialAuthScreen', () => {
       );
 
       fireEvent.press(getByTestId('cancel-btn'));
-      const confirmAction = alertSpy.mock.calls[0][2][1];
+      const confirmAction = (alertSpy.mock.calls[0]![2] as any[])[1];
       await act(async () => {
         confirmAction.onPress();
       });
@@ -323,7 +323,7 @@ describe('FacialAuthScreen', () => {
       );
 
       fireEvent.press(getByTestId('cancel-btn'));
-      const confirmAction = alertSpy.mock.calls[0][2][1];
+      const confirmAction = (alertSpy.mock.calls[0]![2] as any[])[1];
       await act(async () => {
         confirmAction.onPress();
       });
@@ -348,7 +348,7 @@ describe('FacialAuthScreen', () => {
       );
 
       fireEvent.press(getByTestId('cancel-btn'));
-      const confirmAction = alertSpy.mock.calls[0][2][1];
+      const confirmAction = (alertSpy.mock.calls[0]![2] as any[])[1];
       await act(async () => {
         confirmAction.onPress();
       });
