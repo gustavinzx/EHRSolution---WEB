@@ -498,6 +498,33 @@ describe('OperationResultScreen', () => {
       });
       expect(getByTestId('cancel-btn')).toBeTruthy();
     });
+
+    it('handles 500 server error on cancel showing generic alert and allows repeating', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 500,
+        message: 'Internal Server Error',
+      });
+
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = (alertSpy.mock.calls[0]![2] as any[])[1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Erro', 'Não foi possível cancelar o abastecimento. Tente novamente.');
+      });
+      expect(getByTestId('cancel-btn')).toBeTruthy();
+      expect(mockNavigation.popToTop).not.toHaveBeenCalled();
+    });
   });
 
   describe('ERROR Screen Cancellation (C3)', () => {

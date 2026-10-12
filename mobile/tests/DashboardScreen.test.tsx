@@ -198,5 +198,107 @@ describe('DashboardScreen', () => {
       expect(alertSpy).not.toHaveBeenCalled();
       expect(apiClient.cancelSession).not.toHaveBeenCalled();
     });
+
+    it('shows generic error message and does NOT call requestSession when cancelSession fails with status 500 (B3)', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.requestSession as jest.Mock).mockRejectedValueOnce({
+        status: 409,
+        session: {
+          id: 77,
+          status: 'requested',
+          release_method: 'facial',
+        }
+      });
+
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 500,
+        message: 'Internal Server Error',
+      });
+
+      const { getByText } = render(<DashboardScreen navigation={mockNavigation} route={{} as any} />);
+
+      fireEvent.press(getByText('INICIAR ABASTECIMENTO'));
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith(
+          'Sessão pendente',
+          'Já existe uma sessão de abastecimento pendente para este caminhão.',
+          expect.any(Array)
+        );
+      });
+
+      const cancelRestartAction = (alertSpy.mock.calls[0]![2] as any[])[1];
+      expect(cancelRestartAction.text).toBe('Cancelar e começar de novo');
+
+      await act(async () => {
+        await cancelRestartAction.onPress();
+      });
+
+      expect(apiClient.cancelSession).toHaveBeenCalledWith(77);
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Erro',
+        'Não foi possível cancelar o abastecimento. Tente novamente.'
+      );
+      expect(apiClient.requestSession).toHaveBeenCalledTimes(1);
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    });
+
+    it('shows network error message and does NOT call requestSession when cancelSession fails with status 0 (B3)', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.requestSession as jest.Mock).mockRejectedValueOnce({
+        status: 409,
+        session: {
+          id: 77,
+          status: 'requested',
+          release_method: 'facial',
+        }
+      });
+
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 0,
+        message: 'Sem conexão com o servidor.',
+      });
+
+      const { getByText } = render(<DashboardScreen navigation={mockNavigation} route={{} as any} />);
+
+      fireEvent.press(getByText('INICIAR ABASTECIMENTO'));
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith(
+          'Sessão pendente',
+          'Já existe uma sessão de abastecimento pendente para este caminhão.',
+          expect.any(Array)
+        );
+      });
+
+      const cancelRestartAction = (alertSpy.mock.calls[0]![2] as any[])[1];
+      expect(cancelRestartAction.text).toBe('Cancelar e começar de novo');
+
+      await act(async () => {
+        await cancelRestartAction.onPress();
+      });
+
+      expect(apiClient.cancelSession).toHaveBeenCalledWith(77);
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Erro',
+        'Sem conexão. Verifique sua rede e tente novamente.'
+      );
+      expect(apiClient.requestSession).toHaveBeenCalledTimes(1);
+      expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    });
   });
 });
