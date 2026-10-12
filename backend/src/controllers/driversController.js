@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const faceProvider = require('../services/faceProvider');
 const security = require('../services/securityService');
 const { validateImageBase64 } = require('../services/imageValidation');
@@ -58,7 +59,71 @@ exports.list = async (req, res) => {
   }
 };
 
+async function processDriverTruckLink(client, driverId, { truck_id, new_truck }) {
+  let assignedTrucks = [];
+
+  if (new_truck && typeof new_truck === 'object' && new_truck.plate && new_truck.model) {
+    const plateUpper = String(new_truck.plate).trim().toUpperCase();
+    const modelTrim = String(new_truck.model).trim();
+    const cap = parseFloat(new_truck.capacity_liters) || 500;
+
+    // B2: Check if plate already exists. Never overwrite.
+    const { rows: existingTruck } = await client.query(
+      'SELECT id FROM trucks WHERE plate = $1',
+      [plateUpper]
+    );
+    if (existingTruck.length > 0) {
+      const err = new Error('Já existe um caminhão cadastrado com esta placa.');
+      err.status = 409;
+      throw err;
+    }
+
+    const { rows: trkIns } = await client.query(
+      `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
+       VALUES ($1, $2, $3, $4, 'ok', 'idle')
+       RETURNING id, plate, model`,
+      [plateUpper, modelTrim, cap, cap]
+    );
+    if (trkIns.length > 0) {
+      await client.query(
+        'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [driverId, trkIns[0].id]
+      );
+      assignedTrucks.push(trkIns[0]);
+    }
+  } else if (truck_id !== undefined && truck_id !== null && truck_id !== '') {
+    // B3: Validate positive integer
+    const parsedTruckId = Number(truck_id);
+    if (!Number.isInteger(parsedTruckId) || parsedTruckId <= 0) {
+      const err = new Error('truck_id inválido');
+      err.status = 400;
+      throw err;
+    }
+
+    // Check existence
+    const { rows: trkRows } = await client.query(
+      'SELECT id, plate, model FROM trucks WHERE id = $1',
+      [parsedTruckId]
+    );
+    if (trkRows.length === 0) {
+      const err = new Error('Caminhão não encontrado');
+      err.status = 404;
+      throw err;
+    }
+
+    await client.query(
+      'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [driverId, parsedTruckId]
+    );
+    assignedTrucks.push(trkRows[0]);
+  }
+
+  return assignedTrucks;
+}
+
 exports.create = async (req, res) => {
+  const client = await db.pool.connect();
+  let inTransaction = false;
   try {
     const { name, phone, email, password, truck_id, new_truck, auto_enroll_face } = req.body;
     
@@ -66,63 +131,87 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'O campo nome é obrigatório' });
     }
 
-    const emailNorm = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
-    const rawPass = password && String(password).trim() ? String(password).trim() : 'Demo@1234';
-    const password_hash = await bcrypt.hash(rawPass, 10);
-    
-    // Auto enrollment flag (defaults to true if not specified false)
-    const enrollFace = auto_enroll_face !== false;
-    const faceTemplate = enrollFace ? ('mock_template_' + Date.now()) : null;
-
-    const { rows } = await db.query(
-      `INSERT INTO drivers (name, phone, email, password_hash, face_enrolled, face_template_ref, face_consent_at, face_consent_version) 
-       VALUES ($1, $2, $3, $4, $5, $6, ${enrollFace ? 'NOW()' : 'NULL'}, ${enrollFace ? "'v1.0'" : 'NULL'}) 
-       RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo`,
-      [name.trim(), phone || null, emailNorm, password_hash, enrollFace, faceTemplate]
-    );
-
-    const newDriver = rows[0];
-    let assignedTrucks = [];
-
-    // Handle new truck creation if provided
-    if (new_truck && new_truck.plate && new_truck.model) {
-      const cap = parseFloat(new_truck.capacity_liters) || 500;
-      const plateUpper = String(new_truck.plate).trim().toUpperCase();
-      const modelTrim = String(new_truck.model).trim();
-      const { rows: trkIns } = await db.query(
-        `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
-         VALUES ($1, $2, $3, $4, 'ok', 'idle')
-         ON CONFLICT (plate) DO UPDATE SET model = EXCLUDED.model, capacity_liters = EXCLUDED.capacity_liters
-         RETURNING id, plate, model`,
-        [plateUpper, modelTrim, cap, cap]
-      );
-      if (trkIns.length > 0) {
-        await db.query(
-          'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [newDriver.id, trkIns[0].id]
-        );
-        assignedTrucks.push(trkIns[0]);
-      }
-    } else if (truck_id) {
-      await db.query(
-        'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [newDriver.id, truck_id]
-      );
-      const { rows: trkRows } = await db.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truck_id]);
-      if (trkRows.length > 0) {
-        assignedTrucks.push(trkRows[0]);
+    if (password !== undefined && password !== null && String(password).trim().length > 0) {
+      if (String(password).trim().length < 8) {
+        return res.status(400).json({ error: 'Senha deve ter ao menos 8 caracteres' });
       }
     }
 
+    // B5 auto_enroll_face: defaults to false.
+    let enrollFace = false;
+    if (auto_enroll_face === true) {
+      const provider = process.env.FACE_PROVIDER || 'mock';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (provider !== 'mock' || isProduction) {
+        return res.status(400).json({ error: 'Cadastro facial automático disponível apenas em desenvolvimento' });
+      }
+      enrollFace = true;
+    }
+
+    const emailNorm = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
+    
+    // B4 password
+    let temporaryPassword = null;
+    let rawPass;
+    if (password && String(password).trim()) {
+      rawPass = String(password).trim();
+    } else {
+      temporaryPassword = crypto.randomBytes(8).toString('hex');
+      rawPass = temporaryPassword;
+    }
+    const password_hash = await bcrypt.hash(rawPass, 10);
+
+    await client.query('BEGIN');
+    inTransaction = true;
+
+    const { rows } = await client.query(
+      `INSERT INTO drivers (name, phone, email, password_hash, face_enrolled, face_consent_at, face_consent_version) 
+       VALUES ($1, $2, $3, $4, $5, ${enrollFace ? 'NOW()' : 'NULL'}, ${enrollFace ? "'dev-mock'" : 'NULL'}) 
+       RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo`,
+      [name.trim(), phone || null, emailNorm, password_hash, enrollFace]
+    );
+
+    const newDriver = rows[0];
+    if (enrollFace) {
+      const templateRef = 'mock_template_' + newDriver.id;
+      await client.query('UPDATE drivers SET face_template_ref = $1 WHERE id = $2', [templateRef, newDriver.id]);
+      newDriver.face_template_ref = templateRef;
+    }
+
+    const assignedTrucks = await processDriverTruckLink(client, newDriver.id, { truck_id, new_truck });
     newDriver.assigned_trucks = assignedTrucks;
-    res.status(201).json(safeDriver(newDriver));
+
+    await client.query('COMMIT');
+    inTransaction = false;
+
+    const response = safeDriver(newDriver, req.user?.role);
+    if (temporaryPassword) {
+      response.temporary_password = temporaryPassword;
+    }
+    res.status(201).json(response);
   } catch (error) {
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    if (error.code === '23505') {
+      if (error.constraint && error.constraint.includes('plate')) {
+        return res.status(409).json({ error: 'Já existe um caminhão cadastrado com esta placa.' });
+      }
+      return res.status(409).json({ error: 'Dados duplicados já existentes no sistema.' });
+    }
     console.error('Create driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
 exports.update = async (req, res) => {
+  const client = await db.pool.connect();
+  let inTransaction = false;
   try {
     const { id } = req.params;
     const { name, phone, email, password, truck_id, new_truck, auto_enroll_face } = req.body;
@@ -131,76 +220,90 @@ exports.update = async (req, res) => {
       return res.status(400).json({ error: 'O campo nome é obrigatório' });
     }
 
+    if (password !== undefined && password !== null && String(password).trim().length > 0) {
+      if (String(password).trim().length < 8) {
+        return res.status(400).json({ error: 'Senha deve ter ao menos 8 caracteres' });
+      }
+    }
+
+    if (auto_enroll_face === true) {
+      const provider = process.env.FACE_PROVIDER || 'mock';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (provider !== 'mock' || isProduction) {
+        return res.status(400).json({ error: 'Cadastro facial automático disponível apenas em desenvolvimento' });
+      }
+    }
+
     const emailNorm = email && String(email).trim() ? String(email).trim().toLowerCase() : null;
+
+    await client.query('BEGIN');
+    inTransaction = true;
 
     let result;
     if (password && String(password).trim()) {
       const password_hash = await bcrypt.hash(String(password).trim(), 10);
-      result = await db.query(
-        'UPDATE drivers SET name = $1, phone = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo',
+      result = await client.query(
+        'UPDATE drivers SET name = $1, phone = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo',
         [name.trim(), phone || null, emailNorm, password_hash, id]
       );
     } else {
-      result = await db.query(
-        'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING id, name, phone, email, is_active, face_enrolled, face_template_ref, face_consent_at, face_consent_version, created_at, face_photo',
+      result = await client.query(
+        'UPDATE drivers SET name = $1, phone = $2, email = $3 WHERE id = $4 RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo',
         [name.trim(), phone || null, emailNorm, id]
       );
     }
     
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
       return res.status(404).json({ error: 'Driver not found' });
     }
 
     if (auto_enroll_face !== undefined) {
       if (auto_enroll_face) {
-        await db.query(
-          "UPDATE drivers SET face_enrolled=true, face_template_ref=COALESCE(face_template_ref, $1), face_consent_at=NOW(), face_consent_version='v1.0' WHERE id=$2",
+        await client.query(
+          "UPDATE drivers SET face_enrolled=true, face_template_ref=COALESCE(face_template_ref, $1), face_consent_at=NOW(), face_consent_version='dev-mock' WHERE id=$2",
           ['mock_template_' + id, id]
         );
       } else {
-        await db.query(
+        await client.query(
           "UPDATE drivers SET face_enrolled=false WHERE id=$1",
           [id]
         );
       }
     }
 
-    if (new_truck && new_truck.plate && new_truck.model) {
-      const cap = parseFloat(new_truck.capacity_liters) || 500;
-      const plateUpper = String(new_truck.plate).trim().toUpperCase();
-      const modelTrim = String(new_truck.model).trim();
-      const { rows: trkIns } = await db.query(
-        `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status, sim_state)
-         VALUES ($1, $2, $3, $4, 'ok', 'idle')
-         ON CONFLICT (plate) DO UPDATE SET model = EXCLUDED.model, capacity_liters = EXCLUDED.capacity_liters
-         RETURNING id, plate, model`,
-        [plateUpper, modelTrim, cap, cap]
-      );
-      if (trkIns.length > 0) {
-        await db.query(
-          'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [id, trkIns[0].id]
-        );
-      }
-    } else if (truck_id) {
-      await db.query(
-        'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [id, truck_id]
-      );
-    }
+    await processDriverTruckLink(client, id, { truck_id, new_truck });
 
-    const { rows: trkRows } = await db.query(`
+    const { rows: trkRows } = await client.query(`
       SELECT t.id, t.plate, t.model
       FROM driver_trucks dt
       JOIN trucks t ON dt.truck_id = t.id
       WHERE dt.driver_id = $1
     `, [id]);
 
+    await client.query('COMMIT');
+    inTransaction = false;
+
     const updatedDriver = { ...result.rows[0], assigned_trucks: trkRows };
-    res.json(safeDriver(updatedDriver));
+    res.json(safeDriver(updatedDriver, req.user?.role));
   } catch (error) {
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    if (error.code === '23505') {
+      if (error.constraint && error.constraint.includes('plate')) {
+        return res.status(409).json({ error: 'Já existe um caminhão cadastrado com esta placa.' });
+      }
+      return res.status(409).json({ error: 'Dados duplicados já existentes no sistema.' });
+    }
     console.error('Update driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 

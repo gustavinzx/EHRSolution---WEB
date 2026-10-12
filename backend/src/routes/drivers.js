@@ -15,7 +15,7 @@ router.post('/', requireRole, [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Must be a valid email'),
   body('phone').optional(),
-  body('password').optional(),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 8 }).withMessage('Senha deve ter ao menos 8 caracteres'),
   body('truck_id').optional(),
   body('new_truck').optional(),
   body('auto_enroll_face').optional()
@@ -25,7 +25,7 @@ router.put('/:id', requireRole, [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Must be a valid email'),
   body('phone').optional(),
-  body('password').optional(),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 8 }).withMessage('Senha deve ter ao menos 8 caracteres'),
   body('truck_id').optional(),
   body('new_truck').optional(),
   body('auto_enroll_face').optional()

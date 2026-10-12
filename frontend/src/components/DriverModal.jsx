@@ -12,7 +12,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
     newTruckPlate: '',
     newTruckModel: '',
     newTruckCapacity: '500',
-    autoEnrollFace: true,
+    autoEnrollFace: false,
   });
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
         newTruckPlate: '',
         newTruckModel: '',
         newTruckCapacity: '500',
-        autoEnrollFace: driver.face_enrolled ?? true,
+        autoEnrollFace: false,
       });
     } else {
       setFormData({
@@ -44,7 +44,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
         newTruckPlate: '',
         newTruckModel: '',
         newTruckCapacity: '500',
-        autoEnrollFace: true,
+        autoEnrollFace: false,
       });
     }
   }, [isOpen, driver, trucks]);
@@ -195,7 +195,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             <input
               id="driver-password"
               type="text"
-              placeholder={driver ? 'Deixar em branco para manter a atual' : 'Ex: Demo@1234 (padrão se vazio)'}
+              placeholder={driver ? 'Deixar em branco para manter a atual' : 'Mínimo de 8 caracteres (ou gerada automaticamente)'}
               value={formData.password}
               onChange={e => setFormData({ ...formData, password: e.target.value })}
               style={inputStyle}
@@ -204,8 +204,8 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             />
             <span style={{ fontSize: '11px', color: '#64748b' }}>
               {driver
-                ? 'Preencha apenas se desejar redefinir a senha do motorista no app.'
-                : 'Senha de login do motorista no celular. Padrão se em branco: Demo@1234'}
+                ? 'Preencha apenas se desejar redefinir a senha do motorista no app (mín. 8 caracteres).'
+                : 'Deixe em branco para gerar uma senha temporária automática, ou informe uma senha com no mínimo 8 caracteres.'}
             </span>
           </div>
 
@@ -356,14 +356,14 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             <div style={{ marginTop: '2px', color: '#2FBEB5' }}>
               {formData.autoEnrollFace ? <CheckSquare size={18} /> : <Square size={18} color="#64748b" />}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ShieldCheck size={14} color="#2FBEB5" /> Liberar Biometria Facial para o App Mobile (Recomendado)
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} color="#2FBEB5" /> Somente desenvolvimento: libera o rosto sem cadastro real
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', lineHeight: 1.4 }}>
+                  Disponível apenas em ambiente de desenvolvimento com mock facial ativo. Libera o rosto sem validação real de identidade.
+                </div>
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', lineHeight: 1.4 }}>
-                Ao marcar, o motorista não precisará aguardar aprovação de cadastro e poderá autenticar e abastecer direto no aplicativo móvel.
-              </div>
-            </div>
           </div>
 
           {/* Botões */}
