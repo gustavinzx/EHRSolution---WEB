@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, waitFor, act } from '@testing-library/react-native';
+import { render, waitFor, act, fireEvent } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { OperationResultScreen } from '../src/screens/OperationResultScreen';
 import { apiClient } from '../src/services/api/apiClient';
 import * as Location from 'expo-location';
@@ -17,7 +18,9 @@ jest.mock('../src/hooks/useAuth', () => ({
 jest.mock('../src/services/api/apiClient', () => ({
   apiClient: {
     authorizeSession: jest.fn(),
-    getActiveSession: jest.fn()
+    getActiveSession: jest.fn(),
+    cancelSession: jest.fn(),
+    getSession: jest.fn(),
   }
 }));
 
@@ -323,6 +326,268 @@ describe('OperationResultScreen', () => {
       const callCount = (apiClient.getActiveSession as jest.Mock).mock.calls.length;
       act(() => { jest.advanceTimersByTime(10000); });
       expect((apiClient.getActiveSession as jest.Mock).mock.calls.length).toBe(callCount);
+    });
+  });
+
+  describe('Cancellation Flow in OperationResultScreen (C2)', () => {
+    it('shows cancel button in AUTHORIZING, WAITING_HARDWARE, and BLOCKED_NEEDS_MANAGER, but NOT in FUELING', () => {
+      const { queryByTestId: queryAuth } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'AUTHORIZING' } } as any} 
+        />
+      );
+      expect(queryAuth('cancel-btn')).toBeTruthy();
+
+      const { queryByTestId: queryWait } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+      expect(queryWait('cancel-btn')).toBeTruthy();
+
+      const { queryByTestId: queryBlock } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'BLOCKED_NEEDS_MANAGER' } } as any} 
+        />
+      );
+      expect(queryBlock('cancel-btn')).toBeTruthy();
+
+      const { queryByTestId: queryFuel } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'FUELING' } } as any} 
+        />
+      );
+      expect(queryFuel('cancel-btn')).toBeNull();
+    });
+
+    it('shows specific confirmation text in WAITING_HARDWARE', () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Cancelar abastecimento',
+        'Se a bomba já foi liberada, ela será travada novamente.',
+        expect.any(Array)
+      );
+    });
+
+    it('shows general confirmation text in AUTHORIZING', () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'AUTHORIZING' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Cancelar abastecimento',
+        'Deseja realmente cancelar o abastecimento?',
+        expect.any(Array)
+      );
+    });
+
+    it('cancels successfully and returns to Dashboard', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockResolvedValueOnce({ success: true, status: 'cancelled' });
+
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(apiClient.cancelSession).toHaveBeenCalledWith(1);
+        expect(mockNavigation.popToTop).toHaveBeenCalled();
+      });
+    });
+
+    it('handles 409 Sessão em andamento não pode ser cancelada by alerting and continuing FUELING', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 409,
+        message: 'Sessão em andamento não pode ser cancelada',
+      });
+
+      const { getByTestId, findByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Aviso', 'O abastecimento já começou e não pode ser cancelado.');
+      });
+      const fuelingText = await findByText('Abastecendo...');
+      expect(fuelingText).toBeTruthy();
+    });
+
+    it('handles 404 Sessão não encontrada by returning to Dashboard', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 404,
+        message: 'Sessão não encontrada',
+      });
+
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(mockNavigation.popToTop).toHaveBeenCalled();
+      });
+    });
+
+    it('handles network error on cancel showing alert and allows repeating', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 0,
+        message: 'Sem conexão com o servidor.',
+      });
+
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'WAITING_HARDWARE' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+      });
+      expect(getByTestId('cancel-btn')).toBeTruthy();
+    });
+  });
+
+  describe('ERROR Screen Cancellation (C3)', () => {
+    it('shows Cancelar sessão button on ERROR state and calls cancelSession when pressed', async () => {
+      (apiClient.cancelSession as jest.Mock).mockResolvedValueOnce({ success: true, status: 'cancelled' });
+
+      const { getByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 77, initialState: 'ERROR' } } as any} 
+        />
+      );
+
+      const cancelBtn = getByTestId('cancel-session-error-btn');
+      expect(cancelBtn).toBeTruthy();
+
+      await act(async () => {
+        fireEvent.press(cancelBtn);
+      });
+
+      await waitFor(() => {
+        expect(apiClient.cancelSession).toHaveBeenCalledWith(77);
+        expect(mockNavigation.popToTop).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Result Display on DONE (C5)', () => {
+    it('displays volume and duration formatted in pt-BR when result is present', async () => {
+      (apiClient.getSession as jest.Mock).mockResolvedValueOnce({
+        id: 1,
+        status: 'completed',
+        result: {
+          volume_liters: 45.5,
+          duration_minutes: 14,
+        }
+      });
+
+      const { findByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'DONE' } } as any} 
+        />
+      );
+
+      const volText = await findByText(/Volume abastecido: 45,5 L/);
+      expect(volText).toBeTruthy();
+
+      const durText = await findByText(/Duração: 14 min/);
+      expect(durText).toBeTruthy();
+    });
+
+    it('displays confirmation pending message when volume_liters is null', async () => {
+      (apiClient.getSession as jest.Mock).mockResolvedValueOnce({
+        id: 1,
+        status: 'completed',
+        result: {
+          volume_liters: null,
+          duration_minutes: 10,
+        }
+      });
+
+      const { findByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'DONE' } } as any} 
+        />
+      );
+
+      const pendingText = await findByText('O volume ainda será confirmado pela operação.');
+      expect(pendingText).toBeTruthy();
+
+      const durText = await findByText(/Duração: 10 min/);
+      expect(durText).toBeTruthy();
+    });
+
+    it('shows simple Abastecimento concluído message when getSession fails', async () => {
+      (apiClient.getSession as jest.Mock).mockRejectedValueOnce(new Error('Network failure'));
+
+      const { findByText, queryByTestId } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'DONE' } } as any} 
+        />
+      );
+
+      const doneText = await findByText('Abastecimento concluído');
+      expect(doneText).toBeTruthy();
+
+      expect(queryByTestId('result-card')).toBeNull();
     });
   });
 });

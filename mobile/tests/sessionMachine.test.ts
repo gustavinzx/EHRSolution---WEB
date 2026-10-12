@@ -161,4 +161,32 @@ describe('sessionMachine', () => {
     const reset = sessionReducer(modified, { type: 'RESET' });
     expect(reset).toEqual(initialSessionState);
   });
+
+  it('handles CANCEL_REQUESTED transitioning to IDLE', () => {
+    const pendingState = { ...initialSessionState, status: 'FACIAL_PENDING' as const, sessionId: 42 };
+    const state = sessionReducer(pendingState, { type: 'CANCEL_REQUESTED' });
+    expect(state.status).toBe('IDLE');
+    expect(state).toEqual(initialSessionState);
+  });
+
+  it('handles CANCELLED transitioning to IDLE', () => {
+    const waitingState = { ...initialSessionState, status: 'WAITING_HARDWARE' as const, sessionId: 42 };
+    const state = sessionReducer(waitingState, { type: 'CANCELLED' });
+    expect(state.status).toBe('IDLE');
+    expect(state).toEqual(initialSessionState);
+  });
+
+  it('does not cancel when in FUELING status for CANCEL_REQUESTED', () => {
+    const fuelingState = { ...initialSessionState, status: 'FUELING' as const, sessionId: 42, seenActive: true };
+    const state = sessionReducer(fuelingState, { type: 'CANCEL_REQUESTED' });
+    expect(state.status).toBe('FUELING');
+    expect(state.sessionId).toBe(42);
+  });
+
+  it('does not cancel when in FUELING status for CANCELLED', () => {
+    const fuelingState = { ...initialSessionState, status: 'FUELING' as const, sessionId: 42, seenActive: true };
+    const state = sessionReducer(fuelingState, { type: 'CANCELLED' });
+    expect(state.status).toBe('FUELING');
+    expect(state.sessionId).toBe(42);
+  });
 });

@@ -52,7 +52,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         };
 
         if (sess.status === 'active') {
-          resumeSession();
+          navigation.navigate('OperationResult', {
+            sessionId: sess.id,
+            initialState: 'FUELING',
+            releaseMethod: sess.release_method
+          });
           setLoading(false);
           return;
         }

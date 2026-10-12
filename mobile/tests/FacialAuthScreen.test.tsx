@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { FacialAuthScreen } from '../src/screens/FacialAuthScreen';
 import { apiClient } from '../src/services/api/apiClient';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -34,14 +34,18 @@ jest.mock('expo-image-manipulator', () => ({
   },
 }));
 
+import { Alert } from 'react-native';
+
 jest.mock('../src/services/api/apiClient', () => ({
   apiClient: {
     verifyFace: jest.fn(),
     reportFacialFailure: jest.fn(),
+    cancelSession: jest.fn(),
+    getSession: jest.fn(),
   }
 }));
 
-const mockNavigation = { replace: jest.fn() } as any;
+const mockNavigation = { replace: jest.fn(), popToTop: jest.fn() } as any;
 
 describe('FacialAuthScreen', () => {
   beforeEach(() => {
@@ -229,5 +233,130 @@ describe('FacialAuthScreen', () => {
 
     const btn = getByTestId('capture-btn');
     expect(btn.props.accessibilityState?.disabled || btn.props.disabled).toBe(true);
+  });
+
+  describe('Cancellation Flow in FacialAuthScreen (C2)', () => {
+    it('cancel button is visible in FACIAL_PENDING, shows confirmation alert on press', () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      const cancelBtn = getByTestId('cancel-btn');
+      expect(cancelBtn).toBeTruthy();
+
+      fireEvent.press(cancelBtn);
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Cancelar abastecimento',
+        'Deseja realmente cancelar o abastecimento?',
+        expect.any(Array)
+      );
+    });
+
+    it('cancels successfully and navigates back to Dashboard', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockResolvedValueOnce({ success: true, status: 'cancelled' });
+
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(apiClient.cancelSession).toHaveBeenCalledWith(1);
+        expect(mockNavigation.popToTop).toHaveBeenCalled();
+      });
+    });
+
+    it('handles 409 Sessão em andamento não pode ser cancelada by alerting and transitioning to FUELING', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 409,
+        message: 'Sessão em andamento não pode ser cancelada',
+      });
+
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Aviso', 'O abastecimento já começou e não pode ser cancelado.');
+        expect(mockNavigation.replace).toHaveBeenCalledWith(
+          'OperationResult',
+          expect.objectContaining({ sessionId: 1, initialState: 'FUELING' })
+        );
+      });
+    });
+
+    it('handles 404 Sessão não encontrada by returning to Dashboard', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 404,
+        message: 'Sessão não encontrada',
+      });
+
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(mockNavigation.popToTop).toHaveBeenCalled();
+      });
+    });
+
+    it('handles network error showing alert and allows repeating', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      (apiClient.cancelSession as jest.Mock).mockRejectedValueOnce({
+        status: 0,
+        message: 'Sem conexão com o servidor.',
+      });
+
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('cancel-btn'));
+      const confirmAction = alertSpy.mock.calls[0][2][1];
+      await act(async () => {
+        confirmAction.onPress();
+      });
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+      });
+      expect(getByTestId('cancel-btn')).toBeTruthy();
+    });
   });
 });
