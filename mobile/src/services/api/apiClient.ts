@@ -129,5 +129,17 @@ export const apiClient = {
     return await request<Session | null>(`/fueling/sessions/${truckId}/active`, {
       method: 'GET'
     });
+  },
+
+  async cancelSession(sessionId: number): Promise<{ success: boolean; status: string }> {
+    return await request<{ success: boolean; status: string }>(`/fueling/sessions/${sessionId}/cancel`, {
+      method: 'POST'
+    });
+  },
+
+  async getSession(sessionId: number): Promise<Session> {
+    return await request<Session>(`/fueling/sessions/${sessionId}`, {
+      method: 'GET'
+    });
   }
 };
