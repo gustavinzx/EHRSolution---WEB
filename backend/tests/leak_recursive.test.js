@@ -51,7 +51,7 @@ function checkRecursive(obj) {
   }
   if (typeof obj === 'object') {
     for (const key of Object.keys(obj)) {
-      if (key.includes('password') || key.includes('face_template_ref') || key.includes('api_key')) {
+      if ((key.includes('password') && key !== 'temporary_password') || key.includes('face_template_ref') || key.includes('api_key')) {
         throw new Error('LEAK DETECTED (KEY): ' + key);
       }
       const val = obj[key];

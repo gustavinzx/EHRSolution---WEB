@@ -28,10 +28,17 @@ export default function DriversPage() {
     .sort((a,b) => a.name.localeCompare(b.name));
 
   const handleSave = async (data) => {
-    const ok = editingDriver
+    const res = editingDriver
       ? await updateDriver(editingDriver.id, data)
       : await createDriver(data);
-    if (ok) { setIsModalOpen(false); setEditingDriver(null); }
+    if (res) {
+      if (!res.temporary_password) {
+        setIsModalOpen(false);
+        setEditingDriver(null);
+      }
+      return res;
+    }
+    return null;
   };
 
   const handleToggleActive = async (driver) => {
@@ -139,7 +146,7 @@ export default function DriversPage() {
               {/* Card Header (Profile Info) */}
               <div style={{ padding: '24px', display: 'flex', gap: '16px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <div style={{ position: 'relative' }}>
-                  <img src={`https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} 
+                  <img src={d.face_photo || `https://i.pravatar.cc/150?u=${d.id + 10}`} alt={d.name} 
                        style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #1f2e3b' }} />
                   <div style={{ 
                     position: 'absolute', bottom: '-4px', right: '-4px', width: '22px', height: '22px', 
@@ -191,7 +198,7 @@ export default function DriversPage() {
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Veículos Vinculados</div>
                   {d.assigned_trucks && d.assigned_trucks.length > 0 ? (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
                       {d.assigned_trucks.map(t => (
                         <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(47,190,181,0.08)', border: '1px solid rgba(47,190,181,0.2)', padding: '6px 10px', borderRadius: '8px', color: '#2FBEB5', fontSize: '13px', fontWeight: 600 }}>
                           <Truck size={14} /> {t.plate}
@@ -199,7 +206,50 @@ export default function DriversPage() {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>Nenhum veículo vinculado</div>
+                    <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', marginBottom: '10px' }}>Nenhum veículo vinculado</div>
+                  )}
+
+                  {/* Vincular Caminhão rápido */}
+                  {user?.role !== 'auditor' && (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <select
+                        value={assigning[d.id] || ''}
+                        onChange={e => setAssigning(prev => ({ ...prev, [d.id]: e.target.value }))}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '8px',
+                          color: '#e2e8f0',
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="">+ Vincular caminhão...</option>
+                        {trucks.map(t => (
+                          <option key={t.id} value={t.id} style={{ background: '#111b28', color: '#fff' }}>
+                            {t.plate} ({t.model})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleAssign(d.id)}
+                        disabled={!assigning[d.id]}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: assigning[d.id] ? '#2FBEB5' : 'rgba(255,255,255,0.05)',
+                          color: assigning[d.id] ? '#111b28' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          cursor: assigning[d.id] ? 'pointer' : 'default',
+                        }}
+                      >
+                        Vincular
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -257,6 +307,7 @@ export default function DriversPage() {
         onClose={() => { setIsModalOpen(false); setEditingDriver(null); }}
         onSave={handleSave}
         driver={editingDriver}
+        trucks={trucks}
       />
       <EnrollmentModal
         isOpen={!!enrollDriverTarget}

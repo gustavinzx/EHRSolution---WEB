@@ -247,11 +247,9 @@ export default function TruckDetailsPage() {
           <div style={{ ...glass, padding: '20px', display: 'flex', gap: '24px', alignItems: 'center', background: 'linear-gradient(90deg, rgba(56,189,248,0.05), transparent)' }}>
             {truck.current_drivers?.length > 0 ? (
               <>
-                <img 
-                  src={`https://i.pravatar.cc/150?u=${truck.current_drivers[0].id + 10}`} 
-                  alt="Driver" 
-                  style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', objectFit: 'cover', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }} 
-                />
+                <div style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(47,190,181,0.1)', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
+                  <Users size={36} color="var(--teal)" />
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '11px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '4px' }}>Motorista Ativo</div>
                   <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#fff', fontFamily: 'var(--font-display)' }}>{truck.current_drivers[0].name}</h3>

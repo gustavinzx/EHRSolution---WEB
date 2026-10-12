@@ -36,6 +36,9 @@ async function evaluateFuelingLog(logId, io) {
     
     if (logs.length === 0) return;
     const log = logs[0];
+    // Dados simulados nunca disparam alertas reais de furto ou divergência
+    if (log.data_source === 'simulated') return;
+
     const truckId = log.truck_id;
     const settings = await getAlertSettings();
     const alertsToCreate = [];

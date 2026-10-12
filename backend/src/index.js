@@ -126,6 +126,9 @@ if (process.env.NODE_ENV !== 'test') {
       console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
     }
     startAnomalyEngine(io);
+    // Virtual Hardware Runner (simulação de bomba/trava física)
+    const { startVirtualHardware } = require('./services/virtualHardware');
+    startVirtualHardware(io);
     const { startRetentionRoutine } = require('./services/retentionService');
     startRetentionRoutine();
   });

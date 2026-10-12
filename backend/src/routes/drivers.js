@@ -14,13 +14,21 @@ router.get('/:id/score', driversController.getScore);
 router.post('/', requireRole, [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Must be a valid email'),
-  body('phone').optional()
+  body('phone').optional(),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 8 }).withMessage('Senha deve ter ao menos 8 caracteres'),
+  body('truck_id').optional(),
+  body('new_truck').optional(),
+  body('auto_enroll_face').optional()
 ], validate, driversController.create);
 
 router.put('/:id', requireRole, [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Must be a valid email'),
-  body('phone').optional()
+  body('phone').optional(),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 8 }).withMessage('Senha deve ter ao menos 8 caracteres'),
+  body('truck_id').optional(),
+  body('new_truck').optional(),
+  body('auto_enroll_face').optional()
 ], validate, driversController.update);
 
 router.patch('/:id/deactivate', requireRole, driversController.deactivate);
