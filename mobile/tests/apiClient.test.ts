@@ -203,4 +203,211 @@ describe('apiClient', () => {
       message: 'face_not_enrolled'
     });
   });
+
+  describe('cancelSession', () => {
+    it('sends POST without body, includes Bearer token and returns success', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('token_cancel');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ success: true, status: 'cancelled' }),
+      });
+
+      const res = await apiClient.cancelSession(42);
+      expect(res).toEqual({ success: true, status: 'cancelled' });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/sessions/42/cancel`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer token_cancel',
+          }),
+        })
+      );
+      expect((mockFetch.mock.calls[0][1] as any).body).toBeUndefined();
+    });
+
+    it('handles 404 Sessão não encontrada', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => JSON.stringify({ error: 'Sessão não encontrada' }),
+      });
+
+      await expect(apiClient.cancelSession(42)).rejects.toMatchObject({
+        status: 404,
+        code: 'Sessão não encontrada',
+        message: 'Sessão não encontrada',
+      });
+    });
+
+    it('handles 409 Sessão em andamento não pode ser cancelada', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        text: async () => JSON.stringify({ error: 'Sessão em andamento não pode ser cancelada' }),
+      });
+
+      await expect(apiClient.cancelSession(42)).rejects.toMatchObject({
+        status: 409,
+        code: 'Sessão em andamento não pode ser cancelada',
+        message: 'Sessão em andamento não pode ser cancelada',
+      });
+    });
+
+    it('handles 409 Sessão já foi processada', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        text: async () => JSON.stringify({ error: 'Sessão já foi processada' }),
+      });
+
+      await expect(apiClient.cancelSession(42)).rejects.toMatchObject({
+        status: 409,
+        code: 'Sessão já foi processada',
+        message: 'Sessão já foi processada',
+      });
+    });
+
+    it('handles 400 id inválido', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: 'id inválido' }),
+      });
+
+      await expect(apiClient.cancelSession(0)).rejects.toMatchObject({
+        status: 400,
+        code: 'id inválido',
+        message: 'id inválido',
+      });
+    });
+
+    it('handles 401 Authorization token missing or invalid and calls onUnauthorized', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: 'Authorization token missing or invalid' }),
+      });
+
+      await expect(apiClient.cancelSession(42)).rejects.toMatchObject({
+        status: 401,
+        code: 'Authorization token missing or invalid',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalledWith();
+    });
+
+    it('handles 403 driver_inactive on cancelSession and calls onUnauthorized', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => JSON.stringify({ error: 'driver_inactive' }),
+      });
+
+      await expect(apiClient.cancelSession(42)).rejects.toMatchObject({
+        status: 403,
+        code: 'driver_inactive',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalledWith('Seu acesso foi desativado. Procure o gestor.');
+    });
+  });
+
+  describe('getSession', () => {
+    it('sends GET without body, includes Bearer token and returns Session with result', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('token_get');
+      const sessionPayload = {
+        id: 42,
+        truck_id: 10,
+        status: 'completed',
+        release_method: 'facial',
+        station_name: 'Posto Central',
+        requested_at: '2026-10-11T12:00:00.000Z',
+        authorized_at: '2026-10-11T12:01:00.000Z',
+        started_at: '2026-10-11T12:01:00.000Z',
+        completed_at: '2026-10-11T12:15:00.000Z',
+        expires_at: '2026-10-11T12:30:00.000Z',
+        result: {
+          volume_liters: 45.5,
+          duration_minutes: 14.0,
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(sessionPayload),
+      });
+
+      const res = await apiClient.getSession(42);
+      expect(res).toEqual(sessionPayload);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/sessions/42`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer token_get',
+          }),
+        })
+      );
+      expect((mockFetch.mock.calls[0][1] as any).body).toBeUndefined();
+    });
+
+    it('handles 404 Sessão não encontrada on getSession', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => JSON.stringify({ error: 'Sessão não encontrada' }),
+      });
+
+      await expect(apiClient.getSession(999)).rejects.toMatchObject({
+        status: 404,
+        code: 'Sessão não encontrada',
+        message: 'Sessão não encontrada',
+      });
+    });
+
+    it('handles 400 id inválido on getSession', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: 'id inválido' }),
+      });
+
+      await expect(apiClient.getSession(0)).rejects.toMatchObject({
+        status: 400,
+        code: 'id inválido',
+        message: 'id inválido',
+      });
+    });
+
+    it('handles 401 Authorization token missing or invalid on getSession and calls onUnauthorized', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: 'Authorization token missing or invalid' }),
+      });
+
+      await expect(apiClient.getSession(42)).rejects.toMatchObject({
+        status: 401,
+        code: 'Authorization token missing or invalid',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalledWith();
+    });
+
+    it('handles 403 driver_inactive on getSession and calls onUnauthorized', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => JSON.stringify({ error: 'driver_inactive' }),
+      });
+
+      await expect(apiClient.getSession(42)).rejects.toMatchObject({
+        status: 403,
+        code: 'driver_inactive',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalledWith('Seu acesso foi desativado. Procure o gestor.');
+    });
+  });
 });

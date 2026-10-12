@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Button } from '../components/Button';
 import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { sessionReducer, initialSessionState } from '../session/sessionMachine';
 import { useAuth } from '../hooks/useAuth';
 import * as Location from 'expo-location';
 import { getBleLock } from '../services/bluetooth/bleLock';
+import { Session } from '../types/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OperationResult'>;
 
@@ -26,9 +27,60 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 
   const [networkNotice, setNetworkNotice] = useState(false);
   const [canRetryFacial, setCanRetryFacial] = useState(false);
+  const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
   const isFetching = useRef(false);
   const consecutiveFailures = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const confirmCancel = () => {
+    Alert.alert(
+      'Cancelar abastecimento',
+      state.status === 'WAITING_HARDWARE'
+        ? 'Se a bomba já foi liberada, ela será travada novamente.'
+        : 'Deseja realmente cancelar o abastecimento?',
+      [
+        { text: 'Não', style: 'cancel' },
+        { text: 'Sim, cancelar', style: 'destructive', onPress: executeCancel }
+      ]
+    );
+  };
+
+  const executeCancel = async () => {
+    try {
+      await apiClient.cancelSession(sessionId);
+      dispatch({ type: 'CANCELLED' });
+      navigation.popToTop();
+    } catch (error: any) {
+      const status = error.status;
+      const msg = typeof error.message === 'string' ? error.message : '';
+      const code = error.code;
+
+      if (status === 409 && (msg.includes('em andamento') || code === 'Sessão em andamento não pode ser cancelada')) {
+        Alert.alert('Aviso', 'O abastecimento já começou e não pode ser cancelado.');
+        dispatch({ type: 'POLL_ACTIVE' });
+      } else if (status === 409 && (msg.includes('já foi processada') || code === 'Sessão já foi processada')) {
+        try {
+          const cur = await apiClient.getSession(sessionId);
+          if (cur.status === 'completed') {
+            dispatch({ type: 'POLL_DONE' });
+          } else if (cur.status === 'active') {
+            dispatch({ type: 'POLL_ACTIVE' });
+          } else if (cur.status === 'expired') {
+            dispatch({ type: 'POLL_EXPIRED' });
+          } else {
+            navigation.popToTop();
+          }
+        } catch {
+          navigation.popToTop();
+        }
+      } else if (status === 404) {
+        dispatch({ type: 'CANCELLED' });
+        navigation.popToTop();
+      } else {
+        Alert.alert('Erro', 'Sem conexão. Verifique sua rede e tente novamente.');
+      }
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -158,6 +210,24 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
     }
   }, [state.status, sessionId, state.releaseMethod]);
 
+  useEffect(() => {
+    if (state.status === 'DONE') {
+      let active = true;
+      apiClient.getSession(sessionId)
+        .then((s) => {
+          if (active) setSessionDetail(s);
+        })
+        .catch(() => {
+          if (active) setSessionDetail(null);
+        });
+      return () => {
+        active = false;
+      };
+    }
+  }, [state.status, sessionId]);
+
+  const canCancel = state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE' || state.status === 'BLOCKED_NEEDS_MANAGER';
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -185,6 +255,16 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           </>
         )}
 
+        {canCancel && (
+          <Button
+            testID="cancel-btn"
+            title="Cancelar abastecimento"
+            variant="danger"
+            onPress={confirmCancel}
+            style={{ marginTop: 20 }}
+          />
+        )}
+
         {state.status === 'FUELING' && (
           <Text style={styles.statusText}>Abastecendo...</Text>
         )}
@@ -193,6 +273,26 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           <>
             <Text style={styles.statusText}>Abastecimento concluído</Text>
             <Text style={styles.subText}>Operação finalizada com sucesso.</Text>
+
+            {sessionDetail?.result && (
+              <View style={styles.resultCard} testID="result-card">
+                {sessionDetail.result.volume_liters != null ? (
+                  <Text style={styles.resultText}>
+                    Volume abastecido: {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(sessionDetail.result.volume_liters)} L
+                  </Text>
+                ) : (
+                  <Text style={styles.resultPendingText}>
+                    O volume ainda será confirmado pela operação.
+                  </Text>
+                )}
+                {sessionDetail.result.duration_minutes != null && (
+                  <Text style={styles.resultText}>
+                    Duração: {new Intl.NumberFormat('pt-BR').format(sessionDetail.result.duration_minutes)} min
+                  </Text>
+                )}
+              </View>
+            )}
+
             <Button title="Voltar ao Início" onPress={() => navigation.popToTop()} style={{ marginTop: 20 }} />
           </>
         )}
@@ -204,6 +304,15 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               <Button
                 title="Refazer Validação Facial"
                 onPress={() => navigation.replace('FacialAuth', { sessionId, status: 'requested', releaseMethod: 'facial' })}
+                style={{ marginTop: 10, marginBottom: 10 }}
+              />
+            )}
+            {sessionId != null && (
+              <Button
+                testID="cancel-session-error-btn"
+                title="Cancelar sessão"
+                variant="danger"
+                onPress={executeCancel}
                 style={{ marginTop: 10, marginBottom: 10 }}
               />
             )}
@@ -260,5 +369,28 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  resultCard: {
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 16,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  resultText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    marginVertical: 4,
+  },
+  resultPendingText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 4,
   },
 });
