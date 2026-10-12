@@ -12,6 +12,7 @@ router.get("/", authMiddleware, fleetController.list);
 router.post("/", authMiddleware, requireRole, fleetController.createTruck);
 router.get("/dashboard-stats", authMiddleware, fleetController.getDashboardStats);
 router.get("/:id", authMiddleware, fleetController.getOne);
+router.get("/:id/telemetry", authMiddleware, fleetController.getOne);
 router.get("/:id/unloading-events", authMiddleware, fleetController.getUnloadingEvents);
 router.get("/:id/route", authMiddleware, fleetController.getRoute);
 router.post("/:id/route", authMiddleware, requireRole, fleetController.configureRoute);
