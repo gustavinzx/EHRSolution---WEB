@@ -231,7 +231,7 @@ async function simulateFleet(io) {
         );
         if (existing.length === 0) {
           const { rows: alert } = await db.query(
-            "INSERT INTO fleet_alerts (truck_id,type,severity,message,plate,model) VALUES ($1,'destination_arrived','low',$2,$3,$4) RETURNING id, truck_id, type, severity, message, plate, model, resolved, resolved_at, resolved_by, resolution_note, created_at",
+            "INSERT INTO fleet_alerts (truck_id,type,severity,message,plate,model) VALUES ($1,'destination_arrived','low',$2,$3,$4) RETURNING id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id",
             [truck.id, `Caminhão chegou ao destino: ${truck.dest_name || "destino final"}.`, truck.plate, truck.model]
           );
           if (io && alert[0]) io.emit("newAlert", alert[0]);

@@ -44,6 +44,16 @@ function formatFuelingLogRow(row) {
   };
 }
 
+const FUELING_LOG_BASE_COLS = `
+  f.id, f.session_id, f.driver_id, f.truck_id, f.timestamp,
+  f.lat, f.lng, f.level_before, f.level_after, f.release_method,
+  f.station_id, f.station_name, f.started_at, f.completed_at,
+  f.duration_minutes, f.volume_liters, f.pump_liters, f.tank_liters_delta,
+  f.data_source, f.anp_station_id, f.station_match_status,
+  f.station_match_distance_m, f.station_match_source
+`;
+
+exports.FUELING_LOG_BASE_COLS = FUELING_LOG_BASE_COLS;
 exports.buildStationMatchProjection = buildStationMatchProjection;
 exports.formatFuelingLogRow = formatFuelingLogRow;
 

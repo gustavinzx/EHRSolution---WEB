@@ -1,9 +1,9 @@
 const db = require('../config/db');
 
 const ACTIVE_SESSION_MINUTES = 15;
-const SESSION_RETURN_COLS = `id, truck_id, driver_id, status, release_method, facial_match_score, station_id, pump_liters, tank_liters_delta, override_user_id, override_reason, requested_at, authorized_at, started_at, completed_at, expires_at, duration_minutes, data_source`;
+const SESSION_RETURN_COLS = `id, truck_id, driver_id, status, release_method, station_id, pump_liters, tank_liters_delta, requested_at, authorized_at, started_at, completed_at, expires_at, duration_minutes, data_source`;
 const SECURITY_EVENT_RETURN_COLS = `id, truck_id, type, severity, source, payload, lat, lng, created_at`;
-const ALERT_RETURN_COLS = `id, truck_id, type, severity, message, plate, model, resolved, resolved_at, resolved_by, resolution_note, created_at`;
+const ALERT_RETURN_COLS = `id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id`;
 
 async function getTruck(truckId) {
   const { rows } = await db.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truckId]);

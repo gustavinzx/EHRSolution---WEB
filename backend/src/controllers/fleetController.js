@@ -235,8 +235,8 @@ exports.getInvestigation = async (req, res) => {
     const fuelingLogs = rawFuelingLogs.map(formatFuelingLogRow);
 
     const { rows: sessions } = await db.query(
-      `SELECT s.id, s.truck_id, s.driver_id, s.status, s.release_method, s.facial_match_score,
-              s.station_id, s.pump_liters, s.tank_liters_delta, s.override_user_id, s.override_reason,
+      `SELECT s.id, s.truck_id, s.driver_id, s.status, s.release_method,
+              s.station_id, s.pump_liters, s.tank_liters_delta,
               s.requested_at, s.authorized_at, s.started_at, s.completed_at, s.expires_at,
               s.duration_minutes, s.data_source,
               d.name AS driver_name, fs.name AS station_name
@@ -248,7 +248,7 @@ exports.getInvestigation = async (req, res) => {
     );
 
     const { rows: alerts } = await db.query(
-      `SELECT id, truck_id, type, severity, message, plate, model, resolved, resolved_at, resolved_by, resolution_note, created_at
+      `SELECT id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id
        FROM fleet_alerts WHERE truck_id = $1
        ORDER BY created_at DESC LIMIT 20`, [id]
     );

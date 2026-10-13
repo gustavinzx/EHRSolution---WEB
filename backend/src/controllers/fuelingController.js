@@ -245,11 +245,16 @@ exports.authorizeSession = async (req, res) => {
         req.body?.lat !== null &&
         req.body?.lng !== undefined &&
         req.body?.lng !== null;
-      const matchSource = hasBodyCoords ? "app_gps" : "truck_telemetry";
       const matchRes = await stationMatcher.resolveStation({ lat, lng });
       const matchedId = matchRes?.station?.id || null;
-      const matchedStatus = matchRes?.status || null;
-      const matchedDist = matchRes?.distance_m ?? null;
+      const matchedStatus = matchRes?.status || "no_position";
+      const matchedDist = matchRes?.distanceM ?? matchRes?.distance_m ?? null;
+      const matchSource =
+        matchedStatus === "no_position"
+          ? null
+          : hasBodyCoords
+            ? "app_gps"
+            : "truck_telemetry";
       await db.query(
         `UPDATE fueling_sessions
             SET anp_station_id = $1,

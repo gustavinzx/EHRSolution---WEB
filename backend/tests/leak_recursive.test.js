@@ -81,7 +81,11 @@ function checkRecursiveSession(obj) {
         key.startsWith('facial_') ||
         key.startsWith('ble_') ||
         key === 'pump_liters' ||
-        key === 'data_source'
+        key === 'data_source' ||
+        key === 'anp_station_id' ||
+        key.startsWith('station_match') ||
+        key === 'cnpj' ||
+        key.startsWith('anp_')
       ) {
         throw new Error('SESSION LEAK DETECTED (KEY): ' + key);
       }
@@ -147,23 +151,23 @@ describe('Leak Checks', () => {
     checkRecursive(r.body);
   });
 
-  it('fleetUpdate via Socket.IO no leak', (done) => {
-    // The server emits fleetUpdate periodically or on demand.
-    // We can simulate an API call that triggers fleetUpdate if any.
-    // Actually we can just call getFleetSnapshot manually and check.
-    const { getFleetSnapshot } = require('../src/services/fleetDataProvider');
-    getFleetSnapshot().then(snap => {
-      checkRecursive(snap);
-      done();
-    });
+  it('fleetUpdate e liveEventsUpdate via Socket.IO no leak (nem campos ANP)', async () => {
+    const { getFleetSnapshot, getLiveEvents } = require('../src/services/fleetDataProvider');
+    const snap = await getFleetSnapshot();
+    checkRecursive(snap);
+    checkRecursiveSession(snap);
+
+    const live = await getLiveEvents();
+    checkRecursive(live);
+    checkRecursiveSession(live);
   });
 
-  it('GET /api/fueling/sessions/:id e POST .../cancel sem leak de chaves ou valores secretos', async () => {
+  it('GET /api/fueling/sessions/:id e POST .../cancel sem leak de chaves ou valores secretos (nem anp_station_id / station_match*)', async () => {
     const s = await db.query(`
       INSERT INTO fueling_sessions
-        (driver_id, truck_id, status, release_method, metadata, facial_consumed_at, ble_consumed_at, pump_liters, data_source)
+        (driver_id, truck_id, status, release_method, metadata, facial_consumed_at, ble_consumed_at, pump_liters, data_source, station_match_status, station_match_distance_m, station_match_source)
       VALUES
-        ($1, $2, 'requested', 'facial', $3, NOW(), NOW(), 42.5, 'manager')
+        ($1, $2, 'requested', 'facial', $3, NOW(), NOW(), 42.5, 'manager', 'matched', 18.2, 'truck_telemetry')
       RETURNING id
     `, [driverId, truckId, JSON.stringify({ secret_meta_val: 'secret_meta_val', facial_failures: 2 })]);
     const sessId = s.rows[0].id;

@@ -96,7 +96,8 @@ function formatAllowedStation(row) {
     bandeira: row.bandeira || null,
     lat: row.lat !== null && row.lat !== undefined ? Number(row.lat) : null,
     lng: row.lng !== null && row.lng !== undefined ? Number(row.lng) : null,
-    situacao_sigaf: row.situacao_sigaf || null
+    situacao_sigaf: row.situacao_sigaf || null,
+    interdicted: isInterdicted(row.situacao_sigaf)
   };
 }
 
@@ -115,20 +116,18 @@ async function resolveStation({ lat, lng, cnpj, radiusM } = {}) {
       return {
         status: "unrecognized",
         station: null,
-        distance_m: null,
-        interdicted: false
+        distanceM: null
       };
     }
     const row = rows[0];
-    let distanceM = 0;
+    let distanceM = null;
     if (hasValidCoords && isValidCoordPair(row.lat, row.lng)) {
       distanceM = Number(haversineM(Number(lat), Number(lng), Number(row.lat), Number(row.lng)).toFixed(1));
     }
     return {
       status: "matched",
       station: formatAllowedStation(row),
-      distance_m: distanceM,
-      interdicted: isInterdicted(row.situacao_sigaf)
+      distanceM
     };
   }
 
@@ -136,8 +135,7 @@ async function resolveStation({ lat, lng, cnpj, radiusM } = {}) {
     return {
       status: "no_position",
       station: null,
-      distance_m: null,
-      interdicted: false
+      distanceM: null
     };
   }
 
@@ -170,16 +168,14 @@ async function resolveStation({ lat, lng, cnpj, radiusM } = {}) {
     return {
       status: "unrecognized",
       station: null,
-      distance_m: null,
-      interdicted: false
+      distanceM: null
     };
   }
 
   return {
     status: "matched",
     station: formatAllowedStation(bestRow),
-    distance_m: Number(bestDistanceM.toFixed(1)),
-    interdicted: isInterdicted(bestRow.situacao_sigaf)
+    distanceM: Number(bestDistanceM.toFixed(1))
   };
 }
 
