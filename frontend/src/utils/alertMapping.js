@@ -14,6 +14,8 @@ export function getAlertMeta(type) {
       return { label: 'Queda Suspeita de Combustível', icon: Droplet };
     case 'unauthorized_station':
       return { label: 'Posto Não Autorizado', icon: ShieldAlert };
+    case 'unrecognized_station':
+      return { label: 'Posto não reconhecido (ANP)', icon: ShieldAlert };
     case 'facial_auth_failed':
       return { label: 'Falha na Biometria Facial', icon: UserX };
     case 'facial_auth_locked':

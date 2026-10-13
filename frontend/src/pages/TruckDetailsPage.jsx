@@ -5,6 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
+import { renderAnpMatchCell } from '../components/FuelingTable';
 import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
 
 function CenterOnTruck({ lat, lng }) {
@@ -388,6 +389,12 @@ export default function TruckDetailsPage() {
                             {isFueling ? `+${(ev.level_after - ev.level_before).toFixed(2)}L` : `${ev.vibration_level}%`}
                           </span>
                         </div>
+                        {isFueling && (
+                          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Posto (ANP)</span>
+                            <div>{renderAnpMatchCell(ev)}</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )})}

@@ -11,9 +11,85 @@ const METHOD_BADGE = {
 const DATA_SOURCE_BADGE = {
   hardware:   { label: 'Hardware',       bg: 'rgba(52,211,153,0.15)', color: '#34d399', border: 'rgba(52,211,153,0.3)' },
   manager:    { label: 'Gestor',         bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
+  simulated:  { label: 'Simulado',       bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', border: 'rgba(148,163,184,0.3)' },
   unverified: { label: 'Não Verificado', bg: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'rgba(248,113,113,0.3)' },
   legacy:     { label: 'Legado',         bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', border: 'rgba(148,163,184,0.3)' },
 };
+
+export function renderAnpMatchCell(log) {
+  const sm = log?.station_match;
+  if (!sm || !sm.status) {
+    return (
+      <span title="log legado sem aferição ANP" style={{ fontSize: '12px', color: '#94a3b8' }}>
+        {log?.station_name || '—'}
+      </span>
+    );
+  }
+
+  if (sm.status === 'matched') {
+    const distM = sm.distance_m != null && Number.isFinite(Number(sm.distance_m))
+      ? Math.round(Number(sm.distance_m))
+      : 0;
+    const stationName = sm.station?.razao_social || log?.station_name || null;
+    const municipio = sm.station?.municipio
+      ? (sm.station?.uf ? `${sm.station.municipio}/${sm.station.uf}` : sm.station.municipio)
+      : null;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <span style={{
+          display: 'inline-block', alignSelf: 'flex-start',
+          fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
+          background: 'rgba(52,211,153,0.15)', color: '#34d399',
+          border: '1px solid rgba(52,211,153,0.3)', whiteSpace: 'nowrap'
+        }}>
+          {`ANP regular · a ${distM} m`}
+        </span>
+        {(stationName || municipio) && (
+          <span style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.2 }}>
+            {stationName || ''}
+            {stationName && municipio ? ' — ' : ''}
+            {municipio || ''}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (sm.status === 'unrecognized') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <span style={{
+          display: 'inline-block', alignSelf: 'flex-start',
+          fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
+          background: 'rgba(248,113,113,0.15)', color: '#f87171',
+          border: '1px solid rgba(248,113,113,0.3)', whiteSpace: 'nowrap'
+        }}>
+          Não reconhecido
+        </span>
+        {log?.station_name && (
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>{log.station_name}</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <span style={{
+        display: 'inline-block', alignSelf: 'flex-start',
+        fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
+        background: 'rgba(148,163,184,0.15)', color: '#94a3b8',
+        border: '1px solid rgba(148,163,184,0.3)', whiteSpace: 'nowrap'
+      }}>
+        Sem posição
+      </span>
+      {log?.station_name && (
+        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{log.station_name}</span>
+      )}
+    </div>
+  );
+}
 
 export default function FuelingTable({ logs = [] }) {
   const [settings, setSettings] = useState(null);
@@ -36,7 +112,7 @@ export default function FuelingTable({ logs = [] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            {['#', 'Data / Hora', 'Motorista', 'Caminhão', 'Bomba (L)', 'Tanque (L)', 'Divergência (L / %)', 'Origem', 'Liberação'].map(h => (
+            {['#', 'Data / Hora', 'Motorista', 'Caminhão', 'Posto (ANP)', 'Bomba (L)', 'Tanque (L)', 'Divergência (L / %)', 'Origem', 'Liberação'].map(h => (
               <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
             ))}
           </tr>
@@ -75,6 +151,9 @@ export default function FuelingTable({ logs = [] }) {
                   <span style={{ fontFamily: 'monospace', fontSize: '12px', background: 'rgba(47,190,181,0.1)', color: '#2FBEB5', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(47,190,181,0.2)' }}>
                     {log.plate || `ID ${log.truck_id}`}
                   </span>
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  {renderAnpMatchCell(log)}
                 </td>
                 <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: '#fff' }}>
                   {formatVal(log.pump_liters)}
