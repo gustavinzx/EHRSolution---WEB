@@ -109,7 +109,7 @@ export default function AnpStationsMap({
             if (st.lat === null || st.lng === null || st.lat === undefined || st.lng === undefined) {
               return null;
             }
-            const isInterditado = st.situacao_sigaf && /interdit/i.test(st.situacao_sigaf);
+            const isInterditado = Boolean(st.interdicted);
             const color = isInterditado ? '#f87171' : '#2FBEB5';
             return (
               <CircleMarker

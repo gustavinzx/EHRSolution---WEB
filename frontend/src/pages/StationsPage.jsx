@@ -38,7 +38,7 @@ export function formatCnpj(cnpj) {
 }
 
 export function getAnpStationBadge(station) {
-  if (station?.situacao_sigaf && /interdit/i.test(station.situacao_sigaf)) {
+  if (Boolean(station?.interdicted)) {
     return {
       label: 'Interditado',
       color: '#f87171',
@@ -1003,7 +1003,9 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               </div>
               <div>
                 <strong style={{ color: '#94a3b8' }}>Situação SIGAF:</strong>{' '}
-                {selectedAnpStation.situacao_sigaf || 'Regular'}
+                {selectedAnpStation.interdicted
+                  ? selectedAnpStation.situacao_sigaf || 'Interditado'
+                  : selectedAnpStation.situacao_sigaf || 'Regular'}
               </div>
             </div>
 

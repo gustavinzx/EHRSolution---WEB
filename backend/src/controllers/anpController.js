@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { isInterdicted } = require('../services/anpStatus');
 
 const ALLOWED_STATION_COLUMNS = `
   cnpj,
@@ -36,6 +37,7 @@ function formatAnpStation(row) {
     lng: row.lng !== null && row.lng !== undefined ? Number(row.lng) : null,
     acuracia_metros: row.acuracia_metros !== null && row.acuracia_metros !== undefined ? Number(row.acuracia_metros) : null,
     situacao_sigaf: row.situacao_sigaf,
+    interdicted: isInterdicted(row.situacao_sigaf),
     produtos: row.produtos,
     is_active: Boolean(row.is_active),
     last_seen_at: row.last_seen_at

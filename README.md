@@ -46,6 +46,9 @@ O painel inclui uma consulta ao cadastro oficial de postos revendedores de combu
      cd backend
      npm run anp:sync -- --uf DF --allow-mass-deactivation
      ```
+- **Regra de Interdição (`statusSIGAF` -> `interdicted`) e Fonte Oficial**:
+  - **Fonte Oficial**: Documento de Requisitos / Manual do Usuário da API Revendedores da ANP (*"API Revendedores: Consulta de Postos de Combustíveis e Revendedores GLP"*, v1.0, 13/12/2024, pp. 3, 8, 10 e 12 — `https://www.gov.br/anp/pt-br/centrais-de-conteudo/paineis-dinamicos-da-anp/paineis-dinamicos-do-abastecimento/api-revendedores-manual-usuario.pdf`).
+  - **Regra (`backend/src/services/anpStatus.js`)**: O valor de `statusSIGAF` é normalizado (minúsculas, sem acentos e espaços colapsados). Valores equivalentes a `"interdicao"` (incluindo `"interdicao parcial"`, `"interdicao total"`, `"interditado"`) resultam em `interdicted: true`. Valores equivalentes a `"desinterdicao"` ou vazios (`""` / `null`) resultam em `interdicted: false` (Regular). Qualquer outro valor não reconhecido retorna `interdicted: false` e gera registro em log (`console.warn`) para análise. O backend expõe o booleano `interdicted` nas rotas `/api/anp/stations`, `/api/anp/stations/:cnpj` e `/api/anp/stations/in-bounds`, e o frontend consome exclusivamente esse booleano (sem uso de regex).
 - **Aviso sobre novos cadastros**: Como os dados provêm da base pública oficial da ANP, postos recém-abertos ou alterações cadastrais recentes dependem do processamento e publicação pela própria ANP e podem demorar a aparecer no catálogo. A sincronização é executada sob demanda via CLI (não roda automaticamente no boot do servidor nem durante a suíte de testes).
 
 ## Como rodar localmente
