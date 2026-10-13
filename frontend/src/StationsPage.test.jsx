@@ -31,7 +31,7 @@ vi.mock('./components/AnpStationsMap', () => ({
   ),
 }));
 
-import StationsPage from './pages/StationsPage';
+import StationsPage, { getAnpStationBadge } from './pages/StationsPage';
 
 describe('StationsPage - Aba ANP (Brasil)', () => {
   beforeEach(() => {
@@ -42,7 +42,18 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
     cleanup();
   });
 
-  it('renderiza linhas da tabela ANP, badges (Regular, Interditado, Sem coordenadas), cabeçalho e gaveta de detalhes', async () => {
+  it('renderiza linhas da tabela ANP, badges a partir do booleano interdicted (Regular, Interditado, Sem coordenadas), cabeçalho e gaveta de detalhes', async () => {
+    // Verifica diretamente que o selo usa o booleano interdicted e NÃO regex em situacao_sigaf
+    expect(
+      getAnpStationBadge({ situacao_sigaf: 'Desinterdição', interdicted: false, lat: -15.8, lng: -47.8 }).label
+    ).toBe('Regular');
+    expect(
+      getAnpStationBadge({ situacao_sigaf: 'Interdição', interdicted: true, lat: -15.8, lng: -47.8 }).label
+    ).toBe('Interditado');
+    expect(
+      getAnpStationBadge({ situacao_sigaf: null, interdicted: false, lat: null, lng: null }).label
+    ).toBe('Sem coordenadas');
+
     apiMocks.get.mockImplementation((url) => {
       if (url === '/fueling/stations') {
         return Promise.resolve({
@@ -78,7 +89,8 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
                 lat: -15.8399235,
                 lng: -47.8758677,
                 acuracia_metros: 4,
-                situacao_sigaf: null,
+                situacao_sigaf: 'Desinterdição',
+                interdicted: false,
                 produtos: [
                   { produto: 'OLEO DIESEL B S10 - COMUM', tancagem: 30, unidMedidaTancagem: 'm³', qtdeBicos: 4 },
                 ],
@@ -98,6 +110,7 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
                 lng: null,
                 acuracia_metros: null,
                 situacao_sigaf: null,
+                interdicted: false,
                 produtos: [],
                 is_active: true,
                 last_seen_at: '2026-10-13T03:00:00.000Z',
@@ -114,7 +127,8 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
                 lat: -15.9,
                 lng: -48.1,
                 acuracia_metros: 4,
-                situacao_sigaf: 'Interditado parcialmente',
+                situacao_sigaf: 'Interdição',
+                interdicted: true,
                 produtos: [],
                 is_active: true,
                 last_seen_at: '2026-10-13T03:00:00.000Z',
@@ -126,7 +140,7 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
       if (url === '/anp/stations/in-bounds') {
         return Promise.resolve({
           data: {
-            items: [{ cnpj: '00306597003112', razao_social: 'CASCOL COMBUSTIVEIS PARA VEICULOS LTDA', lat: -15.83, lng: -47.87 }],
+            items: [{ cnpj: '00306597003112', razao_social: 'CASCOL COMBUSTIVEIS PARA VEICULOS LTDA', lat: -15.83, lng: -47.87, interdicted: false }],
             total: 520,
             truncated: true,
           },
@@ -146,7 +160,8 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
             lat: -15.8399235,
             lng: -47.8758677,
             acuracia_metros: 4,
-            situacao_sigaf: null,
+            situacao_sigaf: 'Desinterdição',
+            interdicted: false,
             produtos: [
               { produto: 'OLEO DIESEL B S10 - COMUM', tancagem: 30, unidMedidaTancagem: 'm³', qtdeBicos: 4 },
             ],
@@ -175,7 +190,7 @@ describe('StationsPage - Aba ANP (Brasil)', () => {
     expect(screen.getByText('AC2 COMBUSTIVEIS LTDA')).not.toBeNull();
     expect(screen.getByText('POSTO EXEMPLO INTERDITADO LTDA')).not.toBeNull();
 
-    // Badges de situação
+    // Badges de situação (a partir do booleano interdicted)
     expect(screen.getByText('Regular')).not.toBeNull();
     expect(screen.getByText('Sem coordenadas')).not.toBeNull();
     expect(screen.getByText('Interditado')).not.toBeNull();

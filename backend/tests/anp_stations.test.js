@@ -9,13 +9,49 @@ const {
   normalizeAnpRecord,
   parseAnpPage,
   fetchAnpPageWithRetry,
-  syncUf
+  syncUf,
+  syncAll
 } = require('../src/services/anpSync');
+const { isInterdicted, normalizeSigafStatus } = require('../src/services/anpStatus');
+const { parseCliArgs, main: runAnpSyncCli } = require('../scripts/anpSync');
 
 const clean = require('./clean');
 
 const sampleFixturePath = path.join(__dirname, 'fixtures', 'anp_combustivel_sample.json');
 const sampleFixture = JSON.parse(fs.readFileSync(sampleFixturePath, 'utf8'));
+
+// Versão da fixture ajustando totalRegistro=6 para representar página completa de 6 itens
+const sampleComplete6 = {
+  ...sampleFixture,
+  searchPageFilter: {
+    ...sampleFixture.searchPageFilter,
+    totalRegistro: sampleFixture.data.length,
+    totalPagina: 1,
+    numeroPagina: 1
+  }
+};
+
+function makeRawStations(count, uf = 'DF', seedOffset = 0) {
+  const ufCode = (uf.charCodeAt(0) * 100 + uf.charCodeAt(1)) % 9000;
+  const list = [];
+  for (let i = 1; i <= count; i++) {
+    const num = 10000000000000 + ufCode * 1000000 + seedOffset + i;
+    const cnpj = String(num).padStart(14, '0');
+    list.push({
+      ...sampleFixture.data[0],
+      codigoSIMP: 2000000 + i,
+      cnpj,
+      razaoSocial: `POSTO TESTE ${uf} ${i} LTDA`,
+      uf,
+      municipio: 'BRASILIA',
+      distribuidora: 'VIBRA',
+      latitude: '-15.7944167',
+      longitude: '-48.0158659',
+      statusSIGAF: ''
+    });
+  }
+  return list;
+}
 
 const ALLOWED_KEYS = [
   'cnpj',
@@ -30,6 +66,7 @@ const ALLOWED_KEYS = [
   'lng',
   'acuracia_metros',
   'situacao_sigaf',
+  'interdicted',
   'produtos',
   'is_active',
   'last_seen_at'
@@ -47,7 +84,7 @@ const FORBIDDEN_INTERNAL_KEYS = [
   'updated_at'
 ];
 
-describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transação e API)', () => {
+describe('Catálogo Nacional de Postos ANP (Parser, Sync, Trava de Desativação, Interdição e API)', () => {
   let tokenManager;
   let tokenAuditor;
   let tokenDriver;
@@ -88,7 +125,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     await db.pool.end();
   });
 
-  describe('1. Parser com fixture real e Normalização (CNPJ, CEP, coordenadas inválidas)', () => {
+  describe('1. Parser com fixture real, Normalização e isInterdicted (Bloco B / C2)', () => {
     it('parseAnpPage processa a fixture real da ANP preservando os campos e produtos', () => {
       const parsed = parseAnpPage(sampleFixture);
       expect(parsed.numeroPagina).toBe(1);
@@ -130,14 +167,14 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
         razaoSocial: '  POSTO EXEMPLO LTDA  ',
         endereco: '  AV BRASIL, 100  ',
         bairro: '  CENTRO ',
-        cep: '1310100', // 7 dígitos -> deve preencher zero à esquerda: 01310100
+        cep: '1310100',
         uf: 'sp',
         municipio: ' SAO PAULO ',
         distribuidora: ' IPIRANGA ',
         latitude: '0',
         longitude: '0',
         estimativaAcuracia: ' 5,5 ',
-        statusSIGAF: '  INTERDITADO TOTALMENTE  ',
+        statusSIGAF: '  Interdição  ',
         produtos: []
       });
 
@@ -153,15 +190,48 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rec.lat).toBeNull();
       expect(rec.lng).toBeNull();
       expect(rec.acuracia_metros).toBe(5.5);
-      expect(rec.situacao_sigaf).toBe('INTERDITADO TOTALMENTE');
+      expect(rec.situacao_sigaf).toBe('Interdição');
 
-      // Coordenadas fora do Brasil => null
       expect(parseBrazilCoords('40.7128', '-74.0060')).toEqual({ lat: null, lng: null });
       expect(parseBrazilCoords('-55.0', '-46.0')).toEqual({ lat: null, lng: null });
       expect(parseBrazilCoords('', '')).toEqual({ lat: null, lng: null });
 
-      // CNPJ inválido => null
       expect(normalizeAnpRecord({ cnpj: '12345', razaoSocial: 'Posto', uf: 'DF' })).toBeNull();
+    });
+
+    it('isInterdicted avalia valores reais do PASSO 0b, "Interdição", "Desinterdição", vazio e registra valor desconhecido (C2)', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      try {
+        // Valores reais do PASSO 0b (string vazia "" na API / null no banco) e vazios
+        expect(isInterdicted('')).toBe(false);
+        expect(isInterdicted('   ')).toBe(false);
+        expect(isInterdicted(null)).toBe(false);
+        expect(isInterdicted(undefined)).toBe(false);
+
+        // Desinterdição (com e sem acento, maiúsculas/minúsculas) => regular (false)
+        expect(isInterdicted('Desinterdição')).toBe(false);
+        expect(isInterdicted('desinterdicao')).toBe(false);
+        expect(isInterdicted('  DESINTERDIÇÃO  ')).toBe(false);
+
+        // Interdição (documentação ANP p. 3, 8, 10, 12) => interditado (true)
+        expect(isInterdicted('Interdição')).toBe(true);
+        expect(isInterdicted('interdicao')).toBe(true);
+        expect(isInterdicted('interdição parcial')).toBe(true);
+        expect(isInterdicted('INTERDIÇÃO TOTAL')).toBe(true);
+
+        // Nenhum aviso emitido para valores conhecidos/vazios
+        expect(warnSpy).not.toHaveBeenCalled();
+
+        // Valor desconhecido => não interditado (false), mas registrado em log para análise
+        expect(isInterdicted('Situação Cautelar 999')).toBe(false);
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(warnSpy.mock.calls[0][0]).toContain('Situação Cautelar 999');
+
+        expect(normalizeSigafStatus('  Desinterdição  ')).toBe('desinterdicao');
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it('fetchAnpPageWithRetry realiza até 3 tentativas antes de suceder ou falhar (sem rede real)', async () => {
@@ -174,7 +244,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
         return {
           ok: true,
           status: 200,
-          json: async () => sampleFixture
+          json: async () => sampleComplete6
         };
       });
 
@@ -188,7 +258,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     });
   });
 
-  describe('2. Sincronização Transacional, Idempotência, Desativação e Rollback em falha parcial', () => {
+  describe('2. Sincronização Transacional, Trava de Desativação (A1..A3 / C1) e Rollback', () => {
     beforeEach(async () => {
       await db.query('DELETE FROM anp_stations');
       await db.query('DELETE FROM anp_sync_runs');
@@ -198,7 +268,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       const mockFetch = jest.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => sampleFixture
+        json: async () => sampleComplete6
       }));
 
       const run1 = await syncUf('DF', { fetchFn: mockFetch, pageDelayMs: 0 });
@@ -227,28 +297,121 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
 
       expect(count1.rows[0]).toEqual({ total: 6, active: 6 });
       expect(count2.rows[0]).toEqual({ total: 6, active: 6 });
-
-      // Terceira rodada produz contagens de run idênticas à segunda
-      const run3 = await syncUf('DF', { fetchFn: mockFetch, pageDelayMs: 0 });
-      expect(run3.fetched).toBe(run2.fetched);
-      expect(run3.inserted).toBe(run2.inserted);
-      expect(run3.updated).toBe(run2.updated);
-      expect(run3.deactivated).toBe(run2.deactivated);
     });
 
-    it('Desativa postos ausentes somente após percorrer TODAS as páginas da UF com sucesso', async () => {
-      // Rodada inicial com os 6 postos de DF
-      const mockFetchAll6 = jest.fn(async () => ({
+    it('C1.1 Resposta truncada (2 de 10) => mantém upsert, NÃO desativa nada e grava status "partial"', async () => {
+      const tenStations = makeRawStations(10, 'DF');
+      const mockSeed10 = jest.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => sampleFixture
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: tenStations,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 10, totalPagina: 1 }
+        })
       }));
-      await syncUf('DF', { fetchFn: mockFetchAll6, pageDelayMs: 0 });
+      await syncUf('DF', { fetchFn: mockSeed10, pageDelayMs: 0 });
 
-      // Rodada seguinte em 2 páginas contendo apenas 4 dos 6 postos (2 ausentes devem ser desativados)
-      const mockFetchTwoPages = jest.fn(async (url) => {
+      // API promete totalRegistro=10 mas devolve apenas 2 registros
+      const mockTruncated = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: tenStations.slice(0, 2),
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 10, totalPagina: 1 }
+        })
+      }));
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const runTrunc = await syncUf('DF', { fetchFn: mockTruncated, pageDelayMs: 0 });
+        expect(runTrunc.status).toBe('partial');
+        expect(runTrunc.fetched).toBe(2);
+        expect(runTrunc.updated).toBe(2);
+        expect(runTrunc.deactivated).toBe(0);
+        expect(runTrunc.error).toMatch(/CNPJs distintos recebidos \(2\) < totalRegistro informado pela API \(10\)/);
+        expect(warnSpy).toHaveBeenCalled();
+
+        const activeCheck = await db.query(
+          'SELECT COUNT(*)::int AS cnt FROM anp_stations WHERE uf = $1 AND is_active = true',
+          ['DF']
+        );
+        expect(activeCheck.rows[0].cnt).toBe(10);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('C1.2 Registro inválido no meio (descartado pela normalização) => sem desativação e status "partial"', async () => {
+      const tenStations = makeRawStations(10, 'DF');
+      const mockSeed10 = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: tenStations,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 10, totalPagina: 1 }
+        })
+      }));
+      await syncUf('DF', { fetchFn: mockSeed10, pageDelayMs: 0 });
+
+      // 9 registros válidos + 1 registro com CNPJ inválido (rawCount=10, normalizados=9, totalRegistro=9)
+      const invalidRecord = { ...tenStations[9], cnpj: '123' };
+      const payloadWithInvalid = [...tenStations.slice(0, 9), invalidRecord];
+
+      const mockWithInvalid = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: payloadWithInvalid,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 9, totalPagina: 1 }
+        })
+      }));
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const runInvalid = await syncUf('DF', { fetchFn: mockWithInvalid, pageDelayMs: 0 });
+        expect(runInvalid.status).toBe('partial');
+        expect(runInvalid.fetched).toBe(9);
+        expect(runInvalid.updated).toBe(9);
+        expect(runInvalid.deactivated).toBe(0);
+        expect(runInvalid.error).toMatch(/1 registro\(s\) descartado\(s\) pela normalização/);
+
+        const activeCheck = await db.query(
+          'SELECT COUNT(*)::int AS cnt FROM anp_stations WHERE uf = $1 AND is_active = true',
+          ['DF']
+        );
+        expect(activeCheck.rows[0].cnt).toBe(10);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('C1.3 Remoção legítima de 1 de 10 (10% <= 20%) => desativa 1 posto e status "succeeded"', async () => {
+      const tenStations = makeRawStations(10, 'DF');
+      const mockSeed10 = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: tenStations,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 10, totalPagina: 1 }
+        })
+      }));
+      await syncUf('DF', { fetchFn: mockSeed10, pageDelayMs: 0 });
+
+      // Próxima rodada em 2 páginas com 9 dos 10 postos (totalRegistro=9)
+      const nineStations = tenStations.slice(0, 9);
+      const mockTwoPages9 = jest.fn(async (url) => {
         const isPage2 = url.includes('numeropagina=2');
-        const slice = isPage2 ? sampleFixture.data.slice(2, 4) : sampleFixture.data.slice(0, 2);
+        const slice = isPage2 ? nineStations.slice(5, 9) : nineStations.slice(0, 5);
         return {
           ok: true,
           status: 200,
@@ -258,43 +421,171 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
             data: slice,
             searchPageFilter: {
               numeroPagina: isPage2 ? 2 : 1,
-              tamanhoPagina: 2,
-              totalRegistro: 4,
+              tamanhoPagina: 5,
+              totalRegistro: 9,
               totalPagina: 2
             }
           })
         };
       });
 
-      const runDeact = await syncUf('DF', { fetchFn: mockFetchTwoPages, pageDelayMs: 0 });
-      expect(runDeact.status).toBe('succeeded');
-      expect(runDeact.fetched).toBe(4);
-      expect(runDeact.updated).toBe(4);
-      expect(runDeact.deactivated).toBe(2);
+      const runLegit = await syncUf('DF', { fetchFn: mockTwoPages9, pageDelayMs: 0 });
+      expect(runLegit.status).toBe('succeeded');
+      expect(runLegit.fetched).toBe(9);
+      expect(runLegit.updated).toBe(9);
+      expect(runLegit.deactivated).toBe(1);
+      expect(runLegit.error).toBeNull();
 
       const { rows } = await db.query(
         'SELECT cnpj, is_active FROM anp_stations WHERE uf = $1 ORDER BY cnpj ASC',
         ['DF']
       );
-      const activeCnpjs = rows.filter(r => r.is_active).map(r => r.cnpj.trim());
-      const inactiveCnpjs = rows.filter(r => !r.is_active).map(r => r.cnpj.trim());
-      expect(activeCnpjs.length).toBe(4);
-      expect(inactiveCnpjs.length).toBe(2);
-      expect(inactiveCnpjs).toContain('00001974000190');
-      expect(inactiveCnpjs).toContain('07917405000138');
+      expect(rows.filter(r => r.is_active).length).toBe(9);
+      const inactive = rows.filter(r => !r.is_active);
+      expect(inactive.length).toBe(1);
+      expect(inactive[0].cnpj.trim()).toBe(tenStations[9].cnpj);
+    });
+
+    it('C1.4 Queda acima de 20% (4 de 10 = 40%) => bloqueia por padrão ("partial") e libera com --allow-mass-deactivation', async () => {
+      const tenStations = makeRawStations(10, 'DF');
+      const mockSeed10 = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: tenStations,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 10, totalPagina: 1 }
+        })
+      }));
+      await syncUf('DF', { fetchFn: mockSeed10, pageDelayMs: 0 });
+
+      // API devolve apenas 6 de 10 (queda de 4 postos = 40% > 20%)
+      const sixStations = tenStations.slice(0, 6);
+      const mockDrop40Pct = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 200,
+          succeeded: true,
+          data: sixStations,
+          searchPageFilter: { numeroPagina: 1, tamanhoPagina: 5000, totalRegistro: 6, totalPagina: 1 }
+        })
+      }));
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        // Sem --allow-mass-deactivation => bloqueia
+        const runBlocked = await syncUf('DF', { fetchFn: mockDrop40Pct, pageDelayMs: 0 });
+        expect(runBlocked.status).toBe('partial');
+        expect(runBlocked.deactivated).toBe(0);
+        expect(runBlocked.error).toMatch(/Desativação em massa bloqueada: afetaria 4 de 10 postos ativos \(40\.0% > 20%\)/);
+
+        const activeStill10 = await db.query(
+          'SELECT COUNT(*)::int AS cnt FROM anp_stations WHERE uf = $1 AND is_active = true',
+          ['DF']
+        );
+        expect(activeStill10.rows[0].cnt).toBe(10);
+
+        // Com --allow-mass-deactivation => libera e desativa os 4 ausentes
+        expect(parseCliArgs(['--uf', 'DF', '--allow-mass-deactivation'])).toEqual({
+          uf: 'DF',
+          allowMassDeactivation: true
+        });
+
+        const runAllowed = await syncUf('DF', {
+          fetchFn: mockDrop40Pct,
+          pageDelayMs: 0,
+          allowMassDeactivation: true
+        });
+        expect(runAllowed.status).toBe('succeeded');
+        expect(runAllowed.deactivated).toBe(4);
+        expect(runAllowed.error).toBeNull();
+
+        const activeNow6 = await db.query(
+          'SELECT COUNT(*)::int AS cnt FROM anp_stations WHERE uf = $1 AND is_active = true',
+          ['DF']
+        );
+        expect(activeNow6.rows[0].cnt).toBe(6);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('C1.5 syncAll continua nas demais UFs quando uma UF falha e a CLI sai com código diferente de zero', async () => {
+      const dfStations = makeRawStations(2, 'DF');
+      const mgStations = makeRawStations(3, 'MG');
+
+      const mockFetchMultiUf = jest.fn(async (url) => {
+        if (url.includes('uf=GO')) {
+          return { ok: false, status: 503, json: async () => ({}) };
+        }
+        const isDf = url.includes('uf=DF');
+        const list = isDf ? dfStations : mgStations;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 200,
+            succeeded: true,
+            data: list,
+            searchPageFilter: {
+              numeroPagina: 1,
+              tamanhoPagina: 5000,
+              totalRegistro: list.length,
+              totalPagina: 1
+            }
+          })
+        };
+      });
+
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      const prevExitCode = process.exitCode;
+
+      try {
+        await runAnpSyncCli([], {
+          ufs: ['DF', 'GO', 'MG'],
+          fetchFn: mockFetchMultiUf,
+          pageDelayMs: 0,
+          retryBaseDelayMs: 5,
+          skipMigrations: true,
+          closePool: false
+        });
+
+        expect(process.exitCode).toBe(1);
+
+        const counts = await db.query(
+          "SELECT uf, COUNT(*)::int AS cnt FROM anp_stations WHERE uf IN ('DF', 'GO', 'MG') GROUP BY uf ORDER BY uf ASC"
+        );
+        expect(counts.rows).toEqual([
+          { uf: 'DF', cnt: 2 },
+          { uf: 'MG', cnt: 3 }
+        ]);
+
+        const runs = await db.query(
+          "SELECT scope, status FROM anp_sync_runs WHERE scope IN ('DF', 'GO', 'MG') ORDER BY id ASC"
+        );
+        expect(runs.rows).toEqual([
+          { scope: 'DF', status: 'succeeded' },
+          { scope: 'GO', status: 'failed' },
+          { scope: 'MG', status: 'succeeded' }
+        ]);
+      } finally {
+        process.exitCode = prevExitCode;
+        errSpy.mockRestore();
+        logSpy.mockRestore();
+      }
     });
 
     it('Falha no meio da paginação faz ROLLBACK completo da UF e NÃO desativa nenhum posto existente', async () => {
-      // Semear 6 postos ativos em DF
       const mockFetchAll6 = jest.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => sampleFixture
+        json: async () => sampleComplete6
       }));
       await syncUf('DF', { fetchFn: mockFetchAll6, pageDelayMs: 0 });
 
-      // Agora simular sincronização de 2 páginas onde a página 1 traz apenas 1 posto existente + 1 posto novo,
-      // e a página 2 falha todas as tentativas
       const newStationRaw = {
         ...sampleFixture.data[0],
         cnpj: '99999999000199',
@@ -330,18 +621,15 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
         syncUf('DF', { fetchFn: mockFetchPartialFail, pageDelayMs: 0, retryBaseDelayMs: 5 })
       ).rejects.toThrow(/HTTP 502/);
 
-      // 1) O posto novo da página 1 NÃO pode existir (ROLLBACK funcionou)
       const checkNew = await db.query('SELECT cnpj FROM anp_stations WHERE cnpj = $1', ['99999999000199']);
       expect(checkNew.rows.length).toBe(0);
 
-      // 2) Todos os 6 postos anteriores continuam ativos (nenhum foi desativado na falha parcial)
       const checkActive = await db.query(
         'SELECT COUNT(*)::int AS active_count FROM anp_stations WHERE uf = $1 AND is_active = true',
         ['DF']
       );
       expect(checkActive.rows[0].active_count).toBe(6);
 
-      // 3) anp_sync_runs registrou a execução falha com deactivated = 0
       const checkRun = await db.query(
         "SELECT status, inserted, updated, deactivated, error FROM anp_sync_runs WHERE status = 'failed' ORDER BY id DESC LIMIT 1"
       );
@@ -354,7 +642,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     });
   });
 
-  describe('3. Endpoints /api/anp/stations (Filtros, Limites, Segurança, In-Bounds, Summary e :cnpj)', () => {
+  describe('3. Endpoints /api/anp/stations (Filtros, Limites, Segurança, Interdicted, In-Bounds, Summary e :cnpj)', () => {
     beforeAll(async () => {
       await db.query('DELETE FROM anp_stations');
       await db.query('DELETE FROM anp_sync_runs');
@@ -362,7 +650,7 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       const mockFetch = jest.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => sampleFixture
+        json: async () => sampleComplete6
       }));
       await syncUf('DF', { fetchFn: mockFetch, pageDelayMs: 0 });
     });
@@ -385,7 +673,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     });
 
     it('Aplica filtros uf, municipio, bandeira, q, is_active, has_geo e limita limit máximo a 100', async () => {
-      // limit > 100 vira 100
       const rLimit = await request(app)
         .get('/api/anp/stations?limit=500')
         .set('Authorization', 'Bearer ' + tokenManager);
@@ -393,7 +680,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rLimit.body.limit).toBe(100);
       expect(rLimit.body.page).toBe(1);
 
-      // Filtro por bandeira
       const rBandeira = await request(app)
         .get('/api/anp/stations?bandeira=VIBRA')
         .set('Authorization', 'Bearer ' + tokenManager);
@@ -401,7 +687,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rBandeira.body.total).toBe(2);
       expect(rBandeira.body.items.every(i => i.bandeira === 'VIBRA')).toBe(true);
 
-      // Filtro por has_geo=false (apenas o posto sem coordenadas 00001974000190)
       const rNoGeo = await request(app)
         .get('/api/anp/stations?has_geo=false')
         .set('Authorization', 'Bearer ' + tokenManager);
@@ -409,7 +694,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rNoGeo.body.total).toBe(1);
       expect(rNoGeo.body.items[0].cnpj).toBe('00001974000190');
 
-      // Filtro q por nome parcial e por CNPJ formatado
       const rByName = await request(app)
         .get('/api/anp/stations?q=VICENTTE')
         .set('Authorization', 'Bearer ' + tokenManager);
@@ -426,7 +710,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     });
 
     it('Escapa % e _ no filtro q e bloqueia tentativa de SQL injection em q', async () => {
-      // Passar literal "%" NÃO pode retornar todos os registros como wildcard
       const rPercent = await request(app)
         .get('/api/anp/stations')
         .query({ q: '%' })
@@ -448,7 +731,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rSqlInj.status).toBe(200);
       expect(rSqlInj.body.total).toBe(0);
 
-      // Confirma que a tabela segue intacta com os 6 registros
       const rAfter = await request(app)
         .get('/api/anp/stations')
         .set('Authorization', 'Bearer ' + tokenManager);
@@ -493,6 +775,54 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rOk.status).toBe(200);
       expect(rOk.body.cnpj).toBe('48386351000109');
       expect(rOk.body.razao_social).toBe('AUTO POSTO VICENTTE PIRES LTDA');
+      expect(rOk.body.interdicted).toBe(false);
+    });
+
+    it('Endpoints (/api/anp/stations, :cnpj, in-bounds) devolvem o booleano interdicted correto para Interdição, Desinterdição e vazio (C2)', async () => {
+      const cnpjInterd = sampleFixture.data[0].cnpj;
+      const cnpjDesinterd = sampleFixture.data[1].cnpj;
+      const cnpjVazio = sampleFixture.data[2].cnpj;
+
+      await db.query("UPDATE anp_stations SET situacao_sigaf = 'Interdição' WHERE cnpj = $1", [cnpjInterd]);
+      await db.query("UPDATE anp_stations SET situacao_sigaf = 'Desinterdição' WHERE cnpj = $1", [cnpjDesinterd]);
+
+      try {
+        const rInterdicted = await request(app)
+          .get(`/api/anp/stations/${cnpjInterd}`)
+          .set('Authorization', 'Bearer ' + tokenManager);
+        expect(rInterdicted.status).toBe(200);
+        expect(rInterdicted.body.situacao_sigaf).toBe('Interdição');
+        expect(rInterdicted.body.interdicted).toBe(true);
+
+        const rDesinterdicted = await request(app)
+          .get(`/api/anp/stations/${cnpjDesinterd}`)
+          .set('Authorization', 'Bearer ' + tokenManager);
+        expect(rDesinterdicted.status).toBe(200);
+        expect(rDesinterdicted.body.situacao_sigaf).toBe('Desinterdição');
+        expect(rDesinterdicted.body.interdicted).toBe(false);
+
+        const rList = await request(app)
+          .get('/api/anp/stations?uf=DF')
+          .set('Authorization', 'Bearer ' + tokenManager);
+        expect(rList.status).toBe(200);
+        const byCnpj = Object.fromEntries(rList.body.items.map(i => [i.cnpj, i]));
+        expect(byCnpj[cnpjInterd].interdicted).toBe(true);
+        expect(byCnpj[cnpjDesinterd].interdicted).toBe(false);
+        expect(byCnpj[cnpjVazio].interdicted).toBe(false);
+
+        const rBounds = await request(app)
+          .get('/api/anp/stations/in-bounds')
+          .query({ minLat: -16.5, minLng: -48.5, maxLat: -15.0, maxLng: -47.0 })
+          .set('Authorization', 'Bearer ' + tokenManager);
+        expect(rBounds.status).toBe(200);
+        const boundsByCnpj = Object.fromEntries(rBounds.body.items.map(i => [i.cnpj, i]));
+        expect(boundsByCnpj[cnpjInterd].interdicted).toBe(true);
+        expect(boundsByCnpj[cnpjDesinterd].interdicted).toBe(false);
+      } finally {
+        await db.query('UPDATE anp_stations SET situacao_sigaf = NULL WHERE cnpj = ANY($1::char(14)[])', [
+          [cnpjInterd, cnpjDesinterd]
+        ]);
+      }
     });
 
     it('Respostas NÃO contêm nenhuma coluna interna fora da lista permitida (C5)', async () => {
@@ -525,7 +855,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
     });
 
     it('GET /api/anp/stations/in-bounds respeita o teto de 500 postos e devolve truncated:true quando há mais de 500', async () => {
-      // Com os 5 postos georreferenciados atuais em DF, truncated deve ser false
       const rSmall = await request(app)
         .get('/api/anp/stations/in-bounds')
         .query({ minLat: -16.5, minLng: -48.5, maxLat: -15.0, maxLng: -47.0 })
@@ -534,7 +863,6 @@ describe('BLOCO E1 — Catálogo Nacional de Postos ANP (Parser, Sync, Transaç�
       expect(rSmall.body.items.length).toBe(5);
       expect(rSmall.body.truncated).toBe(false);
 
-      // Inserir 505 postos ativos com coordenadas em SP para testar o limite de 500 + truncated: true
       const values = [];
       const params = [];
       let pIdx = 1;
