@@ -9,6 +9,7 @@
  */
 
 const db = require('../config/db');
+const { FUELING_LOG_BASE_COLS, formatFuelingLogRow } = require('./fuelingQuery');
 const dataSource = process.env.DATA_SOURCE || 'mock';
 
 /**
@@ -93,14 +94,19 @@ async function getTruckTelemetry(truckId) {
   const truck = result.rows[0];
 
   const logsResult = await db.query(`
-    SELECT id, timestamp, level_before, level_after, lat, lng, release_method
-    FROM fueling_logs
-    WHERE truck_id = $1
-    ORDER BY timestamp DESC
+    SELECT f.id, f.timestamp, f.level_before, f.level_after, f.lat, f.lng, f.release_method,
+           f.station_name, f.volume_liters, f.data_source,
+           f.anp_station_id, f.station_match_status, f.station_match_distance_m, f.station_match_source,
+           anp.cnpj AS anp_cnpj, anp.razao_social AS anp_razao_social,
+           anp.municipio AS anp_municipio, anp.uf AS anp_uf, anp.bandeira AS anp_bandeira
+    FROM fueling_logs f
+    LEFT JOIN anp_stations anp ON f.anp_station_id = anp.id
+    WHERE f.truck_id = $1
+    ORDER BY f.timestamp DESC
     LIMIT 5
   `, [truckId]);
   
-  truck.recent_fueling = logsResult.rows;
+  truck.recent_fueling = logsResult.rows.map(formatFuelingLogRow);
   return truck;
 }
 
@@ -133,10 +139,13 @@ async function getTruckTelemetry(truckId) {
 async function getFuelingLogs(filters) {
   const { truck_id, driver_id, start, end } = filters || {};
   let query = `
-    SELECT f.*, d.name as driver_name, t.plate, t.model
+    SELECT ${FUELING_LOG_BASE_COLS}, d.name as driver_name, t.plate, t.model,
+           anp.cnpj AS anp_cnpj, anp.razao_social AS anp_razao_social,
+           anp.municipio AS anp_municipio, anp.uf AS anp_uf, anp.bandeira AS anp_bandeira
     FROM fueling_logs f
     LEFT JOIN drivers d ON f.driver_id = d.id
     JOIN trucks t ON f.truck_id = t.id
+    LEFT JOIN anp_stations anp ON f.anp_station_id = anp.id
     WHERE 1=1
   `;
   const values = [];
@@ -150,7 +159,7 @@ async function getFuelingLogs(filters) {
   query += ` ORDER BY f.timestamp DESC LIMIT 100`;
 
   const result = await db.query(query, values);
-  return result.rows;
+  return result.rows.map(formatFuelingLogRow);
 }
 
 /**
