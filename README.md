@@ -25,6 +25,7 @@ Variáveis de Controle Importantes:
 - `GEOFENCE_KM`: Distância em km permitida para autorizar via geofence (padrão `0.2`).
 - `VIRTUAL_HARDWARE_ENABLED`: Ativa a simulação de bomba e trava física de hardware (somente desenvolvimento/demonstração; nunca em produção; desligar quando o hardware real for integrado). Padrão `false`.
 - `ANP_API_BASE`: URL base da API oficial de Revendedores da ANP (padrão `https://revendedoresapi.anp.gov.br/v1`).
+- `STATION_MATCH_RADIUS_M`: Raio máximo em metros para casamento automático de sessões/logs de abastecimento com o catálogo de postos ANP (padrão `150`; aceita valores de `30` a `1000`; caso configurado com valor inválido ou fora do intervalo, o servidor recusa iniciar com erro fatal).
 
 ## Sincronização do Catálogo Nacional de Postos (ANP)
 O painel inclui uma consulta ao cadastro oficial de postos revendedores de combustíveis automotivos de todo o Brasil.

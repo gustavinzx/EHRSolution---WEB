@@ -107,6 +107,8 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
+require('./services/stationMatcher').validateStationMatchRadius(process.env.STATION_MATCH_RADIUS_M);
+
 if (process.env.NODE_ENV !== 'test') {
   require('./services/jwtValidator').validateJwtSecret(process.env.JWT_SECRET, process.env.NODE_ENV);
   server.listen(PORT, async () => {
