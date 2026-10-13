@@ -1,0 +1,356 @@
+{
+  "status": 200,
+  "title": "Dados Encontrados",
+  "succeeded": true,
+  "data": [
+    {
+      "codigoSIMP": "1312394",
+      "autorizacao": "PR/DF0250594",
+      "dataPublicacao": "25/08/2025",
+      "razaoSocial": "AUTO POSTO VICENTTE PIRES LTDA",
+      "cnpj": "48386351000109",
+      "endereco": "RUA RUA 5 CHACARA 99A,  02",
+      "complemento": "",
+      "bairro": "SETOR HABITACIONAL VICENTE PIRES",
+      "cep": "72006027",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "LARCO",
+      "dataVinculacao": "25/08/2025",
+      "classe": "",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 6
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 30,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 6
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 6
+        },
+        {
+          "produto": "ÓLEO DIESEL B S10 - COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 1
+        },
+        {
+          "produto": "ÓLEO DIESEL B S500 - COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 1
+        }
+      ],
+      "latitude": "-15.7944167",
+      "longitude": "-48.01586589",
+      "latitude_ANP4C": "-15:47:39,900",
+      "longitude_ANP4C": "-48:00:57,117",
+      "validacao": "Posição Geográfica não validada",
+      "estimativaAcuracia": "",
+      "srid": "4674",
+      "src": "SIRGAS2000",
+      "dataObtencao": "24/07/2025",
+      "origemInformacao": "Preposto da empresa",
+      "situacaoConstatada": "",
+      "observacao": "",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    },
+    {
+      "codigoSIMP": "1312336",
+      "autorizacao": "PR/DF0250570",
+      "dataPublicacao": "21/08/2025",
+      "razaoSocial": "POSTO NOROESTE 505 LTDA",
+      "cnpj": "61809176000183",
+      "endereco": "SETOR SHCNW CRNW QUADRA 505, BLOCO B,  1",
+      "complemento": "PARTE-B",
+      "bairro": "SETOR NOROESTE",
+      "cep": "70684460",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "BANDEIRA BRANCA",
+      "dataVinculacao": "09/04/2026",
+      "classe": "",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO COMUM",
+          "tancagem": 60,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 12
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 60,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 12
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 60,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 12
+        },
+        {
+          "produto": "ÓLEO DIESEL B S10 - ADITIVADO",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 4
+        }
+      ],
+      "latitude": "-15.7583257",
+      "longitude": "-47.9136494",
+      "latitude_ANP4C": "-15:45:29,973",
+      "longitude_ANP4C": "-47:54:49,138",
+      "validacao": "Posição Geográfica não validada",
+      "estimativaAcuracia": "4",
+      "srid": "4674",
+      "src": "SIRGAS2000",
+      "dataObtencao": "21/09/2026",
+      "origemInformacao": "Agente de fiscalização da ANP",
+      "situacaoConstatada": "200",
+      "observacao": "",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    },
+    {
+      "codigoSIMP": "1048440",
+      "autorizacao": "PR/DF0202446",
+      "dataPublicacao": "01/12/2006",
+      "razaoSocial": "PETROGAMA COMERCIO DE COMBUSTIVEIS LTDA",
+      "cnpj": "07260379000118",
+      "endereco": "QUADRA QUADRA 46 LOTE 24 PAG,  S/N",
+      "complemento": "SETOR CENTRAL",
+      "bairro": "GAMA",
+      "cep": "72405460",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "VIBRA",
+      "dataVinculacao": "05/07/2009",
+      "classe": "",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO ADITIVADO",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 8
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 25,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 10
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 4
+        },
+        {
+          "produto": "ÓLEO DIESEL B S10 - ADITIVADO",
+          "tancagem": 10,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 4
+        },
+        {
+          "produto": "ÓLEO DIESEL B S500 - ADITIVADO",
+          "tancagem": 10,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 2
+        }
+      ],
+      "latitude": "-16.0233167",
+      "longitude": "-48.0718583",
+      "latitude_ANP4C": "-16:01:23,940",
+      "longitude_ANP4C": "-48:04:18,690",
+      "validacao": "Posição Geográfica não validada",
+      "estimativaAcuracia": "4",
+      "srid": "4674",
+      "src": "SIRGAS2000",
+      "dataObtencao": "14/01/2026",
+      "origemInformacao": "Agente de fiscalização da ANP",
+      "situacaoConstatada": "200",
+      "observacao": "",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    },
+    {
+      "codigoSIMP": "1047875",
+      "autorizacao": "PR/DF0201184",
+      "dataPublicacao": "14/11/2006",
+      "razaoSocial": "HELIO PRATES COMERCIO DE COMBUSTIVEIS E DERIVADOS LTDA",
+      "cnpj": "08111678000153",
+      "endereco": "QUADRA QNJ AREA ESPECIAL,  01",
+      "complemento": "",
+      "bairro": "TAGUATINGA",
+      "cep": "72140601",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "IPIRANGA",
+      "dataVinculacao": "14/11/2006",
+      "classe": "",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO COMUM",
+          "tancagem": 25,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 8
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 50,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 8
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 30,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 8
+        },
+        {
+          "produto": "ÓLEO DIESEL B S10 - COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 2
+        }
+      ],
+      "latitude": "-15.8084848",
+      "longitude": "-48.0837048",
+      "latitude_ANP4C": "-15:48:30,545",
+      "longitude_ANP4C": "-48:05:01,337",
+      "validacao": "Posição Geográfica não validada",
+      "estimativaAcuracia": "4",
+      "srid": "4674",
+      "src": "SIRGAS2000",
+      "dataObtencao": "16/06/2026",
+      "origemInformacao": "Agente de fiscalização da ANP",
+      "situacaoConstatada": "200",
+      "observacao": "",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    },
+    {
+      "codigoSIMP": "1055174",
+      "autorizacao": "PR/DF0197660",
+      "dataPublicacao": "09/05/2007",
+      "razaoSocial": "BANTA COMERCIO DE COMBUSTIVEIS LTDA",
+      "cnpj": "07917405000138",
+      "endereco": "AREA ADE CONJUNTO 23,  LT 35",
+      "complemento": "E 36",
+      "bairro": "AREA DE DESENVOLVIMENTO ECONOMICO (AGUAS CLARAS)",
+      "cep": "71990180",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "RAIZEN",
+      "dataVinculacao": "26/06/2017",
+      "classe": "",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 2
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 30,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 7
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 3
+        },
+        {
+          "produto": "ÓLEO DIESEL B S10 - COMUM",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 2
+        }
+      ],
+      "latitude": "-15.8763382",
+      "longitude": "-47.9992381",
+      "latitude_ANP4C": "-15:52:34,818",
+      "longitude_ANP4C": "-47:59:57,257",
+      "validacao": "Posição Geográfica não validada",
+      "estimativaAcuracia": "5",
+      "srid": "4674",
+      "src": "SIRGAS2000",
+      "dataObtencao": "20/08/2026",
+      "origemInformacao": "Agente de fiscalização da ANP",
+      "situacaoConstatada": "200",
+      "observacao": "",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    },
+    {
+      "codigoSIMP": "1000253",
+      "autorizacao": "PR/DF0012537",
+      "dataPublicacao": "04/01/2018",
+      "razaoSocial": "POSTO 81 LTDA",
+      "cnpj": "00001974000190",
+      "endereco": " LOC  CNN 2,  SN",
+      "complemento": "LOTE A",
+      "bairro": "CEILANDIA",
+      "cep": "72220500",
+      "uf": "DF",
+      "municipio": "BRASILIA",
+      "distribuidora": "VIBRA",
+      "dataVinculacao": "04/01/2018",
+      "classe": "1 ÁREA  - Classe I - Port. DNC 27/96",
+      "produtos": [
+        {
+          "produto": "ETANOL HIDRATADO ADITIVADO",
+          "tancagem": 45,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 12
+        },
+        {
+          "produto": "GASOLINA C COMUM",
+          "tancagem": 60,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 12
+        },
+        {
+          "produto": "GASOLINA C COMUM ADITIVADA",
+          "tancagem": 15,
+          "unidMedidaTancagem": "m³",
+          "qtdeBicos": 4
+        }
+      ],
+      "latitude": "",
+      "longitude": "",
+      "latitude_ANP4C": "",
+      "longitude_ANP4C": "",
+      "validacao": "",
+      "estimativaAcuracia": "",
+      "srid": "",
+      "src": "",
+      "dataObtencao": "30/07/2026",
+      "origemInformacao": "Agente de fiscalização da ANP",
+      "situacaoConstatada": "400",
+      "observacao": "Área com instalação demolida",
+      "statusSIGAF": "",
+      "inadimplenciaPMQC": []
+    }
+  ],
+  "searchPageFilter": {
+    "filtroPesquisa": "",
+    "numeroPagina": 1,
+    "tamanhoPagina": 5000,
+    "totalRegistro": 392,
+    "totalPagina": 1
+  }
+}

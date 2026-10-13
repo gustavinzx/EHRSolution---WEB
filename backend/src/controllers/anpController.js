@@ -66,7 +66,8 @@ exports.listStations = async (req, res) => {
     if (req.query.q !== undefined && String(req.query.q).trim() !== '') {
       const qRaw = String(req.query.q).trim();
       const qEscaped = `%${escapeLike(qRaw)}%`;
-      const qDigits = qRaw.replace(/\D/g, '');
+      const isFormattedCnpjQuery = /^[\d.\-/\s]+$/.test(qRaw);
+      const qDigits = isFormattedCnpjQuery ? qRaw.replace(/\D/g, '') : '';
       if (qDigits && qDigits !== qRaw) {
         const qDigitsEscaped = `%${escapeLike(qDigits)}%`;
         conditions.push(
