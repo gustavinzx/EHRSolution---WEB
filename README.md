@@ -24,6 +24,23 @@ Variáveis de Controle Importantes:
 - `FACIAL_ATTEMPTS_RETENTION_DAYS`: Dias de retenção dos metadados de biometria facial (padrão `90`).
 - `GEOFENCE_KM`: Distância em km permitida para autorizar via geofence (padrão `0.2`).
 - `VIRTUAL_HARDWARE_ENABLED`: Ativa a simulação de bomba e trava física de hardware (somente desenvolvimento/demonstração; nunca em produção; desligar quando o hardware real for integrado). Padrão `false`.
+- `ANP_API_BASE`: URL base da API oficial de Revendedores da ANP (padrão `https://revendedoresapi.anp.gov.br/v1`).
+
+## Sincronização do Catálogo Nacional de Postos (ANP)
+O painel inclui uma consulta ao cadastro oficial de postos revendedores de combustíveis automotivos de todo o Brasil.
+- **Fonte Oficial**: Dados Abertos e API de Consulta de Revendedores da ANP (`https://revendedoresapi.anp.gov.br/v1`).
+- **Como sincronizar**:
+  1. Para sincronizar uma UF específica (ex.: Distrito Federal):
+     ```bash
+     cd backend
+     npm run anp:sync -- --uf DF
+     ```
+  2. Para sincronizar todas as 27 UFs do Brasil (uma por vez, com intervalo entre requisições):
+     ```bash
+     cd backend
+     npm run anp:sync
+     ```
+- **Aviso sobre novos cadastros**: Como os dados provêm da base pública oficial da ANP, postos recém-abertos ou alterações cadastrais recentes dependem do processamento e publicação pela própria ANP e podem demorar a aparecer no catálogo. A sincronização é executada sob demanda via CLI (não roda automaticamente no boot do servidor nem durante a suíte de testes).
 
 ## Como rodar localmente
 1. **Banco de Dados**: Suba via `docker-compose up -d`.
@@ -37,3 +54,4 @@ Variáveis de Controle Importantes:
    - `npm run dev`
 
 Para mais detalhes sobre as rotas mobile e a integração com a placa IoT, consulte a [Documentação da API Mobile (API_MOBILE.md)](docs/API_MOBILE.md).
+
