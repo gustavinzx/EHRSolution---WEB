@@ -25,6 +25,7 @@ Variáveis de Controle Importantes:
 - `GEOFENCE_KM`: Distância em km permitida para autorizar via geofence (padrão `0.2`).
 - `VIRTUAL_HARDWARE_ENABLED`: Ativa a simulação de bomba e trava física de hardware (somente desenvolvimento/demonstração; nunca em produção; desligar quando o hardware real for integrado). Padrão `false`.
 - `ANP_API_BASE`: URL base da API oficial de Revendedores da ANP (padrão `https://revendedoresapi.anp.gov.br/v1`).
+- `ANP_UF_DELAY_MS`: Pausa em milissegundos entre cada UF durante `npm run anp:sync` (padrão `3000` ms). Em respostas HTTP 429/503 da ANP, o cliente respeita o header `Retry-After` (limitado a 120s) ou aplica backoff progressivo de 5s, 15s e 45s, reprocessando uma última vez ao final da fila as UFs que tiverem falhado com HTTP 429.
 - `STATION_MATCH_RADIUS_M`: Raio máximo em metros para casamento automático de sessões/logs de abastecimento com o catálogo de postos ANP (padrão `150`; aceita valores de `30` a `1000`; caso configurado com valor inválido ou fora do intervalo, o servidor recusa iniciar com erro fatal).
 
 ## Sincronização do Catálogo Nacional de Postos (ANP)
