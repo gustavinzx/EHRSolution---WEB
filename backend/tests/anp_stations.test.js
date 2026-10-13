@@ -548,7 +548,9 @@ describe('Catálogo Nacional de Postos ANP (Parser, Sync, Trava de Desativação
           ufs: ['DF', 'GO', 'MG'],
           fetchFn: mockFetchMultiUf,
           pageDelayMs: 0,
+          ufDelayMs: 0,
           retryBaseDelayMs: 5,
+          rateLimitDelaysMs: [5, 10, 15],
           skipMigrations: true,
           closePool: false
         });
@@ -576,6 +578,140 @@ describe('Catálogo Nacional de Postos ANP (Parser, Sync, Trava de Desativação
         errSpy.mockRestore();
         logSpy.mockRestore();
       }
+    });
+
+    it('F3(a) fetchAnpPageWithRetry: resposta 429 com Retry-After: 2 seguida de 200 tem sucesso e respeita a espera (e limita a 120s / aplica 5s,15s,45s sem header)', async () => {
+      const sleeps = [];
+      const sleepFn = jest.fn(async (ms) => {
+        sleeps.push(ms);
+      });
+
+      let calls = 0;
+      const mockFetchRetryAfter2 = jest.fn(async () => {
+        calls++;
+        if (calls === 1) {
+          return {
+            ok: false,
+            status: 429,
+            headers: {
+              get: (name) => (String(name).toLowerCase() === 'retry-after' ? '2' : null)
+            },
+            json: async () => ({})
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => sampleComplete6
+        };
+      });
+
+      const pageRes = await fetchAnpPageWithRetry('DF', 1, {
+        fetchFn: mockFetchRetryAfter2,
+        sleepFn
+      });
+      expect(calls).toBe(2);
+      expect(pageRes.items.length).toBe(6);
+      expect(sleeps).toEqual([2000]);
+
+      // Verifica também que sem header Retry-After aplica 5000ms e 15000ms, e que Retry-After > 120 é limitado a 120000ms
+      const sleepsBackoff = [];
+      let backoffCalls = 0;
+      const mockFetchNoHeaderThenCap = jest.fn(async () => {
+        backoffCalls++;
+        if (backoffCalls === 1) {
+          return { ok: false, status: 429, headers: {}, json: async () => ({}) };
+        }
+        if (backoffCalls === 2) {
+          return {
+            ok: false,
+            status: 503,
+            headers: { 'Retry-After': '300' },
+            json: async () => ({})
+          };
+        }
+        return { ok: true, status: 200, json: async () => sampleComplete6 };
+      });
+
+      const res2 = await fetchAnpPageWithRetry('DF', 1, {
+        fetchFn: mockFetchNoHeaderThenCap,
+        sleepFn: async (ms) => sleepsBackoff.push(ms)
+      });
+      expect(res2.items.length).toBe(6);
+      expect(sleepsBackoff).toEqual([5000, 120000]);
+    });
+
+    it('F3(b) syncAll reprocessa no final uma UF que falhou com 429 na primeira passada', async () => {
+      const dfStations = makeRawStations(2, 'DF');
+      const esStations = makeRawStations(3, 'ES');
+      const mgStations = makeRawStations(2, 'MG');
+
+      const ufCallOrder = [];
+      let esAttempts = 0;
+      const sleepsBetweenUfs = [];
+
+      const mockFetch429ThenOk = jest.fn(async (url) => {
+        const ufMatch = url.match(/uf=([A-Z]{2})/);
+        const uf = ufMatch ? ufMatch[1] : '??';
+        ufCallOrder.push(uf);
+
+        if (uf === 'ES') {
+          esAttempts++;
+          if (esAttempts <= 2) {
+            return {
+              ok: false,
+              status: 429,
+              headers: { 'retry-after': '1' },
+              json: async () => ({})
+            };
+          }
+        }
+
+        const list = uf === 'DF' ? dfStations : uf === 'ES' ? esStations : mgStations;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 200,
+            succeeded: true,
+            data: list,
+            searchPageFilter: {
+              numeroPagina: 1,
+              tamanhoPagina: 5000,
+              totalRegistro: list.length,
+              totalPagina: 1
+            }
+          })
+        };
+      });
+
+      const results = await syncAll({
+        ufs: ['DF', 'ES', 'MG'],
+        maxRetries: 2,
+        ufDelayMs: 3000,
+        pageDelayMs: 0,
+        fetchFn: mockFetch429ThenOk,
+        sleepFn: async (ms) => sleepsBetweenUfs.push(ms)
+      });
+
+      // Ordem esperada de chamadas HTTP: DF (1x), ES (2x falha com 429 na 1ª passada), MG (1x), ES (1x sucesso no reprocessamento final)
+      expect(ufCallOrder).toEqual(['DF', 'ES', 'ES', 'MG', 'ES']);
+      expect(results.map(r => ({ scope: r.scope, status: r.status }))).toEqual([
+        { scope: 'DF', status: 'succeeded' },
+        { scope: 'ES', status: 'succeeded' },
+        { scope: 'MG', status: 'succeeded' }
+      ]);
+      // Deve ter pausado 3000ms entre UFs (DF->ES, ES->MG, MG->ES retry) e 1000ms do Retry-After na tentativa interna de ES
+      expect(sleepsBetweenUfs).toEqual([3000, 1000, 3000, 3000]);
+
+      const counts = await db.query(
+        "SELECT uf, COUNT(*)::int AS cnt FROM anp_stations WHERE uf IN ('DF', 'ES', 'MG') GROUP BY uf ORDER BY uf ASC"
+      );
+      expect(counts.rows).toEqual([
+        { uf: 'DF', cnt: 2 },
+        { uf: 'ES', cnt: 3 },
+        { uf: 'MG', cnt: 2 }
+      ]);
     });
 
     it('Falha no meio da paginação faz ROLLBACK completo da UF e NÃO desativa nenhum posto existente', async () => {

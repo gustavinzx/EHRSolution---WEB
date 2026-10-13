@@ -1,6 +1,9 @@
 const db = require('../config/db');
 
 const ACTIVE_SESSION_MINUTES = 15;
+const SESSION_RETURN_COLS = `id, truck_id, driver_id, status, release_method, station_id, pump_liters, tank_liters_delta, requested_at, authorized_at, started_at, completed_at, expires_at, duration_minutes, data_source`;
+const SECURITY_EVENT_RETURN_COLS = `id, truck_id, type, severity, source, payload, lat, lng, created_at`;
+const ALERT_RETURN_COLS = `id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id`;
 
 async function getTruck(truckId) {
   const { rows } = await db.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truckId]);
@@ -16,7 +19,7 @@ async function requestFuelingSession({ truckId, driverId }) {
       AND expires_at IS NOT NULL AND expires_at < NOW()`, [truckId]);
   const { rows } = await db.query(`
     INSERT INTO fueling_sessions (truck_id, driver_id, status, expires_at)
-    VALUES ($1, $2, 'requested', NOW() + INTERVAL '5 minutes') RETURNING *`, [truckId, driverId || null]);
+    VALUES ($1, $2, 'requested', NOW() + INTERVAL '5 minutes') RETURNING ${SESSION_RETURN_COLS}`, [truckId, driverId || null]);
   return rows[0];
 }
 
@@ -25,7 +28,7 @@ async function authorizeFuelingSession(sessionId, releaseMethod = 'facial') {
     UPDATE fueling_sessions
     SET status = 'active', release_method = $2, authorized_at = NOW(), started_at = NOW(),
         expires_at = NOW() + INTERVAL '${ACTIVE_SESSION_MINUTES} minutes'
-    WHERE id = $1 AND status = 'requested' RETURNING *`, [sessionId, releaseMethod]);
+    WHERE id = $1 AND status = 'requested' RETURNING ${SESSION_RETURN_COLS}`, [sessionId, releaseMethod]);
   if (!rows[0]) throw Object.assign(new Error('Fueling session is no longer available'), { status: 409 });
   await db.query(`UPDATE trucks SET sim_state = 'fueling', status = 'fueling' WHERE id = $1`, [rows[0].truck_id]);
   return rows[0];
@@ -33,7 +36,7 @@ async function authorizeFuelingSession(sessionId, releaseMethod = 'facial') {
 
 async function finishFuelingSession(sessionId) {
   const { rows } = await db.query(`UPDATE fueling_sessions SET status = 'completed', completed_at = NOW()
-    WHERE id = $1 AND status IN ('authorized','active') RETURNING *`, [sessionId]);
+    WHERE id = $1 AND status IN ('authorized','active') RETURNING ${SESSION_RETURN_COLS}`, [sessionId]);
   if (!rows[0]) throw Object.assign(new Error('Active fueling session not found'), { status: 404 });
   return rows[0];
 }
@@ -52,7 +55,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
   
   const { rows: events } = await runner.query(`INSERT INTO security_events
-    (truck_id, type, severity, source, payload) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    (truck_id, type, severity, source, payload) VALUES ($1,$2,$3,$4,$5) RETURNING ${SECURITY_EVENT_RETURN_COLS}`,
     [truckId, type, eventSeverity, source, JSON.stringify(payload)]);
     
   let alert = null;
@@ -69,7 +72,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
       driver_deactivated: 'Motorista desativado ativamente. Operações suspensas.'
     };
     const { rows } = await runner.query(`INSERT INTO fleet_alerts
-      (truck_id, type, severity, message, plate, model) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      (truck_id, type, severity, message, plate, model) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${ALERT_RETURN_COLS}`,
       [truckId, `security_${type}`, eventSeverity, messageByType[type] || 'Evento de segurança detectado.', truck?.plate, truck?.model]);
     alert = rows[0];
     

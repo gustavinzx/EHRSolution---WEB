@@ -47,6 +47,7 @@ async function checkAndProcessSessions(io) {
     // 2. Sessões em andamento há mais de 8s -> Finalizar com medição de combustível
     const { rows: activeSessions } = await db.query(`
       SELECT s.id, s.truck_id, s.driver_id, s.status, s.station_id, s.release_method, s.authorized_at, s.started_at,
+             s.anp_station_id, s.station_match_status, s.station_match_distance_m, s.station_match_source,
              t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
              fs.name AS station_name
       FROM fueling_sessions s
@@ -71,14 +72,17 @@ async function checkAndProcessSessions(io) {
         INSERT INTO fueling_logs
           (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
            station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
-           pump_liters, tank_liters_delta, data_source)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, 'simulated')
+           pump_liters, tank_liters_delta, data_source,
+           anp_station_id, station_match_status, station_match_distance_m, station_match_source)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, 'simulated', $16, $17, $18, $19)
         RETURNING id
       `, [
         sess.id, sess.driver_id, sess.truck_id, sess.lat, sess.lng,
         currentLevel, levelAfter, sess.release_method || 'facial',
         sess.station_id || sess.fuel_station_id, sess.station_name,
-        sess.started_at, durationMin, volume, volume, volume
+        sess.started_at, durationMin, volume, volume, volume,
+        sess.anp_station_id || null, sess.station_match_status || null,
+        sess.station_match_distance_m ?? null, sess.station_match_source || null
       ]);
 
       await db.query(`

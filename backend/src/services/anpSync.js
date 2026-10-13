@@ -141,12 +141,30 @@ function parseAnpPage(payload) {
   };
 }
 
+function parseRetryAfterMs(headers) {
+  if (!headers) return null;
+  let raw = null;
+  if (typeof headers.get === 'function') {
+    raw = headers.get('retry-after') ?? headers.get('Retry-After');
+  } else if (typeof headers === 'object') {
+    raw = headers['retry-after'] ?? headers['Retry-After'];
+  }
+  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+  const seconds = Number(String(raw).trim());
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return Math.min(seconds, 120) * 1000;
+}
+
+const RATE_LIMIT_BACKOFF_MS = [5000, 15000, 45000];
+
 async function fetchAnpPageWithRetry(uf, page, options = {}) {
   const baseUrl = (options.baseUrl || process.env.ANP_API_BASE || DEFAULT_ANP_API_BASE).replace(/\/+$/, '');
   const timeoutMs = options.timeoutMs ?? 30000;
   const maxRetries = options.maxRetries ?? 3;
   const retryBaseDelayMs = options.retryBaseDelayMs ?? 1000;
+  const rateLimitDelaysMs = Array.isArray(options.rateLimitDelaysMs) ? options.rateLimitDelaysMs : RATE_LIMIT_BACKOFF_MS;
   const fetchFn = options.fetchFn || global.fetch;
+  const sleepFn = options.sleepFn || sleep;
 
   const url = `${baseUrl}/combustivel?uf=${encodeURIComponent(uf)}&numeropagina=${page}`;
   let lastError = null;
@@ -166,7 +184,12 @@ async function fetchAnpPageWithRetry(uf, page, options = {}) {
       clearTimeout(timer);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ao consultar ANP (${uf} p.${page})`);
+        const httpErr = new Error(`HTTP ${response.status} ao consultar ANP (${uf} p.${page})`);
+        httpErr.status = response.status;
+        if (response.status === 429 || response.status === 503) {
+          httpErr.retryAfterMs = parseRetryAfterMs(response.headers);
+        }
+        throw httpErr;
       }
 
       const json = await response.json();
@@ -175,7 +198,13 @@ async function fetchAnpPageWithRetry(uf, page, options = {}) {
       clearTimeout(timer);
       lastError = err;
       if (attempt < maxRetries) {
-        await sleep(retryBaseDelayMs * attempt);
+        let waitMs;
+        if (err && (err.status === 429 || err.status === 503)) {
+          waitMs = err.retryAfterMs ?? rateLimitDelaysMs[attempt - 1] ?? rateLimitDelaysMs[rateLimitDelaysMs.length - 1] ?? 45000;
+        } else {
+          waitMs = retryBaseDelayMs * attempt;
+        }
+        await sleepFn(waitMs);
       }
     }
   }
@@ -191,6 +220,7 @@ async function syncUf(uf, options = {}) {
 
   const pageDelayMs = options.pageDelayMs ?? 1000;
   const allowMassDeactivation = Boolean(options.allowMassDeactivation);
+  const sleepFn = options.sleepFn || sleep;
 
   const runRes = await db.query(
     `INSERT INTO anp_sync_runs (scope, status, started_at)
@@ -226,7 +256,7 @@ async function syncUf(uf, options = {}) {
 
     while (currentPage <= totalPages) {
       if (currentPage > 1 && pageDelayMs > 0) {
-        await sleep(pageDelayMs);
+        await sleepFn(pageDelayMs);
       }
 
       const pageData = await fetchAnpPageWithRetry(ufNorm, currentPage, options);
@@ -422,23 +452,37 @@ async function syncUf(uf, options = {}) {
   }
 }
 
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.status === 429) return true;
+  const msg = String(err.message || err);
+  return /\bHTTP 429\b/i.test(msg);
+}
+
 async function syncAll(options = {}) {
-  const pageDelayMs = options.pageDelayMs ?? 1000;
+  const rawEnvDelay = process.env.ANP_UF_DELAY_MS;
+  const envUfDelay = rawEnvDelay !== undefined && String(rawEnvDelay).trim() !== ''
+    ? Number(rawEnvDelay)
+    : 3000;
+  const defaultUfDelay = Number.isFinite(envUfDelay) && envUfDelay >= 0 ? envUfDelay : 3000;
+  const ufDelayMs = options.ufDelayMs ?? options.pageDelayMs ?? defaultUfDelay;
+  const sleepFn = options.sleepFn || sleep;
   const ufs = Array.isArray(options.ufs) && options.ufs.length > 0 ? options.ufs : ALL_UFS;
   const results = [];
   const failures = [];
+  const rateLimitedRetries = [];
 
   for (let i = 0; i < ufs.length; i++) {
     const uf = ufs[i];
-    if (i > 0 && pageDelayMs > 0) {
-      await sleep(pageDelayMs);
+    if (i > 0 && ufDelayMs > 0) {
+      await sleepFn(ufDelayMs);
     }
     try {
       const res = await syncUf(uf, options);
       results.push(res);
     } catch (err) {
       const errorMsg = err?.message || String(err);
-      failures.push({ uf, error: errorMsg });
+      const resultIndex = results.length;
       results.push({
         scope: uf,
         status: 'failed',
@@ -448,6 +492,33 @@ async function syncAll(options = {}) {
         deactivated: 0,
         error: errorMsg
       });
+      if (isRateLimitError(err)) {
+        rateLimitedRetries.push({ uf, resultIndex });
+      } else {
+        failures.push({ uf, error: errorMsg });
+      }
+    }
+  }
+
+  for (const item of rateLimitedRetries) {
+    if (ufDelayMs > 0) {
+      await sleepFn(ufDelayMs);
+    }
+    try {
+      const retryRes = await syncUf(item.uf, options);
+      results[item.resultIndex] = retryRes;
+    } catch (retryErr) {
+      const retryErrorMsg = retryErr?.message || String(retryErr);
+      results[item.resultIndex] = {
+        scope: item.uf,
+        status: 'failed',
+        fetched: 0,
+        inserted: 0,
+        updated: 0,
+        deactivated: 0,
+        error: retryErrorMsg
+      };
+      failures.push({ uf: item.uf, error: retryErrorMsg });
     }
   }
 

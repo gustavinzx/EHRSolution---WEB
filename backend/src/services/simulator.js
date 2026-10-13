@@ -1,6 +1,7 @@
 "use strict";
 const db = require("../config/db");
 const { buildReturnRoute, buildReturnToBase } = require("./returnRoute");
+const stationMatcher = require("./stationMatcher");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TICK_MS             = 3000;   // 3s per tick
@@ -63,7 +64,9 @@ async function findBestStation(truck, route, currentIndex) {
   const truckLat    = parseFloat(truck.lat);
   const truckLng    = parseFloat(truck.lng);
 
-  const { rows: stations } = await db.query("SELECT * FROM fuel_stations WHERE active = true");
+  const { rows: stations } = await db.query(
+    "SELECT id, name, lat, lng, active FROM fuel_stations WHERE active = true"
+  );
   
   const candidates = stations
     .map(s => ({
@@ -135,11 +138,30 @@ async function simulateFleet(io) {
           );
           const driverId = driverRows[0]?.driver_id || null;
 
+          const hasCoords = truck.lat !== null && truck.lat !== undefined && truck.lng !== null && truck.lng !== undefined &&
+                            Number.isFinite(Number(truck.lat)) && Number.isFinite(Number(truck.lng));
+          const matchSource = hasCoords ? "truck_telemetry" : null;
+          let matchResult = { status: "no_position", station: null, distanceM: null };
+          try {
+            matchResult = await stationMatcher.resolveStation({
+              lat: hasCoords ? Number(truck.lat) : null,
+              lng: hasCoords ? Number(truck.lng) : null,
+            });
+          } catch (matchErr) {
+            console.error("[SIM] Falha não-bloqueante ao resolver posto ANP:", matchErr.message);
+            matchResult = { status: "no_position", station: null, distanceM: null };
+          }
+
           await db.query(
-            `INSERT INTO fueling_logs (driver_id, truck_id, lat, lng, level_before, level_after, release_method, station_id, station_name, started_at, completed_at, volume_liters)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() - INTERVAL '3 minutes',NOW(),$10)`,
+            `INSERT INTO fueling_logs
+              (driver_id, truck_id, lat, lng, level_before, level_after, release_method,
+               station_id, station_name, started_at, completed_at, volume_liters, data_source,
+               anp_station_id, station_match_status, station_match_distance_m, station_match_source)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() - INTERVAL '3 minutes',NOW(),$10,'simulated',$11,$12,$13,$14)`,
             [driverId, truck.id, truck.lat, truck.lng, levelBefore, levelAfter, method,
-             truck.fuel_station_id || null, truck.station_name || null, levelAfter - levelBefore]
+             truck.fuel_station_id || null, truck.station_name || null, levelAfter - levelBefore,
+             matchResult.station?.id || null, matchResult.status || "no_position",
+             matchResult.distanceM ?? null, matchSource]
           );
 
           // Fecha a sessão autorizada correspondente quando o abastecimento automático termina.
@@ -209,7 +231,7 @@ async function simulateFleet(io) {
         );
         if (existing.length === 0) {
           const { rows: alert } = await db.query(
-            "INSERT INTO fleet_alerts (truck_id,type,severity,message,plate,model) VALUES ($1,'destination_arrived','low',$2,$3,$4) RETURNING *",
+            "INSERT INTO fleet_alerts (truck_id,type,severity,message,plate,model) VALUES ($1,'destination_arrived','low',$2,$3,$4) RETURNING id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id",
             [truck.id, `Caminhão chegou ao destino: ${truck.dest_name || "destino final"}.`, truck.plate, truck.model]
           );
           if (io && alert[0]) io.emit("newAlert", alert[0]);

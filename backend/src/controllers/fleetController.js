@@ -150,11 +150,15 @@ exports.getDashboardStats = async (req, res) => {
 };
 
 const { buildReturnToBase } = require('../services/returnRoute');
+const { FUELING_LOG_BASE_COLS, formatFuelingLogRow } = require('../services/fuelingQuery');
 
 exports.cancelRoute = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rows } = await db.query("SELECT * FROM trucks WHERE id=$1", [id]);
+    const { rows } = await db.query(
+      "SELECT id, plate, model, lat, lng, origin_name, dest_name, route_geometry, planned_route_geometry, route_index, route_resume_index FROM trucks WHERE id=$1",
+      [id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: 'Truck not found' });
     const truck = rows[0];
 
@@ -214,18 +218,28 @@ exports.getInvestigation = async (req, res) => {
        ORDER BY timestamp DESC LIMIT 20`, [id]
     );
 
-    const { rows: fuelingLogs } = await db.query(
-      `SELECT f.*, fs.name AS station_name, fs.lat AS station_lat, fs.lng AS station_lng,
-              d.name AS driver_name
+    const { rows: rawFuelingLogs } = await db.query(
+      `SELECT ${FUELING_LOG_BASE_COLS},
+              COALESCE(f.station_name, fs.name) AS station_name,
+              fs.lat AS station_lat, fs.lng AS station_lng,
+              d.name AS driver_name,
+              anp.cnpj AS anp_cnpj, anp.razao_social AS anp_razao_social,
+              anp.municipio AS anp_municipio, anp.uf AS anp_uf, anp.bandeira AS anp_bandeira
        FROM fueling_logs f
        LEFT JOIN fuel_stations fs ON f.station_id = fs.id
        LEFT JOIN drivers d ON f.driver_id = d.id
+       LEFT JOIN anp_stations anp ON f.anp_station_id = anp.id
        WHERE f.truck_id = $1
        ORDER BY f.timestamp DESC LIMIT 10`, [id]
     );
+    const fuelingLogs = rawFuelingLogs.map(formatFuelingLogRow);
 
     const { rows: sessions } = await db.query(
-      `SELECT s.*, d.name AS driver_name, fs.name AS station_name
+      `SELECT s.id, s.truck_id, s.driver_id, s.status, s.release_method,
+              s.station_id, s.pump_liters, s.tank_liters_delta,
+              s.requested_at, s.authorized_at, s.started_at, s.completed_at, s.expires_at,
+              s.duration_minutes, s.data_source,
+              d.name AS driver_name, fs.name AS station_name
        FROM fueling_sessions s
        LEFT JOIN drivers d ON s.driver_id = d.id
        LEFT JOIN fuel_stations fs ON s.station_id = fs.id
@@ -234,7 +248,8 @@ exports.getInvestigation = async (req, res) => {
     );
 
     const { rows: alerts } = await db.query(
-      `SELECT * FROM fleet_alerts WHERE truck_id = $1
+      `SELECT id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id
+       FROM fleet_alerts WHERE truck_id = $1
        ORDER BY created_at DESC LIMIT 20`, [id]
     );
 

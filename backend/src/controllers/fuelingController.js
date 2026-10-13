@@ -4,6 +4,19 @@ const faceProvider = require("../services/faceProvider");
 const { buildReturnRoute } = require("../services/returnRoute");
 const security = require("../services/securityService");
 const { releaseTruckIfIdle } = require("../services/sessionRelease");
+const stationMatcher = require("../services/stationMatcher");
+const { evaluateAnpStationAlertForLog } = require("../services/anomalyDetector");
+
+const SESSION_PUBLIC_COLS = `
+  s.id, s.truck_id, s.driver_id, s.status, s.release_method,
+  s.requested_at, s.authorized_at, s.started_at, s.completed_at,
+  s.expires_at, s.station_id, s.duration_minutes, s.metadata,
+  s.pump_liters, s.tank_liters_delta, s.data_source,
+  s.facial_verified_at, s.facial_attempt_id, s.facial_consumed_at,
+  s.ble_confirmed_at, s.ble_consumed_at
+`;
+
+const ALERT_PUBLIC_COLS = `id, truck_id, type, severity, message, plate, model, resolved_at, resolution_note, resolved_by, created_at, fueling_log_id`;
 
 function safeSessionProjection(s) {
   if (!s) return null;
@@ -53,7 +66,7 @@ async function driverOwnsTruck(driverId, truckId) {
 
 async function loadSession(id) {
   const { rows } = await db.query(
-    `SELECT s.*, t.plate, t.model, d.name AS driver_name, fs.name AS station_name
+    `SELECT ${SESSION_PUBLIC_COLS}, t.plate, t.model, d.name AS driver_name, fs.name AS station_name
        FROM fueling_sessions s
        JOIN trucks t ON t.id = s.truck_id
        LEFT JOIN drivers d ON d.id = s.driver_id
@@ -86,7 +99,7 @@ async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}, acto
             ble_consumed_at = CASE WHEN $4 = 'ble_fallback' THEN NOW() ELSE ble_consumed_at END,
             expires_at = NOW() + INTERVAL '${SESSION_TTL_MIN} minutes',
             metadata = COALESCE(metadata,'{}'::jsonb) || $3::jsonb
-      WHERE id=$1 AND status IN ('requested') RETURNING *`,
+      WHERE id=$1 AND status IN ('requested') RETURNING id, truck_id`,
     [sessionId, releaseMethod, JSON.stringify(extraMeta), releaseMethod]
   );
   if (!rows[0]) return null;
@@ -100,11 +113,11 @@ async function authorizeAndUnlock(sessionId, releaseMethod, extraMeta = {}, acto
 // ─── Fueling Logs ────────────────────────────────────────────────────────────
 exports.list = async (req, res) => {
   try {
-    const { buildFuelingLogsQuery } = require('../services/fuelingQuery');
+    const { buildFuelingLogsQuery, formatFuelingLogRow } = require('../services/fuelingQuery');
     let { query, values } = await buildFuelingLogsQuery(req.query);
     query += " LIMIT 100";
     const { rows } = await db.query(query, values);
-    res.json(rows);
+    res.json(rows.map(formatFuelingLogRow));
   } catch (err) {
     console.error("List fueling logs error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -170,7 +183,7 @@ exports.authorizeSession = async (req, res) => {
   try {
     const { id } = req.params;
     const { rows: sessions } = await db.query(
-      `SELECT s.*, t.lat as truck_lat, t.lng as truck_lng,
+      `SELECT ${SESSION_PUBLIC_COLS}, t.lat as truck_lat, t.lng as truck_lng,
               fs.lat as station_lat, fs.lng as station_lng
          FROM fueling_sessions s
          JOIN trucks t ON s.truck_id = t.id
@@ -226,16 +239,45 @@ exports.authorizeSession = async (req, res) => {
       }
     }
 
+    try {
+      const hasBodyCoords =
+        req.body?.lat !== undefined &&
+        req.body?.lat !== null &&
+        req.body?.lng !== undefined &&
+        req.body?.lng !== null;
+      const matchRes = await stationMatcher.resolveStation({ lat, lng });
+      const matchedId = matchRes?.station?.id || null;
+      const matchedStatus = matchRes?.status || "no_position";
+      const matchedDist = matchRes?.distanceM ?? matchRes?.distance_m ?? null;
+      const matchSource =
+        matchedStatus === "no_position"
+          ? null
+          : hasBodyCoords
+            ? "app_gps"
+            : "truck_telemetry";
+      await db.query(
+        `UPDATE fueling_sessions
+            SET anp_station_id = $1,
+                station_match_status = $2,
+                station_match_distance_m = $3,
+                station_match_source = $4
+          WHERE id = $5`,
+        [matchedId, matchedStatus, matchedDist, matchSource, id]
+      );
+    } catch (matchErr) {
+      console.error("[STATION-MATCH] Falha ao resolver posto ANP no authorize:", matchErr.message);
+    }
+
     const method = req.actor.type === "manager" ? "manager_override" : (session.release_method || "facial");
     const updated = await authorizeAndUnlock(id, method, { authorized_by: req.actor.type, authorized_by_id: req.actor.id }, req.actor.type);
     if (!updated) return res.status(409).json({ error: "Sessão já foi processada" });
-      if (effectiveMethod === 'ble_fallback') {
-        const al = await db.query(`INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model) 
-          SELECT $1, 'ble_fallback_used', 'medium', 'Abastecimento liberado via BLE Fallback sem biometria facial.', t.plate, t.model
-          FROM trucks t WHERE t.id = $1 RETURNING *`, [session.truck_id]);
-        if (req.io && al.rows[0]) req.io.emit('newAlert', al.rows[0]);
-      }
-      const full = await loadSession(id);
+    if (effectiveMethod === 'ble_fallback') {
+      const al = await db.query(`INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model) 
+        SELECT $1, 'ble_fallback_used', 'medium', 'Abastecimento liberado via BLE Fallback sem biometria facial.', t.plate, t.model
+        FROM trucks t WHERE t.id = $1 RETURNING ${ALERT_PUBLIC_COLS}`, [session.truck_id]);
+      if (req.io && al.rows[0]) req.io.emit('newAlert', al.rows[0]);
+    }
+    const full = await loadSession(id);
     emitSession(req, full);
     res.json(full);
   } catch (err) {
@@ -248,7 +290,12 @@ exports.finishSession = async (req, res) => {
   try {
     const { id } = req.params;
     const { rows: sessions } = await db.query(
-      "SELECT * FROM fueling_sessions WHERE id=$1 AND status IN ('authorized','active') LIMIT 1",
+      `SELECT id, truck_id, driver_id, status, station_id, release_method,
+              requested_at, authorized_at, started_at, pump_liters,
+              anp_station_id, station_match_status, station_match_distance_m, station_match_source
+         FROM fueling_sessions
+        WHERE id=$1 AND status IN ('authorized','active')
+        LIMIT 1`,
       [id]
     );
     if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada ou não está ativa" });
@@ -256,9 +303,12 @@ exports.finishSession = async (req, res) => {
     if (!canTouchSession(req, session)) return res.status(403).json({ error: "Sem permissão para esta sessão" });
 
     const { rows: trucks } = await db.query(
-      `SELECT t.*, fs.name AS station_name FROM trucks t
-       LEFT JOIN fuel_stations fs ON fs.id = COALESCE($2::int, t.fuel_station_id)
-       WHERE t.id=$1`,
+      `SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters,
+              t.lat, t.lng, t.fuel_station_id, t.route_geometry, t.planned_route_geometry,
+              t.route_index, t.route_resume_index, fs.name AS station_name
+         FROM trucks t
+         LEFT JOIN fuel_stations fs ON fs.id = COALESCE($2::int, t.fuel_station_id)
+        WHERE t.id=$1`,
       [session.truck_id, session.station_id]
     );
     if (!trucks.length) return res.status(404).json({ error: "Caminhão não encontrado" });
@@ -309,13 +359,16 @@ exports.finishSession = async (req, res) => {
       `INSERT INTO fueling_logs
          (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
           station_id, station_name, started_at, completed_at, duration_minutes, volume_liters,
-          pump_liters, tank_liters_delta, data_source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+          pump_liters, tank_liters_delta, data_source,
+          anp_station_id, station_match_status, station_match_distance_m, station_match_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
       [id, session.driver_id, session.truck_id, truck.lat, truck.lng,
        levelBefore, levelAfter, session.release_method || "facial",
        session.station_id, truck.station_name || null,
        startedAt, now, durationMin.toFixed(1), volume,
-       pumpLiters, tankLitersDelta, dataSource]
+       pumpLiters, tankLitersDelta, dataSource,
+       session.anp_station_id ?? null, session.station_match_status ?? null,
+       session.station_match_distance_m ?? null, session.station_match_source ?? null]
     );
 
     await db.query(`
@@ -329,11 +382,22 @@ exports.finishSession = async (req, res) => {
       const { rows: alerts } = await db.query(
         `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model, fueling_log_id)
          VALUES ($1, 'unverified_fueling', 'high', 'Abastecimento finalizado sem medição de hardware (driver).', $2, $3, $4)
-         RETURNING *`,
+         RETURNING ${ALERT_PUBLIC_COLS}`,
         [truck.id, truck.plate, truck.model, insertedLogs[0].id]
       );
       if (req.io && alerts.length > 0) req.io.emit('newAlert', alerts[0]);
     }
+
+    await evaluateAnpStationAlertForLog({
+      logId: insertedLogs[0].id,
+      truckId: truck.id,
+      plate: truck.plate,
+      model: truck.model,
+      dataSource,
+      matchStatus: session.station_match_status,
+      anpStationId: session.anp_station_id,
+      io: req.io
+    });
 
     // Retorno à rota só faz sentido se houver rota planejada
     let returning = null;
@@ -384,7 +448,7 @@ exports.getActiveSession = async (req, res) => {
     }
     await expireStaleSessions(truckId);
     const { rows } = await db.query(
-      `SELECT s.*, fs.name AS station_name, d.name AS driver_name
+      `SELECT ${SESSION_PUBLIC_COLS}, fs.name AS station_name, d.name AS driver_name
          FROM fueling_sessions s
          LEFT JOIN fuel_stations fs ON s.station_id = fs.id
          LEFT JOIN drivers d ON s.driver_id = d.id
@@ -458,7 +522,7 @@ exports.listPendingEmergency = async (req, res) => {
   try {
     await expireStaleSessions();
     const { rows } = await db.query(
-      `SELECT s.*, t.plate, t.model, d.name AS driver_name, fs.name AS station_name
+      `SELECT ${SESSION_PUBLIC_COLS}, t.plate, t.model, d.name AS driver_name, fs.name AS station_name
          FROM fueling_sessions s
          JOIN trucks t ON t.id = s.truck_id
          LEFT JOIN drivers d ON d.id = s.driver_id
@@ -563,7 +627,7 @@ exports.reportPumpReading = async (req, res) => {
     const val = parseFloat(pump_liters);
     
     const { rows: sessions } = await db.query(
-      "SELECT s.*, t.capacity_liters FROM fueling_sessions s JOIN trucks t ON s.truck_id = t.id WHERE s.id=$1",
+      "SELECT s.id, s.truck_id, s.status, t.capacity_liters FROM fueling_sessions s JOIN trucks t ON s.truck_id = t.id WHERE s.id=$1",
       [id]
     );
     if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada" });
@@ -622,7 +686,7 @@ exports.verifyFace = async (req, res) => {
     client = await db.pool.connect();
     await client.query("BEGIN");
 
-    const { rows: sessions } = await client.query("SELECT * FROM fueling_sessions WHERE id=$1 AND status='requested' FOR UPDATE", [id]);
+    const { rows: sessions } = await client.query("SELECT id, truck_id, driver_id, status FROM fueling_sessions WHERE id=$1 AND status='requested' FOR UPDATE", [id]);
     if (!sessions.length) {
       await client.query("ROLLBACK");
       clientReleased = true;
@@ -742,7 +806,7 @@ exports.verifyFace = async (req, res) => {
 exports.bleConfirmed = async (req, res) => {
   try {
     const { id } = req.params;
-    const { rows: sessions } = await db.query("SELECT * FROM fueling_sessions WHERE id=$1 AND status='requested'", [id]);
+    const { rows: sessions } = await db.query("SELECT id, truck_id, status, release_method FROM fueling_sessions WHERE id=$1 AND status='requested'", [id]);
     if (!sessions.length) return res.status(409).json({ error: "Sessão não encontrada ou não aguardando" });
     const session = sessions[0];
     
