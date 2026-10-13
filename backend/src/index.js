@@ -76,6 +76,7 @@ app.use('/api/alerts', generalLimiter, authMiddleware, require('./routes/alerts'
 app.use('/api/settings', generalLimiter, authMiddleware, require('./routes/settings'));
 app.use('/api/facial-attempts', generalLimiter, authMiddleware, require('./routes/facialAttempts'));
 app.use('/api/users', generalLimiter, authMiddleware, require('./routes/users'));
+app.use('/api/anp', generalLimiter, authMiddleware, require('./routes/anp'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

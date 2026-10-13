@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "seed": "node src/seed/seed.js",
     "migrate": "node runMigration.js",
+    "anp:sync": "node scripts/anpSync.js",
     "test": "jest --detectOpenHandles --forceExit --runInBand"
   },
   "dependencies": {
