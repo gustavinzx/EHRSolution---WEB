@@ -20,8 +20,29 @@ describe('ANP Station Matching (Bloco A, B, C, E)', () => {
   let driverId;
   let truckId;
   const hwKey = 'hw_key_anp_matching_test_123';
+  let fetchSpy;
 
   beforeAll(async () => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: 'Ok',
+        routes: [
+          {
+            distance: 5000,
+            duration: 300,
+            geometry: {
+              coordinates: [
+                [-48.0158659, -15.7944167],
+                [-48.0168659, -15.7954167]
+              ]
+            }
+          }
+        ]
+      })
+    }));
+
     await clean();
     await db.query('DELETE FROM anp_stations');
     await db.query('DELETE FROM anp_sync_runs');
@@ -53,6 +74,9 @@ describe('ANP Station Matching (Bloco A, B, C, E)', () => {
   });
 
   afterAll(async () => {
+    if (fetchSpy) {
+      fetchSpy.mockRestore();
+    }
     await clean();
     await db.query('DELETE FROM anp_stations');
   });
