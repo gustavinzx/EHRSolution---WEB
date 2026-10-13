@@ -35,10 +35,16 @@ O painel inclui uma consulta ao cadastro oficial de postos revendedores de combu
      cd backend
      npm run anp:sync -- --uf DF
      ```
-  2. Para sincronizar todas as 27 UFs do Brasil (uma por vez, com intervalo entre requisições):
+  2. Para sincronizar todas as 27 UFs do Brasil (uma por vez, com intervalo entre requisições; se uma UF falhar, o processo continua nas demais, lista as falhas ao final e encerra com código diferente de zero):
      ```bash
      cd backend
      npm run anp:sync
+     ```
+  3. **Trava de segurança contra desativação em massa (`--allow-mass-deactivation`)**:
+     A sincronização só desativa postos ausentes de uma UF quando: (a) nenhum registro foi descartado pela normalização, (b) a quantidade de CNPJs distintos recebidos é `>= totalRegistro` informado pela API, e (c) a desativação afetaria no máximo **20%** dos postos ativos da UF. Caso qualquer condição falhe, o upsert dos postos válidos é mantido, nenhuma desativação é feita e a execução é registrada com `status = 'partial'`. Para autorizar conscientemente uma desativação acima de 20%, adicione a flag `--allow-mass-deactivation`:
+     ```bash
+     cd backend
+     npm run anp:sync -- --uf DF --allow-mass-deactivation
      ```
 - **Aviso sobre novos cadastros**: Como os dados provêm da base pública oficial da ANP, postos recém-abertos ou alterações cadastrais recentes dependem do processamento e publicação pela própria ANP e podem demorar a aparecer no catálogo. A sincronização é executada sob demanda via CLI (não roda automaticamente no boot do servidor nem durante a suíte de testes).
 

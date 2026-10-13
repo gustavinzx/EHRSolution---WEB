@@ -190,6 +190,7 @@ async function syncUf(uf, options = {}) {
   }
 
   const pageDelayMs = options.pageDelayMs ?? 1000;
+  const allowMassDeactivation = Boolean(options.allowMassDeactivation);
 
   const runRes = await db.query(
     `INSERT INTO anp_sync_runs (scope, status, started_at)
@@ -208,8 +209,19 @@ async function syncUf(uf, options = {}) {
   try {
     await client.query('BEGIN');
 
+    const activeBeforeRes = await client.query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM anp_stations
+       WHERE uf = $1 AND is_active = true`,
+      [ufNorm]
+    );
+    const activeBeforeCount = activeBeforeRes.rows[0]?.cnt || 0;
+
     let currentPage = 1;
     let totalPages = 1;
+    let totalRawCount = 0;
+    let totalNormalizedCount = 0;
+    let expectedTotalRegistro = 0;
     const seenCnpjs = new Set();
 
     while (currentPage <= totalPages) {
@@ -219,6 +231,11 @@ async function syncUf(uf, options = {}) {
 
       const pageData = await fetchAnpPageWithRetry(ufNorm, currentPage, options);
       totalPages = Math.max(1, pageData.totalPagina);
+      totalRawCount += pageData.rawCount;
+      totalNormalizedCount += pageData.items.length;
+      if (pageData.totalRegistro !== undefined && pageData.totalRegistro !== null) {
+        expectedTotalRegistro = Math.max(expectedTotalRegistro, Number(pageData.totalRegistro) || 0);
+      }
 
       for (const rec of pageData.items) {
         fetched++;
@@ -293,31 +310,91 @@ async function syncUf(uf, options = {}) {
       currentPage++;
     }
 
+    let candidatesToDeactivate = 0;
     if (seenCnpjs.size > 0) {
-      const deactRes = await client.query(
-        `UPDATE anp_stations
-         SET is_active = false, updated_at = NOW()
+      const candRes = await client.query(
+        `SELECT COUNT(*)::int AS cnt
+         FROM anp_stations
          WHERE uf = $1
            AND is_active = true
            AND NOT (cnpj = ANY($2::char(14)[]))`,
         [ufNorm, Array.from(seenCnpjs)]
       );
-      deactivated = deactRes.rowCount || 0;
+      candidatesToDeactivate = candRes.rows[0]?.cnt || 0;
+    } else {
+      candidatesToDeactivate = activeBeforeCount;
+    }
+
+    const blockingReasons = [];
+
+    // (a) Nenhum registro da UF foi descartado pela normalização
+    if (totalNormalizedCount < totalRawCount) {
+      const discarded = totalRawCount - totalNormalizedCount;
+      blockingReasons.push(
+        `Desativação bloqueada: ${discarded} registro(s) descartado(s) pela normalização (rawCount=${totalRawCount}, normalizados=${totalNormalizedCount})`
+      );
+    }
+
+    // (b) Quantidade de CNPJs distintos recebidos >= totalRegistro informado pela API
+    if (seenCnpjs.size < expectedTotalRegistro) {
+      blockingReasons.push(
+        `Desativação bloqueada: CNPJs distintos recebidos (${seenCnpjs.size}) < totalRegistro informado pela API (${expectedTotalRegistro})`
+      );
+    }
+
+    // (c) Desativação afetaria no máximo 20% dos postos ativos da UF (salvo --allow-mass-deactivation)
+    const dropRatio = activeBeforeCount > 0 ? candidatesToDeactivate / activeBeforeCount : 0;
+    if (!allowMassDeactivation && candidatesToDeactivate > 0 && activeBeforeCount > 0 && dropRatio > 0.20) {
+      const pct = (dropRatio * 100).toFixed(1);
+      blockingReasons.push(
+        `Desativação em massa bloqueada: afetaria ${candidatesToDeactivate} de ${activeBeforeCount} postos ativos (${pct}% > 20%). Use --allow-mass-deactivation para liberar`
+      );
+    }
+
+    let runStatus = 'succeeded';
+    let runError = null;
+
+    if (blockingReasons.length > 0) {
+      runStatus = 'partial';
+      runError = blockingReasons.join(' | ');
+      console.warn(`[ANP-SYNC][AVISO] UF=${ufNorm} concluída como partial (sem desativação): ${runError}`);
+    } else if (candidatesToDeactivate > 0) {
+      if (seenCnpjs.size > 0) {
+        const deactRes = await client.query(
+          `UPDATE anp_stations
+           SET is_active = false, updated_at = NOW()
+           WHERE uf = $1
+             AND is_active = true
+             AND NOT (cnpj = ANY($2::char(14)[]))`,
+          [ufNorm, Array.from(seenCnpjs)]
+        );
+        deactivated = deactRes.rowCount || 0;
+      } else if (allowMassDeactivation) {
+        const deactRes = await client.query(
+          `UPDATE anp_stations
+           SET is_active = false, updated_at = NOW()
+           WHERE uf = $1
+             AND is_active = true`,
+          [ufNorm]
+        );
+        deactivated = deactRes.rowCount || 0;
+      }
     }
 
     await client.query('COMMIT');
 
     const finRes = await db.query(
       `UPDATE anp_sync_runs
-       SET status = 'succeeded',
+       SET status = $1,
            finished_at = NOW(),
-           fetched = $1,
-           inserted = $2,
-           updated = $3,
-           deactivated = $4
-       WHERE id = $5
+           fetched = $2,
+           inserted = $3,
+           updated = $4,
+           deactivated = $5,
+           error = $6
+       WHERE id = $7
        RETURNING id, scope, status, started_at, finished_at, fetched, inserted, updated, deactivated, error`,
-      [fetched, inserted, updated, deactivated, runId]
+      [runStatus, fetched, inserted, updated, deactivated, runError, runId]
     );
 
     return finRes.rows[0];
@@ -347,15 +424,38 @@ async function syncUf(uf, options = {}) {
 
 async function syncAll(options = {}) {
   const pageDelayMs = options.pageDelayMs ?? 1000;
+  const ufs = Array.isArray(options.ufs) && options.ufs.length > 0 ? options.ufs : ALL_UFS;
   const results = [];
+  const failures = [];
 
-  for (let i = 0; i < ALL_UFS.length; i++) {
-    const uf = ALL_UFS[i];
+  for (let i = 0; i < ufs.length; i++) {
+    const uf = ufs[i];
     if (i > 0 && pageDelayMs > 0) {
       await sleep(pageDelayMs);
     }
-    const res = await syncUf(uf, options);
-    results.push(res);
+    try {
+      const res = await syncUf(uf, options);
+      results.push(res);
+    } catch (err) {
+      const errorMsg = err?.message || String(err);
+      failures.push({ uf, error: errorMsg });
+      results.push({
+        scope: uf,
+        status: 'failed',
+        fetched: 0,
+        inserted: 0,
+        updated: 0,
+        deactivated: 0,
+        error: errorMsg
+      });
+    }
+  }
+
+  if (failures.length > 0) {
+    console.error(
+      `[ANP-SYNC] Falhas na sincronização (${failures.length} UF(s)): ` +
+        failures.map(f => `${f.uf}: ${f.error}`).join(' | ')
+    );
   }
 
   return results;
