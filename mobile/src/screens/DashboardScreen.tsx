@@ -185,7 +185,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerDot} />
-          <div>
+          <View>
             {activeTab === 'inicio' ? (
               <>
                 <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
@@ -202,7 +202,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.greetingSub}>Dados cadastrais e validação facial.</Text>
               </>
             )}
-          </div>
+          </View>
         </View>
 
         {/* Botão de Sair no Header (Sem duplicação de engrenagens) */}
