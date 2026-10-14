@@ -64,5 +64,31 @@ O painel inclui uma consulta ao cadastro oficial de postos revendedores de combu
    - `npm install`
    - `npm run dev`
 
-Para mais detalhes sobre as rotas mobile e a integração com a placa IoT, consulte a [Documentação da API Mobile (API_MOBILE.md)](docs/API_MOBILE.md).
+## CI (Integração Contínua)
+O pipeline do GitHub Actions valida automaticamente pull requests e commits na branch `main`. Para reproduzir localmente os mesmos passos executados pelos três jobs do CI (`backend`, `frontend` e `mobile`):
 
+### Backend
+```bash
+cd backend
+npm ci
+npm test
+```
+*(Nota: requer PostgreSQL em execução; o CI utiliza `postgres:16` com usuário/senha `postgres` e porta 5432).*
+
+### Frontend
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+```
+
+### Mobile
+```bash
+cd mobile
+npm ci
+npx tsc --noEmit
+npm test
+```
+
+Para mais detalhes sobre as rotas mobile e a integração com a placa IoT, consulte a [Documentação da API Mobile (API_MOBILE.md)](docs/API_MOBILE.md).
