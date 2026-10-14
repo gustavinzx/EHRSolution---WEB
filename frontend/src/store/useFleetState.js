@@ -58,6 +58,8 @@ const useFleetState = create((set, get) => ({
     socket.on('newAlert', (alert) => {
       set((state) => ({ alerts: [alert, ...state.alerts] }));
     });
+
+    get().fetchAlerts();
   },
 
   disconnectSocket: () => {
@@ -157,13 +159,23 @@ const useFleetState = create((set, get) => ({
     }
   },
 
+  fetchAlerts: async () => {
+    try {
+      const response = await client.get('/alerts?status=active');
+      set({ alerts: Array.isArray(response.data) ? response.data : [] });
+    } catch (error) {
+      console.error('Erro ao buscar alertas:', error);
+    }
+  },
+
   resolveAlert: async (id, note) => {
     if (!note || note.trim().length < 5) {
       toast.error('A nota de resolução deve ter pelo menos 5 caracteres.');
       return;
     }
     try {
-      await client.patch(`/fleet/alerts/${id}/resolve`, { resolution_note: note.trim() });
+      await client.patch(`/alerts/${id}/resolve`, { resolution_note: note.trim() });
+      toast.success('Alerta resolvido com sucesso!');
       set(state => ({
         alerts: state.alerts.filter(a => a.id !== id)
       }));

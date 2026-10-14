@@ -292,24 +292,26 @@ export default function DriversPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                     <div style={{
-                      width: '46px',
-                      height: '46px',
+                      width: '48px',
+                      height: '48px',
                       borderRadius: '14px',
                       backgroundColor: '#1E293B',
-                      border: '1.5px solid rgba(0, 196, 208, 0.3)',
+                      border: '1.5px solid rgba(0, 196, 208, 0.35)',
+                      overflow: 'hidden',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#00C4D0',
-                      fontWeight: 800,
-                      fontSize: '16px',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                     }}>
-                      {(d.name || 'M')
-                        .split(' ')
-                        .map(n => n[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()}
+                      <img
+                        src={d.face_photo || `https://i.pravatar.cc/150?u=${d.id + 10}`}
+                        alt={d.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

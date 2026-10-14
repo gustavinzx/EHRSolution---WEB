@@ -21,7 +21,7 @@ const links = [
   { to: '/drivers', icon: Users,           label: 'Motoristas' },
   { to: '/fueling', icon: Fuel,            label: 'Abastecimentos' },
   { to: '/stations',icon: MapPin,          label: 'Postos' },
-  { to: '/alerts',  icon: Bell,            label: 'Alertas', badge: 2 },
+  { to: '/alerts',  icon: Bell,            label: 'Alertas' },
   { to: '/reports', icon: FileText,        label: 'Relatórios' },
   { to: '/facial-attempts', icon: Scan,    label: 'Facial' },
 ];
@@ -30,7 +30,7 @@ export default function Sidebar() {
   const { logout, user } = useAuth();
   const displayLinks = user?.role === 'admin' ? [...links, { to: '/users', icon: UserCog, label: 'Usuários' }] : links;
   const storeAlerts = useFleetState(state => state.alerts);
-  const activeAlertsCount = storeAlerts?.filter(a => !a.resolved_at)?.length || 2;
+  const activeAlertsCount = storeAlerts?.filter(a => !a.resolved_at)?.length || 0;
 
   return (
     <aside style={{
@@ -131,7 +131,7 @@ export default function Sidebar() {
                   <link.icon size={17} color={isActive ? '#00C4D0' : '#8899A6'} />
                   <span>{link.label}</span>
                 </div>
-                {link.badge && (
+                {link.to === '/alerts' && activeAlertsCount > 0 && (
                   <span style={{
                     background: '#EF4444',
                     color: '#fff',
@@ -142,7 +142,7 @@ export default function Sidebar() {
                     minWidth: '16px',
                     textAlign: 'center',
                   }}>
-                    {link.to === '/alerts' ? activeAlertsCount : link.badge}
+                    {activeAlertsCount}
                   </span>
                 )}
               </>

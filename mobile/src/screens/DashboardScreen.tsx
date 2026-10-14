@@ -7,6 +7,7 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
@@ -212,13 +213,21 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
               {vehicle ? (
                 <>
-                  <View style={styles.vehicleHeaderRow}>
-                    <View style={styles.vehicleInfoCol}>
-                      <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
-                      <View style={styles.plateBadge}>
-                        <Text style={styles.plateText}>{vehicle.plate}</Text>
+                  {/* Truck Banner com imagem temática */}
+                  <View style={styles.truckBannerBox}>
+                    <ImageBackground
+                      source={require('../../assets/truck-hero.png')}
+                      style={styles.truckBannerImg}
+                      imageStyle={styles.truckBannerImgStyle}
+                      resizeMode="cover"
+                    >
+                      <View style={styles.truckBannerOverlay}>
+                        <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
+                        <View style={styles.plateBadge}>
+                          <Text style={styles.plateText}>{vehicle.plate}</Text>
+                        </View>
                       </View>
-                    </View>
+                    </ImageBackground>
                   </View>
 
                   {/* Métricas de Capacidade e Nível */}
@@ -443,23 +452,25 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070D18',
   },
   header: {
     paddingTop: 54,
     paddingHorizontal: 20,
     paddingBottom: 18,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0B1424',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 196, 208, 0.2)',
   },
   headerTextContainer: {
     flex: 1,
   },
   companyBadge: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#00C4D0',
     letterSpacing: 1.5,
     marginBottom: 4,
@@ -494,16 +505,16 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 4,
     marginBottom: 16,
   },
   cardHeaderRow: {
@@ -514,13 +525,16 @@ const styles = StyleSheet.create({
   },
   cardSectionTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   statusOnlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 12,
@@ -539,34 +553,49 @@ const styles = StyleSheet.create({
   },
   noVehicleText: {
     fontSize: 14,
-    color: '#64748B',
+    color: '#94A3B8',
     paddingVertical: 12,
   },
-  vehicleHeaderRow: {
+  truckBannerBox: {
+    borderRadius: 16,
+    overflow: 'hidden',
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.25)',
   },
-  vehicleInfoCol: {
-    gap: 6,
+  truckBannerImg: {
+    width: '100%',
+    minHeight: 100,
+  },
+  truckBannerImgStyle: {
+    borderRadius: 16,
+  },
+  truckBannerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 13, 24, 0.75)',
+    padding: 16,
+    justifyContent: 'center',
+    gap: 8,
   },
   vehicleModelText: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   plateBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#070E1A',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 196, 208, 0.4)',
   },
   plateText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1E293B',
-    letterSpacing: 1,
+    color: '#00C4D0',
+    letterSpacing: 1.5,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -574,27 +603,27 @@ const styles = StyleSheet.create({
   },
   metricBox: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070E1A',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   metricLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#8899A6',
   },
   metricValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#00C4D0',
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#FFFFFF',
     marginTop: 4,
   },
   progressTrack: {
-    height: 4,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 2,
+    height: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 3,
     overflow: 'hidden',
     marginTop: 8,
     width: '100%',
@@ -602,7 +631,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     backgroundColor: '#00C4D0',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   actionSection: {
     marginBottom: 16,
@@ -617,16 +646,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   guideCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   guideTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: '#FFFFFF',
     marginBottom: 12,
   },
   guideStepRow: {
@@ -636,44 +665,46 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   guideStepNumberBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#F1F5F9',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(0, 196, 208, 0.4)',
   },
   guideStepNumber: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
+    fontWeight: '800',
+    color: '#00C4D0',
   },
   guideStepText: {
     flex: 1,
     fontSize: 12,
-    color: '#64748B',
-    lineHeight: 16,
+    color: '#CBD5E1',
+    lineHeight: 17,
   },
   historyHeader: {
     marginBottom: 16,
   },
   historyTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   historySub: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
   },
   historySummaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#0F1A2C',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.25)',
     marginBottom: 16,
   },
   historySummaryCol: {
@@ -681,21 +712,21 @@ const styles = StyleSheet.create({
   },
   historySummaryLabel: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#8899A6',
     fontWeight: '600',
   },
   historySummaryValue: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: '#00C4D0',
     marginTop: 4,
   },
   historyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 12,
   },
   historyCardRow: {
@@ -706,11 +737,11 @@ const styles = StyleSheet.create({
   historyCardPlate: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   historyCardDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
   },
   historyCardVolumeBox: {
@@ -718,7 +749,7 @@ const styles = StyleSheet.create({
   },
   historyCardVolume: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#00C4D0',
   },
   historyCardStatus: {
@@ -733,31 +764,31 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   historyCardStation: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
   },
   historyCardMethod: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: '#00C4D0',
   },
   profileHeaderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     marginBottom: 16,
   },
   profileAvatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#0F172A',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#070E1A',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -765,52 +796,52 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   profileAvatarText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#00C4D0',
   },
   profileName: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   profileEmail: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
   },
   biometricBadge: {
     marginTop: 12,
-    backgroundColor: 'rgba(0, 196, 208, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingVertical: 5,
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   biometricBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#00838F',
+    color: '#10B981',
   },
   profileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   profileRowLabel: {
     fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
+    color: '#8899A6',
+    fontWeight: '600',
   },
   profileRowValue: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   profileDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   logoutBtn: {
     height: 48,
@@ -818,11 +849,11 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0B1424',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    borderTopColor: 'rgba(0, 196, 208, 0.18)',
+    paddingVertical: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     justifyContent: 'space-around',
     alignItems: 'center',
   },
@@ -837,7 +868,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#64748B',
   },
   tabLabelActive: {
     color: '#00C4D0',
@@ -845,7 +876,7 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: -4,
+    bottom: -6,
     width: 24,
     height: 3,
     borderRadius: 2,
