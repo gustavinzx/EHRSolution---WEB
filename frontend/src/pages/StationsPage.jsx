@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import client from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AnpStationsMap from '../components/AnpStationsMap';
+import AuthorizedStationsMap from '../components/AuthorizedStationsMap';
 import {
   MapPin,
   Search,
@@ -16,13 +17,26 @@ import {
   ChevronRight,
   AlertTriangle,
   ShieldCheck,
+  Navigation,
+  Layers,
+  Crosshair,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const glass = {
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.07)',
+  background: 'rgba(255, 255, 255, 0.03)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
   borderRadius: '16px',
+};
+
+const inputStyle = {
+  background: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid rgba(255, 255, 255, 0.09)',
+  color: '#FFFFFF',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  fontSize: '13px',
+  outline: 'none',
 };
 
 const ALL_UFS = [
@@ -70,10 +84,12 @@ export function getAnpStationBadge(station) {
 export default function StationsPage({ initialTab = 'authorized' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // ── Aba 1: Rede Autorizada (existente) ──
+  // ── Aba 1: Rede Autorizada ──
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, AUTHORIZED, BLOCKED
+  const [selectedStationId, setSelectedStationId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -103,7 +119,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
     q: '',
   });
 
-  // Mapa in-bounds
+  // Mapa in-bounds (ANP)
   const [mapBounds, setMapBounds] = useState({
     minLat: -16.05,
     minLng: -48.3,
@@ -114,7 +130,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
   const [mapTruncated, setMapTruncated] = useState(false);
   const [mapLoading, setMapLoading] = useState(false);
 
-  // Gaveta de detalhes
+  // Gaveta de detalhes ANP
   const [selectedAnpStation, setSelectedAnpStation] = useState(null);
 
   const fetchStations = async () => {
@@ -217,7 +233,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
   const handleToggle = async (id) => {
     try {
       await client.patch(`/fueling/stations/${id}/toggle`);
-      toast.success('Status alterado');
+      toast.success('Status do posto alterado');
       fetchStations();
     } catch (err) {
       toast.error('Erro ao alterar status');
@@ -228,17 +244,28 @@ export default function StationsPage({ initialTab = 'authorized' }) {
     e.preventDefault();
     try {
       await client.post('/fueling/stations', formData);
-      toast.success('Posto cadastrado');
+      toast.success('Posto cadastrado com sucesso');
       setIsModalOpen(false);
       fetchStations();
     } catch (err) {
-      toast.error('Erro ao cadastrar');
+      toast.error('Erro ao cadastrar posto');
     }
   };
 
-  const filtered = stations.filter(s =>
-    (s.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = stations.filter(s => {
+    const matchesSearch =
+      (s.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (s.address || '').toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (statusFilter === 'AUTHORIZED') return s.is_authorized;
+    if (statusFilter === 'BLOCKED') return !s.is_authorized;
+    return true;
+  });
+
+  const authorizedCount = stations.filter(s => s.is_authorized).length;
+  const blockedCount = stations.filter(s => !s.is_authorized).length;
+  const withGpsCount = stations.filter(s => s.lat && s.lng).length;
 
   const totalPages = Math.max(1, Math.ceil(anpTotal / anpLimit));
   const formattedSyncDate = anpSummary?.last_sync_at
@@ -254,36 +281,53 @@ export default function StationsPage({ initialTab = 'authorized' }) {
   if (loading && activeTab === 'authorized') return <LoadingSpinner />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* ── Cabeçalho Principal + Abas ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+      {/* ── Page Header & Tabs ── */}
+      <div
+        style={{
+          ...glass,
+          padding: '24px 32px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 100%)',
+          border: '1px solid rgba(0, 196, 208, 0.2)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div
             style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '14px',
+              background: 'rgba(0, 196, 208, 0.1)',
+              border: '1px solid rgba(0, 196, 208, 0.3)',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              fontSize: '28px',
-              fontFamily: 'var(--font-display)',
-              fontWeight: 800,
-              color: '#fff',
-              margin: 0,
+              justifyContent: 'center',
             }}
           >
-            <MapPin size={28} color="#2FBEB5" /> Postos de Combustível
-          </h1>
-          {activeTab === 'authorized' ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
-              {stations.filter(s => s.is_authorized).length} postos autorizados para destrava
-            </p>
-          ) : (
-            <p
-              data-testid="anp-header-summary"
-              style={{ color: '#94a3b8', fontSize: '13px', marginTop: '6px' }}
-            >
-              {`${anpSummary.total_active} postos ativos • atualizado em ${formattedSyncDate}`}
-            </p>
-          )}
+            <MapPin size={26} color="#00C4D0" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+              Postos de Combustível
+            </h1>
+            {activeTab === 'authorized' ? (
+              <p style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}>
+                {authorizedCount} postos autorizados para destravamento facial de bocal
+              </p>
+            ) : (
+              <p
+                data-testid="anp-header-summary"
+                style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}
+              >
+                {`${anpSummary.total_active} postos ativos • atualizado em ${formattedSyncDate}`}
+              </p>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -291,8 +335,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
             role="tablist"
             style={{
               display: 'flex',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '12px',
               padding: '4px',
             }}
@@ -303,14 +347,14 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               aria-selected={activeTab === 'authorized'}
               onClick={() => setActiveTab('authorized')}
               style={{
-                padding: '8px 16px',
+                padding: '8px 18px',
                 borderRadius: '8px',
                 border: 'none',
                 fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                background: activeTab === 'authorized' ? 'rgba(47,190,181,0.2)' : 'transparent',
-                color: activeTab === 'authorized' ? '#2FBEB5' : '#94a3b8',
+                background: activeTab === 'authorized' ? 'rgba(0, 196, 208, 0.15)' : 'transparent',
+                color: activeTab === 'authorized' ? '#00C4D0' : '#8899A6',
               }}
             >
               Rede Autorizada
@@ -321,7 +365,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               aria-selected={activeTab === 'anp'}
               onClick={() => setActiveTab('anp')}
               style={{
-                padding: '8px 16px',
+                padding: '8px 18px',
                 borderRadius: '8px',
                 border: 'none',
                 fontSize: '13px',
@@ -330,8 +374,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: activeTab === 'anp' ? 'rgba(47,190,181,0.2)' : 'transparent',
-                color: activeTab === 'anp' ? '#2FBEB5' : '#94a3b8',
+                background: activeTab === 'anp' ? 'rgba(0, 196, 208, 0.15)' : 'transparent',
+                color: activeTab === 'anp' ? '#00C4D0' : '#8899A6',
               }}
             >
               <Database size={14} /> ANP (Brasil)
@@ -351,13 +395,12 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 padding: '10px 18px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
-                color: '#fff',
-                fontFamily: 'var(--font-display)',
+                background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                color: '#FFFFFF',
                 fontWeight: 700,
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
+                boxShadow: '0 4px 14px rgba(0, 196, 208, 0.3)',
               }}
             >
               <Plus size={16} /> Novo Posto
@@ -366,110 +409,249 @@ export default function StationsPage({ initialTab = 'authorized' }) {
         </div>
       </div>
 
+      {/* ── KPI Summary Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {[
+          {
+            label: 'Rede Cadastrada',
+            val: stations.length,
+            sub: 'postos na base de dados',
+            color: '#00C4D0',
+            icon: MapPin,
+          },
+          {
+            label: 'Postos Autorizados',
+            val: authorizedCount,
+            sub: 'destrava liberada para frota',
+            color: '#10B981',
+            icon: ShieldCheck,
+          },
+          {
+            label: 'Postos Bloqueados',
+            val: blockedCount,
+            sub: 'abastecimento vedado',
+            color: blockedCount > 0 ? '#EF4444' : '#10B981',
+            icon: MapPinOff,
+          },
+          {
+            label: 'Geolocalização Ativa',
+            val: withGpsCount,
+            sub: 'com perímetro de cerca virtual',
+            color: '#38BDF8',
+            icon: Navigation,
+          },
+        ].map(kpi => (
+          <div
+            key={kpi.label}
+            style={{
+              ...glass,
+              padding: '16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              background: 'rgba(11, 20, 32, 0.65)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
+                {kpi.label}
+              </span>
+              <kpi.icon size={16} color={kpi.color} />
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono, monospace)' }}>
+              {kpi.val}
+            </div>
+            <span style={{ fontSize: '11px', color: kpi.color, fontWeight: 600 }}>
+              {kpi.sub}
+            </span>
+          </div>
+        ))}
+      </div>
+
       {/* ════════════════════════════════════════════════════════════════════════
-          ABA 1: REDE AUTORIZADA
+          ABA 1: REDE AUTORIZADA (Balanced 50/50 Split View with Leaflet Map)
       ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'authorized' && (
-        <>
-          <div style={{ position: 'relative', maxWidth: '320px' }}>
-            <Search
-              size={15}
-              style={{
-                position: 'absolute',
-                left: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Buscar posto..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#fff',
-                padding: '10px 14px 10px 38px',
-                borderRadius: '10px',
-                width: '100%',
-                fontSize: '14px',
-                outline: 'none',
-              }}
-            />
-          </div>
-
+        <div style={{ display: 'grid', gridTemplateColumns: '460px 1fr', gap: '20px', alignItems: 'stretch', minHeight: '600px' }}>
+          {/* Left Column: Station List & Filters */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              ...glass,
+              padding: '20px',
+              background: 'rgba(11, 20, 32, 0.75)',
+              display: 'flex',
+              flexDirection: 'column',
               gap: '16px',
             }}
           >
-            {filtered.map(s => (
-              <div
-                key={s.id}
+            {/* Search Bar */}
+            <div style={{ position: 'relative', width: '100%' }}>
+              <Search
+                size={15}
                 style={{
-                  ...glass,
-                  padding: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
+                  position: 'absolute',
+                  left: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#64748B',
                 }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou endereço..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  paddingLeft: '38px',
+                  width: '100%',
+                }}
+              />
+            </div>
+
+            {/* Status Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[
+                { id: 'ALL', label: 'Todos' },
+                { id: 'AUTHORIZED', label: 'Autorizados' },
+                { id: 'BLOCKED', label: 'Bloqueados' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setStatusFilter(f.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: statusFilter === f.id ? '1px solid rgba(0, 196, 208, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: statusFilter === f.id ? 'rgba(0, 196, 208, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                    color: statusFilter === f.id ? '#00C4D0' : '#8899A6',
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Station Cards Scroll Container */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '580px', paddingRight: '4px' }}>
+              {filtered.length === 0 ? (
+                <div style={{ padding: '40px 16px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>
+                  Nenhum posto encontrado.
+                </div>
+              ) : (
+                filtered.map(s => {
+                  const isSelected = selectedStationId === s.id;
+
+                  return (
                     <div
+                      key={s.id}
+                      onClick={() => setSelectedStationId(s.id)}
                       style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '10px',
-                        background: s.is_authorized ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                        padding: '16px',
+                        borderRadius: '12px',
+                        background: isSelected ? 'rgba(0, 196, 208, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                        border: isSelected ? '1.5px solid rgba(0, 196, 208, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: s.is_authorized ? '#34d399' : '#f87171',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
                       }}
                     >
-                      {s.is_authorized ? <MapPin size={18} /> : <MapPinOff size={18} />}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '10px',
+                              background: s.is_authorized ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                              border: s.is_authorized ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: s.is_authorized ? '#10B981' : '#EF4444',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {s.is_authorized ? <MapPin size={18} /> : <MapPinOff size={18} />}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>{s.name}</div>
+                            <div style={{ fontSize: '11px', color: '#8899A6', marginTop: '2px' }}>
+                              ID #{s.id} • {s.is_authorized ? 'Destrava Liberada' : 'Acesso Bloqueado'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggle(s.id);
+                          }}
+                          title={s.is_authorized ? 'Bloquear abastecimento' : 'Autorizar abastecimento'}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: s.is_authorized ? '#10B981' : '#EF4444',
+                            cursor: 'pointer',
+                            padding: '4px',
+                          }}
+                        >
+                          {s.is_authorized ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+                        </button>
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: '#CBD5E1', lineHeight: '1.4' }}>
+                        {s.address || 'Sem endereço logradouro cadastrado.'}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', color: '#8899A6' }}>
+                          GPS: {s.lat}, {s.lng}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#00C4D0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Crosshair size={12} /> Localizar
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{s.name}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {s.id} • Lat/Lng</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleToggle(s.id)}
-                    title={s.is_authorized ? 'Bloquear' : 'Autorizar'}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: s.is_authorized ? '#34d399' : '#f87171',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {s.is_authorized ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
-                  </button>
-                </div>
-                <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.4' }}>
-                  {s.address || 'Sem endereço cadastrado.'}
-                  <br />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                    GPS: {s.lat}, {s.lng}
-                  </span>
-                </div>
-              </div>
-            ))}
+                  );
+                })
+              )}
+            </div>
           </div>
 
+          {/* Right Column: Interactive Map */}
+          <div style={{ ...glass, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <AuthorizedStationsMap
+              stations={filtered}
+              selectedStationId={selectedStationId}
+              onSelectStation={setSelectedStationId}
+              onToggleStation={handleToggle}
+            />
+          </div>
+
+          {/* Modal de Cadastro de Posto */}
           {isModalOpen && (
             <div
               style={{
                 position: 'fixed',
                 inset: 0,
                 zIndex: 999,
-                background: 'rgba(0,0,0,0.7)',
+                background: 'rgba(0, 0, 0, 0.75)',
                 backdropFilter: 'blur(8px)',
                 display: 'flex',
                 alignItems: 'center',
@@ -480,16 +662,16 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               <form
                 onSubmit={handleSave}
                 style={{
-                  background: 'rgba(11,20,36,0.98)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'rgba(11, 20, 36, 0.98)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: '20px',
                   width: '100%',
                   maxWidth: '440px',
                   padding: '24px',
                 }}
               >
-                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '20px' }}>
-                  Cadastrar Posto
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', marginBottom: '20px' }}>
+                  Cadastrar Posto na Rede
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <input
@@ -497,25 +679,13 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     required
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      padding: '12px',
-                      borderRadius: '10px',
-                    }}
+                    style={inputStyle}
                   />
                   <input
                     placeholder="Endereço (opcional)"
                     value={formData.address}
                     onChange={e => setFormData({ ...formData, address: e.target.value })}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      padding: '12px',
-                      borderRadius: '10px',
-                    }}
+                    style={inputStyle}
                   />
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input
@@ -525,14 +695,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                       step="any"
                       value={formData.lat}
                       onChange={e => setFormData({ ...formData, lat: e.target.value })}
-                      style={{
-                        flex: 1,
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        padding: '12px',
-                        borderRadius: '10px',
-                      }}
+                      style={{ ...inputStyle, flex: 1 }}
                     />
                     <input
                       placeholder="Longitude"
@@ -541,14 +704,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                       step="any"
                       value={formData.lng}
                       onChange={e => setFormData({ ...formData, lng: e.target.value })}
-                      style={{
-                        flex: 1,
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        padding: '12px',
-                        borderRadius: '10px',
-                      }}
+                      style={{ ...inputStyle, flex: 1 }}
                     />
                   </div>
                 </div>
@@ -558,12 +714,13 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     onClick={() => setIsModalOpen(false)}
                     style={{
                       flex: 1,
-                      padding: '12px',
+                      padding: '11px',
                       borderRadius: '10px',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
                       background: 'transparent',
-                      color: '#fff',
+                      color: '#FFFFFF',
                       cursor: 'pointer',
+                      fontWeight: 600,
                     }}
                   >
                     Cancelar
@@ -572,22 +729,22 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     type="submit"
                     style={{
                       flex: 1,
-                      padding: '12px',
+                      padding: '11px',
                       borderRadius: '10px',
                       border: 'none',
-                      background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
-                      color: '#fff',
+                      background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                      color: '#FFFFFF',
                       fontWeight: 700,
                       cursor: 'pointer',
                     }}
                   >
-                    Salvar
+                    Salvar Posto
                   </button>
                 </div>
               </form>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
@@ -599,11 +756,12 @@ export default function StationsPage({ initialTab = 'authorized' }) {
           <div
             style={{
               ...glass,
-              padding: '16px',
+              padding: '16px 20px',
               display: 'grid',
               gridTemplateColumns: '130px 1fr 1fr 1.4fr',
               gap: '12px',
               alignItems: 'center',
+              background: 'rgba(11, 20, 32, 0.75)',
             }}
           >
             <select
@@ -634,15 +792,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               placeholder="Município..."
               value={anpFilters.municipio}
               onChange={e => handleFilterChange('municipio', e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: '#fff',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                outline: 'none',
-              }}
+              style={inputStyle}
             />
 
             <input
@@ -651,15 +801,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               placeholder="Bandeira (ex: VIBRA, RAIZEN)..."
               value={anpFilters.bandeira}
               onChange={e => handleFilterChange('bandeira', e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: '#fff',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                outline: 'none',
-              }}
+              style={inputStyle}
             />
 
             <div style={{ position: 'relative' }}>
@@ -680,14 +822,9 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 value={anpFilters.q}
                 onChange={e => handleFilterChange('q', e.target.value)}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#fff',
-                  padding: '10px 12px 10px 34px',
-                  borderRadius: '10px',
+                  ...inputStyle,
+                  paddingLeft: '34px',
                   width: '100%',
-                  fontSize: '13px',
-                  outline: 'none',
                 }}
               />
             </div>
@@ -704,9 +841,10 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '12px',
+                background: 'rgba(11, 20, 32, 0.75)',
               }}
             >
-              <Database size={36} color="#2FBEB5" />
+              <Database size={36} color="#00C4D0" />
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
                 Catálogo ANP ainda não sincronizado
               </div>
@@ -727,7 +865,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               />
 
               {/* Tabela Paginada */}
-              <div style={{ ...glass, overflow: 'hidden' }}>
+              <div style={{ ...glass, overflow: 'hidden', background: 'rgba(11, 20, 32, 0.75)' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
@@ -906,7 +1044,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#2FBEB5', fontWeight: 700, textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '11px', color: '#00C4D0', fontWeight: 700, textTransform: 'uppercase' }}>
                   Detalhes do Posto ANP
                 </div>
                 <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', margin: '4px 0 0' }}>
@@ -1022,7 +1160,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                   marginBottom: '10px',
                 }}
               >
-                <Fuel size={15} color="#2FBEB5" /> Produtos, Tancagem e Bicos
+                <Fuel size={15} color="#00C4D0" /> Produtos, Tancagem e Bicos
               </h3>
               {Array.isArray(selectedAnpStation.produtos) && selectedAnpStation.produtos.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1030,15 +1168,15 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     <div
                       key={idx}
                       style={{
-                        background: 'rgba(47,190,181,0.06)',
-                        border: '1px solid rgba(47,190,181,0.2)',
+                        background: 'rgba(0, 196, 208, 0.06)',
+                        border: '1px solid rgba(0, 196, 208, 0.2)',
                         borderRadius: '10px',
                         padding: '10px 12px',
                         fontSize: '12px',
                         color: '#e2e8f0',
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: '#2FBEB5' }}>{prod.produto}</div>
+                      <div style={{ fontWeight: 700, color: '#00C4D0' }}>{prod.produto}</div>
                       <div style={{ color: '#94a3b8', marginTop: '4px' }}>
                         Tancagem: <strong>{prod.tancagem}</strong> {prod.unidMedidaTancagem || 'm³'} • Bicos:{' '}
                         <strong>{prod.qtdeBicos}</strong>

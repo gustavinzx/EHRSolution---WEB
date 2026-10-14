@@ -410,4 +410,53 @@ describe('apiClient', () => {
       expect(onUnauthorizedMock).toHaveBeenCalledWith('Seu acesso foi desativado. Procure o gestor.');
     });
   });
+
+  describe('environment error messages (Bloco C2)', () => {
+    it('in DEV mode (__DEV__ = true), error messages include server URL', async () => {
+      const originalDev = (globalThis as any).__DEV__;
+      (globalThis as any).__DEV__ = true;
+      try {
+        mockFetch.mockRejectedValueOnce(new Error('Network request failed'));
+
+        await expect(apiClient.login('test@ehr.com', 'pass')).rejects.toMatchObject({
+          status: 0,
+          message: expect.stringContaining('http'),
+        });
+      } finally {
+        (globalThis as any).__DEV__ = originalDev;
+      }
+    });
+
+    it('in PROD mode (__DEV__ = false), network error messages are generic without server URL', async () => {
+      const originalDev = (globalThis as any).__DEV__;
+      (globalThis as any).__DEV__ = false;
+      try {
+        mockFetch.mockRejectedValueOnce(new Error('Network request failed'));
+
+        await expect(apiClient.login('test@ehr.com', 'pass')).rejects.toMatchObject({
+          status: 0,
+          message: 'Sem conexão com o servidor.',
+        });
+      } finally {
+        (globalThis as any).__DEV__ = originalDev;
+      }
+    });
+
+    it('in PROD mode (__DEV__ = false), timeout (AbortError) message is generic without URL', async () => {
+      const originalDev = (globalThis as any).__DEV__;
+      (globalThis as any).__DEV__ = false;
+      try {
+        const abortError = new Error('The user aborted a request.');
+        abortError.name = 'AbortError';
+        mockFetch.mockRejectedValueOnce(abortError);
+
+        await expect(apiClient.login('test@ehr.com', 'pass')).rejects.toMatchObject({
+          status: 0,
+          message: 'Tempo limite da requisição excedido.',
+        });
+      } finally {
+        (globalThis as any).__DEV__ = originalDev;
+      }
+    });
+  });
 });

@@ -107,12 +107,113 @@ const MemoizedTruckRoute = React.memo(({ truck, tempRouteRaw, plannedRouteRaw, i
          prev.plannedRouteRaw === next.plannedRouteRaw;
 });
 
+function FloatingMapControls({ mapType, setMapType }) {
+  const map = useMap();
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '14px',
+      left: '14px',
+      zIndex: 1000,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+    }}>
+      {/* Translucent Floating Zoom In / Out */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'rgba(7, 13, 24, 0.85)',
+        backdropFilter: 'blur(14px)',
+        border: '1px solid rgba(0, 196, 208, 0.25)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+      }}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); map.zoomIn(); }}
+          title="Aumentar Zoom"
+          style={{
+            width: '32px',
+            height: '32px',
+            background: 'transparent',
+            border: 'none',
+            color: '#FFFFFF',
+            fontSize: '18px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); map.zoomOut(); }}
+          title="Diminuir Zoom"
+          style={{
+            width: '32px',
+            height: '32px',
+            background: 'transparent',
+            border: 'none',
+            color: '#FFFFFF',
+            fontSize: '18px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          −
+        </button>
+      </div>
+
+      {/* Translucent Floating Satellite / Vector Layer Toggle */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setMapType(prev => prev === 'satellite' ? 'dark' : 'satellite'); }}
+        title="Alternar camada: Satélite / Vetor"
+        style={{
+          height: '30px',
+          padding: '0 10px',
+          background: 'rgba(7, 13, 24, 0.85)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(0, 196, 208, 0.3)',
+          borderRadius: '8px',
+          color: '#00C4D0',
+          fontSize: '11px',
+          fontWeight: 800,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        <span>🛰️</span>
+        <span>{mapType === 'satellite' ? 'Satélite' : 'Vetor'}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function MapView({ trucks = [] }) {
   const navigate = useNavigate();
   const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
+  const [mapType, setMapType] = React.useState('satellite');
   
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
+
+  const tileUrl = mapType === 'satellite'
+    ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`
+    : `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" style={{ height: '100%' }}>
@@ -122,9 +223,10 @@ export default function MapView({ trucks = [] }) {
         style={{ height: '100%', width: '100%', background: '#1a1a1a' }}
         zoomControl={false}
       >
+        <FloatingMapControls mapType={mapType} setMapType={setMapType} />
         <TileLayer
           attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-          url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
+          url={tileUrl}
           className="map-tiles"
           noWrap={false}
         />
