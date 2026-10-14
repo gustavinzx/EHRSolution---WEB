@@ -18,6 +18,7 @@ const useFleetState = create((set, get) => ({
   loading: true,
   error: null,
   selectedTruckId: null,
+  isConnected: false,
 
   // ── Actions ────────────────────────────────────────────────────────────────
   setSelectedTruckId: (id) => set({ selectedTruckId: id }),
@@ -27,6 +28,18 @@ const useFleetState = create((set, get) => ({
     const token = localStorage.getItem('token');
     const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
     socket = io(url, { auth: { token } });
+
+    socket.on('connect', () => {
+      set({ isConnected: true });
+    });
+
+    socket.on('disconnect', () => {
+      set({ isConnected: false });
+    });
+
+    socket.on('connect_error', () => {
+      set({ isConnected: false });
+    });
 
     socket.on('fleetUpdate', (data) => {
       const fleetData = (Array.isArray(data) ? data : []).map(truck => {
@@ -67,6 +80,7 @@ const useFleetState = create((set, get) => ({
       socket.disconnect();
       socket = null;
     }
+    set({ isConnected: false });
   },
 
   fetchFleet: async () => {
@@ -95,10 +109,10 @@ const useFleetState = create((set, get) => ({
         }
       });
       
-      set({ fleet: fleetData, loading: false, error: null, truckPhases: newPhases });
+      set({ fleet: fleetData, loading: false, error: null, truckPhases: newPhases, isConnected: true });
     } catch (error) {
       console.error(error);
-      set({ error: error.message, loading: false });
+      set({ error: error.message, loading: false, isConnected: false });
     }
   },
 

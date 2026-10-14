@@ -3,7 +3,9 @@ import { Truck, Navigation, Fuel, FileText, ArrowRight, CheckCircle, AlertTriang
 import { Link, useNavigate } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
+import { useAlerts } from '../hooks/useAlerts';
 import { useAuth } from '../hooks/useAuth';
+import { getAlertMeta } from '../utils/alertMapping';
 import MapView from '../components/MapView';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -12,6 +14,26 @@ const panelStyle = {
   border: '1px solid rgba(0, 196, 208, 0.12)',
   borderRadius: '16px',
   boxShadow: '0 8px 30px rgba(0, 0, 0, 0.35)',
+};
+
+const ACTIVE_ALERTS_FILTER = { status: 'active' };
+
+const getSeverityBadge = (severity) => {
+  switch (severity) {
+    case 'critical':
+      return { label: 'Crítico', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.35)' };
+    case 'high':
+      return { label: 'Alto', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.35)' };
+    case 'medium':
+      return { label: 'Médio', color: '#EAB308', bg: 'rgba(234, 179, 8, 0.15)', border: 'rgba(234, 179, 8, 0.35)' };
+    default:
+      return { label: 'Baixo', color: '#00C4D0', bg: 'rgba(0, 196, 208, 0.15)', border: 'rgba(0, 196, 208, 0.35)' };
+  }
+};
+
+const isAlertTruck = (t) => {
+  const state = t.sim_state || t.status;
+  return state === 'no_signal' || state === 'fueling' || state === 'security_alert';
 };
 
 function DonutChart({ percent = 100 }) {
@@ -66,8 +88,9 @@ function DonutChart({ percent = 100 }) {
 }
 
 export default function DashboardPage() {
-  const { trucks, loading: fl, refetch } = useFleet();
+  const { trucks, loading: fl, isConnected, refetch } = useFleet();
   const { logs, loading: ll } = useFueling();
+  const { alerts: allAlerts, loading: al, error: ae } = useAlerts(ACTIVE_ALERTS_FILTER);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -77,11 +100,31 @@ export default function DashboardPage() {
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
   const today = new Date().toISOString().split('T')[0];
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = yesterdayDate.toISOString().split('T')[0];
+
   const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
   const critical = trucks.filter(t => pct(t) < 20).length;
   const todayFuel = logs.filter(l => l.timestamp?.startsWith(today)).length;
+  const yesterdayFuel = logs.filter(l => l.timestamp?.startsWith(yesterday)).length;
+  const hasFuelTrend = yesterdayFuel > 0;
+  const fuelTrendPct = hasFuelTrend
+    ? Math.round(((todayFuel - yesterdayFuel) / yesterdayFuel) * 100)
+    : 0;
+
   const totalTrucks = trucks.length;
   const enRoutePercent = totalTrucks > 0 ? Math.round((enRoute / totalTrucks) * 100) : 0;
+  const statuses = {
+    ok: trucks.filter(t => t.status === 'ok').length,
+    low: trucks.filter(t => t.status === 'low_fuel').length,
+    off: trucks.filter(t => t.status === 'no_signal').length,
+  };
+
+  const alertTrucksCount = trucks.filter(isAlertTruck).length;
+  const activeAlerts = (Array.isArray(allAlerts) ? allAlerts : [])
+    .filter(a => !a.resolved_at)
+    .slice(0, 4);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto' }}>
@@ -195,13 +238,13 @@ export default function DashboardPage() {
             <span>Recarregamento Rápido</span>
           </button>
 
-          {/* Indicação de Sistema Online */}
+          {/* Indicação de Conexão do Sistema (Online / Offline) */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            background: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
+            background: isConnected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${isConnected ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
             borderRadius: '12px',
             padding: '9px 16px',
             backdropFilter: 'blur(10px)',
@@ -210,13 +253,17 @@ export default function DashboardPage() {
               width: '9px',
               height: '9px',
               borderRadius: '50%',
-              background: '#10B981',
-              boxShadow: '0 0 8px #10B981',
+              background: isConnected ? '#10B981' : '#EF4444',
+              boxShadow: isConnected ? '0 0 8px #10B981' : '0 0 8px #EF4444',
               flexShrink: 0,
             }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ color: '#FFFFFF', fontSize: '12px', fontWeight: 800 }}>Sistema Online</span>
-              <span style={{ color: '#10B981', fontSize: '10px', fontWeight: 600 }}>Operacional</span>
+              <span style={{ color: '#FFFFFF', fontSize: '12px', fontWeight: 800 }}>
+                {isConnected ? 'Sistema Online' : 'Sistema Offline'}
+              </span>
+              <span style={{ color: isConnected ? '#10B981' : '#EF4444', fontSize: '10px', fontWeight: 600 }}>
+                {isConnected ? 'Operacional' : 'Desconectado'}
+              </span>
             </div>
           </div>
         </div>
@@ -251,7 +298,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
               <span style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF' }}>{totalTrucks}</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>▲ +0% <span style={{ color: '#64748B', fontWeight: 500 }}>vs. ontem</span></span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>{statuses.ok} operacionais</span>
             </div>
           </div>
         </div>
@@ -347,7 +394,12 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
               <span style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF' }}>{todayFuel}</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>▲ +100% <span style={{ color: '#64748B', fontWeight: 500 }}>vs. ontem</span></span>
+              {hasFuelTrend && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: fuelTrendPct >= 0 ? '#10B981' : '#EF4444' }}>
+                  {fuelTrendPct >= 0 ? `▲ +${fuelTrendPct}%` : `▼ ${fuelTrendPct}%`}{' '}
+                  <span style={{ color: '#64748B', fontWeight: 500 }}>vs. ontem</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -408,8 +460,8 @@ export default function DashboardPage() {
               <span>Comb. baixo ({critical})</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} />
-              <span>Alerta (0)</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 6px #f87171' }} />
+              <span>Alerta ({alertTrucksCount})</span>
             </div>
           </div>
         </div>
@@ -509,25 +561,115 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.06)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              borderRadius: '12px',
-              padding: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <CheckCircle size={20} color="#10B981" style={{ flexShrink: 0 }} />
-              <div>
-                <div style={{ color: '#10B981', fontWeight: 800, fontSize: '13px' }}>
-                  Todos os veículos estão operacionais
-                </div>
-                <div style={{ color: '#8899A6', fontSize: '11px', marginTop: '2px' }}>
-                  Nenhum alerta no momento.
+            {al ? (
+              <div style={{ padding: '24px 12px', display: 'flex', justifyContent: 'center' }}>
+                <LoadingSpinner />
+              </div>
+            ) : ae ? (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <AlertTriangle size={20} color="#EF4444" style={{ flexShrink: 0 }} />
+                <span style={{ color: '#EF4444', fontSize: '13px', fontWeight: 600 }}>
+                  Não foi possível carregar os alertas
+                </span>
+              </div>
+            ) : activeAlerts.length === 0 ? (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.06)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <CheckCircle size={20} color="#10B981" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ color: '#FFFFFF', fontWeight: 700, fontSize: '13px' }}>
+                    Nenhum alerta no momento.
+                  </div>
+                  <div style={{ color: '#8899A6', fontSize: '11px', marginTop: '2px' }}>
+                    A frota está operando sem divergências ativas.
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {activeAlerts.map((alert) => {
+                  const meta = getAlertMeta(alert.type);
+                  const Icon = meta.icon;
+                  const sev = getSeverityBadge(alert.severity);
+                  return (
+                    <div
+                      key={alert.id}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: sev.bg,
+                          border: `1px solid ${sev.border}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <Icon size={14} color={sev.color} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {alert.message || meta.label}
+                          </div>
+                          {alert.plate && (
+                            <div style={{ color: '#8899A6', fontSize: '11px', fontFamily: 'monospace' }}>
+                              {alert.plate} {alert.model ? `• ${alert.model}` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: sev.color,
+                        background: sev.bg,
+                        border: `1px solid ${sev.border}`,
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        textTransform: 'uppercase',
+                        flexShrink: 0,
+                      }}>
+                        {sev.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -561,10 +703,6 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
                 <span>Comb. baixo: <strong style={{ color: '#FFFFFF' }}>{critical}</strong></span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} />
-                <span>Em manutenção: <strong style={{ color: '#FFFFFF' }}>0</strong></span>
               </div>
             </div>
           </div>
