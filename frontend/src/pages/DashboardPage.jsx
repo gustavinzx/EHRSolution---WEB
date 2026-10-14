@@ -1,5 +1,5 @@
 import React from 'react';
-import { Truck, Navigation, Fuel, FileText, ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Truck, Navigation, Fuel, FileText, ArrowRight, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
@@ -66,7 +66,7 @@ function DonutChart({ percent = 100 }) {
 }
 
 export default function DashboardPage() {
-  const { trucks, loading: fl } = useFleet();
+  const { trucks, loading: fl, refetch } = useFleet();
   const { logs, loading: ll } = useFueling();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -98,13 +98,12 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto' }}>
 
-      {/* ── Top Hero Greeting Banner ── */}
+      {/* ── Top Hero Greeting Banner (Otimizado Horizontalmente) ── */}
       <div style={{
         ...panelStyle,
         position: 'relative',
         overflow: 'hidden',
-        minHeight: '110px',
-        padding: '24px 32px',
+        padding: '16px 26px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -115,49 +114,122 @@ export default function DashboardPage() {
         <div style={{
           position: 'absolute',
           top: '-40px',
-          right: '200px',
-          width: '260px',
-          height: '180px',
+          right: '260px',
+          width: '240px',
+          height: '160px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(0, 196, 208, 0.12) 0%, transparent 70%)',
           filter: 'blur(30px)',
           pointerEvents: 'none',
         }} />
 
-        {/* Left greeting text */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
-            Olá, {(user?.name || 'Gestor').split(' ')[0]}
-          </h1>
-          <p style={{ margin: '6px 0 0', color: '#8899A6', fontSize: '14px', fontWeight: 500 }}>
-            Painel Geral • Acompanhe a telemetria e o abastecimento da frota em tempo real.
-          </p>
+        {/* Left: Logo Oficial + Saudação Horizontal Compacta */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(0, 196, 208, 0.18), rgba(2, 132, 199, 0.2))',
+            border: '1px solid rgba(0, 196, 208, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: '0 0 12px rgba(0, 196, 208, 0.25)',
+          }}>
+            <img
+              src="/images/ehr-logo.webp"
+              alt="EHR Solutions"
+              style={{ width: '26px', height: '26px', objectFit: 'contain' }}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+                Olá, {(user?.name || 'Gestor').split(' ')[0]}
+              </h1>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#00C4D0',
+                background: 'rgba(0, 196, 208, 0.1)',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                border: '1px solid rgba(0, 196, 208, 0.25)',
+              }}>
+                Painel Gestor
+              </span>
+            </div>
+            <p style={{ margin: '3px 0 0', color: '#8899A6', fontSize: '13px', fontWeight: 500 }}>
+              Telemetria e controle de abastecimento da frota em tempo real.
+            </p>
+          </div>
         </div>
 
-        {/* Right Status Badge: "Sistema Online" */}
+        {/* Right: Recarregamento Rápido + Status "Sistema Online" */}
         <div style={{
           position: 'relative',
           zIndex: 1,
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          background: 'rgba(0, 196, 208, 0.08)',
-          border: '1px solid rgba(0, 196, 208, 0.25)',
-          borderRadius: '14px',
-          padding: '12px 20px',
-          backdropFilter: 'blur(10px)',
         }}>
+          {/* Botão de Recarregamento Rápido */}
+          <button
+            onClick={() => refetch()}
+            title="Recarregamento rápido dos dados da frota"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(0, 196, 208, 0.1)',
+              border: '1px solid rgba(0, 196, 208, 0.35)',
+              borderRadius: '12px',
+              padding: '9px 16px',
+              color: '#00C4D0',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 10px rgba(0, 196, 208, 0.2)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(0, 196, 208, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(0, 196, 208, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <RefreshCw size={14} color="#00C4D0" />
+            <span>Recarregamento Rápido</span>
+          </button>
+
+          {/* Indicação de Sistema Online */}
           <div style={{
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            background: '#10B981',
-            boxShadow: '0 0 10px #10B981',
-            flexShrink: 0,
-          }} />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: 800 }}>Sistema Online</span>
-            <span style={{ color: '#8899A6', fontSize: '11px', fontWeight: 500 }}>Todos os serviços operacionais</span>
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: '12px',
+            padding: '9px 16px',
+            backdropFilter: 'blur(10px)',
+          }}>
+            <div style={{
+              width: '9px',
+              height: '9px',
+              borderRadius: '50%',
+              background: '#10B981',
+              boxShadow: '0 0 8px #10B981',
+              flexShrink: 0,
+            }} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ color: '#FFFFFF', fontSize: '12px', fontWeight: 800 }}>Sistema Online</span>
+              <span style={{ color: '#10B981', fontSize: '10px', fontWeight: 600 }}>Operacional</span>
+            </div>
           </div>
         </div>
       </div>

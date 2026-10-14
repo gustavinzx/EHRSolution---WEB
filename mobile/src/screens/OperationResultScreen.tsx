@@ -468,8 +468,8 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         {/* STATE: BLOCKED OR ERROR */}
         {state.status === 'BLOCKED_NEEDS_MANAGER' && (
           <View style={styles.centerSection}>
-            <View style={[styles.successBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-              <Text style={{ fontSize: 26, fontWeight: '900', color: '#D97706' }}>!</Text>
+            <View style={[styles.successBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: '#F59E0B' }]}>
+              <Text style={{ fontSize: 26, fontWeight: '900', color: '#F59E0B' }}>!</Text>
             </View>
             <Text style={styles.mainTitle}>Aguardando liberação do gestor</Text>
             <Text style={styles.subTitle}>Você excedeu as tentativas faciais. O gestor foi notificado.</Text>
@@ -485,8 +485,8 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 
         {state.status === 'ERROR' && (
           <View style={styles.centerSection}>
-            <View style={[styles.successBadge, { backgroundColor: '#FEF2F2', borderColor: '#EF4444' }]}>
-              <Text style={{ fontSize: 26, fontWeight: '900', color: '#DC2626' }}>×</Text>
+            <View style={[styles.successBadge, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#EF4444' }]}>
+              <Text style={{ fontSize: 26, fontWeight: '900', color: '#EF4444' }}>×</Text>
             </View>
             <Text style={[styles.mainTitle, { color: '#EF4444' }]}>Ocorreu um erro</Text>
             <Text style={styles.subTitle}>{state.error}</Text>
@@ -526,18 +526,18 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070D18',
   },
   header: {
     paddingTop: 54,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#070D18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   backBtn: {
     flexDirection: 'row',
@@ -547,24 +547,26 @@ const styles = StyleSheet.create({
   backArrow: {
     fontSize: 26,
     fontWeight: '300',
-    color: '#0F172A',
+    color: '#FFFFFF',
     lineHeight: 28,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   cancelHeaderBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cancelHeaderText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   scroll: {
     paddingHorizontal: 24,
@@ -588,20 +590,20 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
   },
   animCircle: {
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 6,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
+    backgroundColor: '#0F1A2C',
+    borderWidth: 4,
+    borderColor: 'rgba(0, 196, 208, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#00C4D0',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 4,
   },
@@ -610,7 +612,7 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    borderWidth: 6,
+    borderWidth: 4,
     borderColor: '#00C4D0',
     borderTopColor: 'transparent',
     borderRightColor: 'transparent',
@@ -625,13 +627,13 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginTop: 10,
   },
   subTitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 20,
@@ -640,17 +642,17 @@ const styles = StyleSheet.create({
   },
   stepperCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 12,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 1,
+    elevation: 2,
   },
   stepRow: {
     flexDirection: 'row',
@@ -683,17 +685,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   stepPending: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   stepNumber: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '700',
     fontSize: 12,
   },
   stepLine: {
     width: 2,
     height: 18,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginLeft: 13,
     marginVertical: 4,
   },
@@ -701,7 +703,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   stepTextCompleted: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   stepTextActive: {
@@ -709,20 +711,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stepTextPending: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '500',
   },
   fuelVolumeText: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#0F172A',
+    color: '#00C4D0',
     textAlign: 'center',
     marginTop: 6,
     letterSpacing: -0.5,
   },
   fuelTimeText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 2,
     marginBottom: 16,
@@ -730,7 +732,7 @@ const styles = StyleSheet.create({
   fuelProgressTrack: {
     width: '100%',
     height: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 20,
@@ -749,17 +751,17 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 1,
+    elevation: 2,
   },
   statIcon: {
     fontSize: 22,
@@ -767,26 +769,26 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     fontWeight: '600',
   },
   statValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     marginTop: 2,
   },
   fuelingNoticeCard: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(0, 196, 208, 0.08)',
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: 'rgba(0, 196, 208, 0.25)',
     borderRadius: 14,
     padding: 14,
     width: '100%',
   },
   fuelingNoticeText: {
     fontSize: 12,
-    color: '#0F766E',
+    color: '#00C4D0',
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 18,
@@ -795,7 +797,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
     borderWidth: 3,
     borderColor: '#00C4D0',
     alignItems: 'center',
@@ -809,15 +811,15 @@ const styles = StyleSheet.create({
   },
   receiptCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -837,17 +839,22 @@ const styles = StyleSheet.create({
   },
   receiptLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     fontWeight: '600',
   },
   receiptValue: {
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '800',
+  },
+  receiptPendingText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   receiptDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   cancelActionBtn: {
     width: '100%',
@@ -870,8 +877,8 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     marginTop: 6,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   networkBanner: {
     backgroundColor: '#F59E0B',

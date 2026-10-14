@@ -162,7 +162,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={{ color: '#0F172A', textAlign: 'center', marginBottom: 20 }}>Precisamos de acesso à sua câmera.</Text>
+        <Text style={{ color: '#FFFFFF', textAlign: 'center', marginBottom: 20 }}>Precisamos de acesso à sua câmera.</Text>
         <Button title="Permitir Câmera" onPress={requestPermission} />
       </View>
     );
@@ -253,18 +253,18 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070D18',
   },
   header: {
     paddingTop: 54,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#070D18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   backBtn: {
     flexDirection: 'row',
@@ -274,24 +274,26 @@ const styles = StyleSheet.create({
   backArrow: {
     fontSize: 26,
     fontWeight: '300',
-    color: '#0F172A',
+    color: '#FFFFFF',
     lineHeight: 28,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   cancelHeaderBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   cancelHeaderText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   content: {
     flex: 1,
@@ -304,11 +306,13 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0F1A2C',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -358,12 +362,12 @@ const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(7, 13, 24, 0.7)',
+    backgroundColor: 'rgba(7, 13, 24, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   verifyingBadge: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0F1A2C',
     borderColor: '#00C4D0',
     borderWidth: 1.5,
     borderRadius: 20,
@@ -378,14 +382,14 @@ const styles = StyleSheet.create({
   instructionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 10,
   },
   errorCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     borderWidth: 1,
     borderRadius: 12,
     padding: 10,
@@ -411,7 +415,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   cancelLinkText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 14,
     fontWeight: '600',
   },

@@ -28,17 +28,17 @@ export const Button: React.FC<ButtonProps> = ({
     if (disabled) {
       return {
         container: {
-          backgroundColor: '#E2E8F0',
-          borderColor: '#CBD5E1',
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderColor: 'rgba(255, 255, 255, 0.08)',
           borderWidth: 1,
           shadowOpacity: 0,
           elevation: 0,
         },
         text: {
-          color: '#94A3B8',
+          color: '#64748B',
           fontWeight: '700',
         },
-        spinnerColor: '#94A3B8',
+        spinnerColor: '#64748B',
       };
     }
 
@@ -47,20 +47,20 @@ export const Button: React.FC<ButtonProps> = ({
       case 'outline':
         return {
           container: {
-            backgroundColor: '#FFFFFF',
-            borderColor: '#E2E8F0',
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
             borderWidth: 1.5,
             shadowColor: '#000000',
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
+            shadowOpacity: 0.1,
             shadowRadius: 4,
             elevation: 1,
           },
           text: {
-            color: '#0F172A',
+            color: '#FFFFFF',
             fontWeight: '700',
           },
-          spinnerColor: '#0F172A',
+          spinnerColor: '#FFFFFF',
         };
 
       case 'danger':

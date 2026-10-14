@@ -270,19 +270,29 @@ export default function DriversPage() {
           <div style={{ marginTop: '8px', fontSize: '13px' }}>Tente alterar os termos de busca ou cadastre um novo motorista.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
           {filtered.map(d => {
             const assignedList = d.assigned_trucks || [];
+            const avatarBorder = !d.is_active
+              ? '2px solid #EF4444'
+              : d.face_enrolled
+              ? '2px solid #10B981'
+              : '2px solid #F59E0B';
+            const avatarGlow = !d.is_active
+              ? '0 0 8px rgba(239, 68, 68, 0.35)'
+              : d.face_enrolled
+              ? '0 0 8px rgba(16, 185, 129, 0.35)'
+              : '0 0 6px rgba(245, 158, 11, 0.25)';
 
             return (
               <div
                 key={d.id}
                 style={{
                   ...glass,
-                  padding: '22px',
+                  padding: '16px 18px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '16px',
+                  gap: '12px',
                   background: 'rgba(11, 20, 32, 0.8)',
                   position: 'relative',
                   opacity: d.is_active ? 1 : 0.65,
@@ -290,19 +300,19 @@ export default function DriversPage() {
               >
                 {/* Header: Avatar, Name & Edit Button */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '14px',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '12px',
                       backgroundColor: '#1E293B',
-                      border: '1.5px solid rgba(0, 196, 208, 0.35)',
+                      border: avatarBorder,
                       overflow: 'hidden',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      boxShadow: avatarGlow,
                     }}>
                       <img
                         src={d.face_photo || `https://i.pravatar.cc/150?u=${d.id + 10}`}
@@ -315,7 +325,7 @@ export default function DriversPage() {
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
                           {d.name}
                         </span>
                         {!d.is_active && (
@@ -324,7 +334,7 @@ export default function DriversPage() {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#8899A6', marginTop: '2px' }}>
+                      <div style={{ fontSize: '12px', color: '#8899A6', marginTop: '1px' }}>
                         {d.email || 'Sem e-mail cadastrado'}
                       </div>
                     </div>
@@ -338,15 +348,21 @@ export default function DriversPage() {
                       }}
                       title="Editar motorista"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
+                        width: '26px',
+                        height: '26px',
+                        background: 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '8px',
-                        padding: '6px',
-                        color: '#94A3B8',
+                        borderRadius: '6px',
+                        color: '#64748B',
                         cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#FFFFFF'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#64748B'}
                     >
-                      <Edit2 size={14} />
+                      <Edit2 size={13} />
                     </button>
                   )}
                 </div>
@@ -507,13 +523,15 @@ export default function DriversPage() {
                       type="button"
                       onClick={() => handleToggleActive(d)}
                       style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: d.is_active ? '#F87171' : '#10B981',
-                        fontSize: '12px',
+                        background: d.is_active ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                        border: d.is_active ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+                        color: d.is_active ? '#EF4444' : '#10B981',
+                        borderRadius: '8px',
+                        fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        padding: '4px 8px',
+                        padding: '5px 12px',
+                        transition: 'all 0.2s ease',
                       }}
                     >
                       {d.is_active ? 'Bloquear Acesso' : 'Reativar Acesso'}

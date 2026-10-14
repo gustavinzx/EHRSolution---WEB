@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
-import { API_URL } from '../services/api/apiClient';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -79,7 +78,7 @@ export const LoginScreen: React.FC = () => {
           </ImageBackground>
         </View>
 
-        {/* Bottom Card White Sheet Matching Reference Design */}
+        {/* Bottom Card Deep Navy Sheet Matching Web Dark Mode */}
         <View style={styles.card}>
           {/* E-mail Input */}
           <View style={styles.inputGroup}>
@@ -93,7 +92,7 @@ export const LoginScreen: React.FC = () => {
                 value={identifier}
                 onChangeText={setIdentifier}
                 placeholder="Digite seu e-mail"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -112,7 +111,7 @@ export const LoginScreen: React.FC = () => {
                 value={pass}
                 onChangeText={setPass}
                 placeholder="Digite sua senha"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -132,8 +131,8 @@ export const LoginScreen: React.FC = () => {
             <Switch
               value={rememberMe}
               onValueChange={setRememberMe}
-              trackColor={{ false: '#CBD5E1', true: '#00C4D0' }}
-              thumbColor={rememberMe ? '#FFFFFF' : '#F1F5F9'}
+              trackColor={{ false: '#334155', true: '#00C4D0' }}
+              thumbColor={rememberMe ? '#FFFFFF' : '#94A3B8'}
             />
             <Text style={styles.rememberText}>Lembrar de mim</Text>
           </View>
@@ -153,9 +152,12 @@ export const LoginScreen: React.FC = () => {
             style={styles.loginBtn}
           />
 
-          {/* Footer Corporativo */}
+          {/* Footer Corporativo Seguro (Sem expor URL da API em produção) */}
           <View style={styles.footerInfo}>
-            <Text style={styles.apiFooter}>API: {API_URL}</Text>
+            <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
+            {__DEV__ && (
+              <Text style={styles.devEnvironmentTag}>Ambiente de Desenvolvimento Seguro</Text>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 13, 24, 0.45)',
+    backgroundColor: 'rgba(7, 13, 24, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? 48 : 32,
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#00C4D0',
     letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
@@ -208,25 +210,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    paddingTop: 30,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   labelRow: {
     flexDirection: 'row',
@@ -240,22 +245,22 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#CBD5E1',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070E1A',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 16,
     height: 52,
   },
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   togglePasswordBtn: {
@@ -273,13 +278,13 @@ const styles = StyleSheet.create({
   },
   rememberText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     fontWeight: '500',
   },
   errorBox: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -301,9 +306,15 @@ const styles = StyleSheet.create({
     marginTop: 20,
     alignItems: 'center',
   },
-  apiFooter: {
-    fontSize: 11,
-    color: '#94A3B8',
+  footerText: {
+    fontSize: 12,
+    color: '#64748B',
     fontWeight: '500',
+  },
+  devEnvironmentTag: {
+    fontSize: 10,
+    color: '#475569',
+    marginTop: 4,
+    fontWeight: '600',
   },
 });

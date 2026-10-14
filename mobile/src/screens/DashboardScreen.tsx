@@ -27,6 +27,9 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const vehicleCapacity = vehicle?.capacity || 500;
   const fuelPercent = 90;
 
+  // Lógica dinâmica de cor da barra de combustível (Ciano para adequado, Vermelho/Âmbar para crítico)
+  const fuelBarColor = fuelPercent < 20 ? '#EF4444' : fuelPercent < 50 ? '#F59E0B' : '#00C4D0';
+
   const handleStartOperation = async (releaseMethod: 'facial' | 'ble_fallback' = 'facial') => {
     if (!vehicle) return;
     if (releaseMethod === 'ble_fallback' && !getBleLock().isAvailable()) {
@@ -178,32 +181,46 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Light Matching Mockup Screen 2 */}
+      {/* Top Header Unificado em Dark Mode */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerDot} />
-          <View>
-            <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
-            <Text style={styles.greetingSub}>Tudo pronto para abastecer.</Text>
-          </View>
+          <div>
+            {activeTab === 'inicio' ? (
+              <>
+                <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
+                <Text style={styles.greetingSub}>Tudo pronto para abastecer.</Text>
+              </>
+            ) : activeTab === 'historico' ? (
+              <>
+                <Text style={styles.greetingTitle}>Histórico</Text>
+                <Text style={styles.greetingSub}>Registros de abastecimento da frota.</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.greetingTitle}>Meu Perfil</Text>
+                <Text style={styles.greetingSub}>Dados cadastrais e validação facial.</Text>
+              </>
+            )}
+          </div>
         </View>
 
-        {/* Botão de Configuração / Sair no Header */}
+        {/* Botão de Sair no Header (Sem duplicação de engrenagens) */}
         <TouchableOpacity
           style={styles.headerLogoutBtn}
           onPress={signOut}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityLabel="Sair da conta"
         >
-          <Text style={styles.headerLogoutIcon}>⚙️</Text>
+          <Text style={styles.headerLogoutText}>Sair</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ================= ABA 1: INÍCIO ================= */}
+        {/* ================= ABA 1: INÍCIO (ABASTECIMENTO) ================= */}
         {activeTab === 'inicio' && (
           <View>
-            {/* Card "Seu veículo" (Clean truck card with specs, NO car photo) */}
+            {/* Card "Seu veículo" em Dark Mode (Clean truck specs, SEM foto de carro) */}
             <View style={styles.vehicleCard}>
               <View style={styles.vehicleCardHeader}>
                 <Text style={styles.vehicleCardTitle}>Seu veículo</Text>
@@ -245,15 +262,24 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                         <Text style={styles.metricIcon}>⛽</Text>
                         <Text style={styles.metricLabel}>Nível atual</Text>
                       </View>
-                      <Text style={[styles.metricValue, styles.fuelPercentValue]}>
+                      <Text style={[styles.metricValue, { color: fuelBarColor }]}>
                         {fuelPercent}%
                       </Text>
                     </View>
                   </View>
 
-                  {/* Cyan Level Progress Bar */}
+                  {/* Barra de Progresso com Cor Dinâmica (Ciano -> Vermelho/Âmbar) */}
                   <View style={styles.progressTrack}>
-                    <View style={[styles.progressBar, { width: `${fuelPercent}%` }]} />
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          width: `${fuelPercent}%`,
+                          backgroundColor: fuelBarColor,
+                          shadowColor: fuelBarColor,
+                        },
+                      ]}
+                    />
                   </View>
                 </>
               ) : (
@@ -261,7 +287,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Seção de Ações de Abastecimento (Cyan Pill Button) */}
+            {/* Seção de Ações de Abastecimento (Cyan Pill Destacado) */}
             <View style={styles.actionSection}>
               <Button
                 testID="main-action-btn"
@@ -284,10 +310,10 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Procedimento de Abastecimento / Info Card */}
+            {/* Procedimento de Abastecimento / Guia Rápido */}
             <View style={styles.guideCard}>
               <Text style={styles.guideTitle}>Procedimento de Liberação</Text>
-              
+
               <View style={styles.guideStepRow}>
                 <View style={styles.guideStepNumberBox}>
                   <Text style={styles.guideStepNumber}>1</Text>
@@ -315,11 +341,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* ================= ABA 2: HISTÓRICO ================= */}
         {activeTab === 'historico' && (
           <View>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Histórico de Abastecimentos</Text>
-              <Text style={styles.historySub}>Seus registros mais recentes</Text>
-            </View>
-
             {/* Summary Banner */}
             <View style={styles.historySummaryCard}>
               <View style={styles.historySummaryCol}>
@@ -361,7 +382,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* ================= ABA 3: PERFIL ================= */}
         {activeTab === 'perfil' && (
           <View>
-            {/* Header Perfil com Avatar */}
+            {/* Header Perfil com Avatar Centralizado e Borda Verde Biométrica */}
             <View style={styles.profileHeaderCard}>
               <View style={styles.profileAvatar}>
                 <Text style={styles.profileAvatarText}>
@@ -375,6 +396,8 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={styles.profileName}>{driver?.name || 'Motorista'}</Text>
               <Text style={styles.profileEmail}>{driver?.email || 'motorista@ehr.com'}</Text>
+
+              {/* Borda / Badge Indicativa de Biometria Facial Cadastrada */}
               <View style={styles.biometricBadge}>
                 <Text style={styles.biometricBadgeText}>✓ Biometria Facial Cadastrada</Text>
               </View>
@@ -413,30 +436,31 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Botão Sair da Conta */}
-            <View style={{ marginTop: 14 }}>
-              <Button
-                title="Sair da Conta"
-                variant="danger"
+            {/* Botão Sair da Conta: Reduzida proeminência visual (contorno/fundo sutil vermelho) */}
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity
                 onPress={signOut}
-                style={styles.logoutBtn}
-              />
+                style={styles.subtleLogoutBtn}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.subtleLogoutText}>Sair da Conta</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
       </ScrollView>
 
-      {/* Docked Bottom Tab Bar (3 tabs: Início, Histórico, Perfil) */}
+      {/* Docked Bottom Tab Bar (Ícones preenchidos em ciano na rota ativa, inativas em cinza) */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => setActiveTab('inicio')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.tabIcon, activeTab === 'inicio' && styles.tabIconActive]}>
-            🏠
+          <Text style={[styles.tabIcon, activeTab === 'inicio' ? styles.tabIconActive : styles.tabIconInactive]}>
+            {activeTab === 'inicio' ? '🔷' : '🔹'}
           </Text>
-          <Text style={[styles.tabLabel, activeTab === 'inicio' && styles.tabLabelActive]}>
+          <Text style={[styles.tabLabel, activeTab === 'inicio' ? styles.tabLabelActive : styles.tabLabelInactive]}>
             Início
           </Text>
           {activeTab === 'inicio' && <View style={styles.activeDot} />}
@@ -447,10 +471,10 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => setActiveTab('historico')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.tabIcon, activeTab === 'historico' && styles.tabIconActive]}>
-            ⏱️
+          <Text style={[styles.tabIcon, activeTab === 'historico' ? styles.tabIconActive : styles.tabIconInactive]}>
+            {activeTab === 'historico' ? '⏱️' : '🕒'}
           </Text>
-          <Text style={[styles.tabLabel, activeTab === 'historico' && styles.tabLabelActive]}>
+          <Text style={[styles.tabLabel, activeTab === 'historico' ? styles.tabLabelActive : styles.tabLabelInactive]}>
             Histórico
           </Text>
           {activeTab === 'historico' && <View style={styles.activeDot} />}
@@ -461,10 +485,10 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => setActiveTab('perfil')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.tabIcon, activeTab === 'perfil' && styles.tabIconActive]}>
-            👤
+          <Text style={[styles.tabIcon, activeTab === 'perfil' ? styles.tabIconActive : styles.tabIconInactive]}>
+            {activeTab === 'perfil' ? '👤' : '🔘'}
           </Text>
-          <Text style={[styles.tabLabel, activeTab === 'perfil' && styles.tabLabelActive]}>
+          <Text style={[styles.tabLabel, activeTab === 'perfil' ? styles.tabLabelActive : styles.tabLabelInactive]}>
             Perfil
           </Text>
           {activeTab === 'perfil' && <View style={styles.activeDot} />}
@@ -477,16 +501,18 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070D18',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 54 : 44,
     paddingHorizontal: 22,
     paddingBottom: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070D18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -498,55 +524,57 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#00C4D0',
+    shadowColor: '#00C4D0',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 3,
   },
   greetingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   greetingSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
     fontWeight: '500',
   },
   headerLogoutBtn: {
-    width: 42,
-    height: 42,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  headerLogoutIcon: {
-    fontSize: 18,
+  headerLogoutText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 90,
   },
 
-  // Seu Veículo Card
+  // Seu Veículo Card Dark Mode
   vehicleCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 22,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 4,
     marginBottom: 18,
   },
   vehicleCardHeader: {
@@ -558,13 +586,15 @@ const styles = StyleSheet.create({
   vehicleCardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   monitoredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
@@ -574,11 +604,16 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
   },
   monitoredText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: '#10B981',
   },
   vehicleIdentityRow: {
     flexDirection: 'row',
@@ -590,7 +625,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -603,30 +640,31 @@ const styles = StyleSheet.create({
   vehicleModelText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   plateBadge: {
     marginTop: 4,
     alignSelf: 'flex-start',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#070E1A',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   plateText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: '#94A3B8',
     letterSpacing: 0.8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   metricsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
     marginBottom: 12,
   },
   metricItem: {
@@ -644,31 +682,32 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#8899A6',
   },
   metricValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#0F172A',
-  },
-  fuelPercentValue: {
-    color: '#00C4D0',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   progressTrack: {
     width: '100%',
     height: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#00C4D0',
     borderRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 2,
   },
   noVehicleText: {
     fontSize: 14,
-    color: '#64748B',
+    color: '#8899A6',
     textAlign: 'center',
     paddingVertical: 16,
   },
@@ -682,6 +721,11 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     backgroundColor: '#00C4D0',
     borderColor: '#00B4C0',
+    shadowColor: '#00C4D0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 5,
   },
   bleBtn: {
     height: 50,
@@ -689,23 +733,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // Guide Card
+  // Guide Card Dark Mode
   guideCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 1,
+    elevation: 2,
   },
   guideTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     marginBottom: 14,
   },
   guideStepRow: {
@@ -719,6 +763,8 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -729,32 +775,19 @@ const styles = StyleSheet.create({
   },
   guideStepText: {
     fontSize: 13,
-    color: '#475569',
+    color: '#94A3B8',
     flex: 1,
     lineHeight: 18,
   },
 
   // Histórico
-  historyHeader: {
-    marginBottom: 14,
-  },
-  historyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  historySub: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
-  },
   historySummaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     marginBottom: 14,
   },
   historySummaryCol: {
@@ -764,11 +797,11 @@ const styles = StyleSheet.create({
   historySummaryDivider: {
     width: 1,
     height: '100%',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   historySummaryLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8899A6',
     fontWeight: '600',
   },
   historySummaryValue: {
@@ -778,11 +811,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   historyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 10,
   },
   historyCardRow: {
@@ -793,11 +826,11 @@ const styles = StyleSheet.create({
   historyCardPlate: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   historyCardDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
   },
   historyCardVolumeBox: {
@@ -809,7 +842,7 @@ const styles = StyleSheet.create({
     color: '#00C4D0',
   },
   historyCardStatusBadge: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -818,11 +851,11 @@ const styles = StyleSheet.create({
   historyCardStatusText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
+    color: '#10B981',
   },
   historyCardDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginVertical: 10,
   },
   historyCardFooter: {
@@ -831,55 +864,59 @@ const styles = StyleSheet.create({
   },
   historyCardStation: {
     fontSize: 12,
-    color: '#475569',
+    color: '#CBD5E1',
     fontWeight: '500',
   },
   historyCardMethod: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#8899A6',
   },
 
-  // Perfil
+  // Perfil Dark Mode
   profileHeaderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 22,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(0, 196, 208, 0.2)',
     marginBottom: 16,
   },
   profileAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#00C4D0',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#070E1A',
+    borderWidth: 3,
+    borderColor: '#10B981', // Borda indicativa verde de Biometria Facial Cadastrada
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: '#00C4D0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 4,
   },
   profileAvatarText: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#00C4D0',
   },
   profileName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   profileEmail: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8899A6',
     marginTop: 2,
   },
   biometricBadge: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,
@@ -888,19 +925,19 @@ const styles = StyleSheet.create({
   biometricBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: '#10B981',
   },
   profileDetailsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F1A2C',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   cardSectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     marginBottom: 14,
   },
   profileRow: {
@@ -911,41 +948,53 @@ const styles = StyleSheet.create({
   },
   profileRowLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8899A6',
   },
   profileRowValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   profileDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  logoutBtn: {
-    height: 52,
-    borderRadius: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
 
-  // Docked Bottom Tab Bar
+  // Botão Sair da Conta Sutil
+  subtleLogoutBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subtleLogoutText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // Docked Bottom Tab Bar em Dark Mode
   tabBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: Platform.OS === 'ios' ? 76 : 64,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0B1322',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingBottom: Platform.OS === 'ios' ? 16 : 4,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
   tabItem: {
     alignItems: 'center',
@@ -955,21 +1004,25 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   tabIcon: {
-    fontSize: 18,
-    opacity: 0.45,
+    fontSize: 16,
   },
   tabIconActive: {
     opacity: 1,
   },
+  tabIconInactive: {
+    opacity: 0.35,
+  },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
     marginTop: 2,
   },
   tabLabelActive: {
     color: '#00C4D0',
     fontWeight: '800',
+  },
+  tabLabelInactive: {
+    color: '#64748B',
+    fontWeight: '500',
   },
   activeDot: {
     position: 'absolute',

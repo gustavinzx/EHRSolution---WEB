@@ -243,7 +243,7 @@ export default function FleetPage() {
           ) : (
             filteredTrucks.map(truck => {
               const levelPct = pct(truck);
-              const levelColor = levelPct < 20 ? '#f87171' : levelPct < 50 ? '#fbbf24' : '#10b981';
+              const levelColor = levelPct < 20 ? '#EF4444' : levelPct < 50 ? '#F59E0B' : '#00C4D0';
               const s = STATUS_META[truck.status] || STATUS_META.ok;
               const drivers = truck.current_drivers?.length > 0
                 ? truck.current_drivers.map(d => d.name).join(', ')
@@ -313,12 +313,13 @@ export default function FleetPage() {
                         {levelPct}% ({truck.current_level_liters} L / {truck.capacity_liters} L)
                       </span>
                     </div>
-                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.07)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.07)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{
                         width: `${levelPct}%`,
                         height: '100%',
                         background: levelColor,
-                        borderRadius: '3px',
+                        boxShadow: `0 0 10px ${levelColor}66`,
+                        borderRadius: '4px',
                         transition: 'width 0.4s',
                       }} />
                     </div>
@@ -355,7 +356,7 @@ export default function FleetPage() {
                         fontWeight: 700,
                         color: '#00C4D0',
                         textDecoration: 'none',
-                        padding: '6px 12px',
+                        padding: '7px 12px',
                         borderRadius: '8px',
                         background: 'rgba(0, 196, 208, 0.08)',
                         border: '1px solid rgba(0, 196, 208, 0.2)',
@@ -370,7 +371,7 @@ export default function FleetPage() {
                           type="button"
                           onClick={e => handleCancelRoute(e, truck.id)}
                           style={{
-                            padding: '6px 12px',
+                            padding: '7px 12px',
                             borderRadius: '8px',
                             border: '1px solid rgba(248, 113, 113, 0.4)',
                             background: 'rgba(248, 113, 113, 0.1)',
@@ -392,17 +393,31 @@ export default function FleetPage() {
                           setRouteTruckId(truck.id);
                         }}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 16px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(0, 196, 208, 0.4)',
+                          background: 'linear-gradient(135deg, #00C4D0 0%, #0284C7 100%)',
                           color: '#FFFFFF',
                           cursor: 'pointer',
                           fontSize: '12px',
-                          fontWeight: 700,
+                          fontWeight: 800,
+                          boxShadow: '0 4px 14px rgba(0, 196, 208, 0.35)',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.boxShadow = '0 6px 18px rgba(0, 196, 208, 0.45)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 196, 208, 0.35)';
                         }}
                       >
-                        Definir Viagem
+                        <Navigation size={13} color="#FFFFFF" />
+                        <span>Definir Viagem</span>
                       </button>
                     </div>
                   </div>

@@ -235,6 +235,7 @@ export default function FuelingPage() {
             sub: `${logs.length} abastecimentos registrados`,
             color: '#00C4D0',
             icon: Droplets,
+            isCritical: false,
           },
           {
             label: 'Origem IoT / Hardware',
@@ -242,6 +243,7 @@ export default function FuelingPage() {
             sub: 'telemetria de alta precisão',
             color: '#10B981',
             icon: Radio,
+            isCritical: false,
           },
           {
             label: 'Divergências Críticas',
@@ -249,6 +251,7 @@ export default function FuelingPage() {
             sub: '> 5% desvio bomba vs tanque',
             color: divergenceLogs.length > 0 ? '#EF4444' : '#10B981',
             icon: AlertTriangle,
+            isCritical: divergenceLogs.length > 0,
           },
           {
             label: 'Sessão em Andamento',
@@ -256,6 +259,7 @@ export default function FuelingPage() {
             sub: activeTruck ? `Veículo ${activeTruck.plate}` : 'Nenhum veículo selecionado',
             color: session ? '#38BDF8' : '#8899A6',
             icon: LockKeyhole,
+            isCritical: false,
           },
         ].map(kpi => (
           <div
@@ -266,14 +270,27 @@ export default function FuelingPage() {
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
-              background: 'rgba(11, 20, 32, 0.65)',
+              background: kpi.isCritical ? 'rgba(239, 68, 68, 0.09)' : 'rgba(11, 20, 32, 0.65)',
+              border: kpi.isCritical ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: kpi.isCritical ? '0 0 16px rgba(239, 68, 68, 0.25)' : 'none',
+              transition: 'all 0.2s ease',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
+              <span style={{ fontSize: '11px', color: kpi.isCritical ? '#FCA5A5' : '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
                 {kpi.label}
               </span>
-              <kpi.icon size={16} color={kpi.color} />
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: kpi.isCritical ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <kpi.icon size={16} color={kpi.color} />
+              </div>
             </div>
             <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono, monospace)' }}>
               {kpi.val}
@@ -575,14 +592,14 @@ export default function FuelingPage() {
           </div>
         </div>
 
-        {/* Filters Toolbar */}
+        {/* Filters Toolbar (Grid Horizontal Compacto) */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto auto',
+            gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(140px, 1.2fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(130px, 1fr) auto auto auto',
             gap: '12px',
             alignItems: 'end',
-            padding: '16px',
+            padding: '16px 20px',
             background: 'rgba(255, 255, 255, 0.02)',
             border: '1px solid rgba(255, 255, 255, 0.06)',
             borderRadius: '12px',
@@ -666,7 +683,7 @@ export default function FuelingPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', height: '40px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
               <input
                 type="checkbox"
                 checked={filters.onlyDivergence || false}
@@ -692,6 +709,8 @@ export default function FuelingPage() {
               fontSize: '12px',
               cursor: 'pointer',
               height: '40px',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 4px 12px rgba(0, 196, 208, 0.25)',
             }}
           >
             <Filter size={14} /> Filtrar
