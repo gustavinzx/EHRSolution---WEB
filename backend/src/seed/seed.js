@@ -23,8 +23,8 @@ async function seed() {
 
     // 1. Gestor
     await db.query(`
-      INSERT INTO users (email, password_hash, name) 
-      VALUES ('gestor@ehr.com', $1, 'Gestor Principal')
+      INSERT INTO users (email, password_hash, name, role) 
+      VALUES ('gestor@ehr.com', $1, 'Gestor Principal', 'admin')
       ON CONFLICT DO NOTHING
     `, [passHash]);
 
