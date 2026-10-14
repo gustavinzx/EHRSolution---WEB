@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,11 +25,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'perfil'>('inicio');
 
   const driverFirstName = driver?.name?.split(' ')[0] || 'Motorista';
-  const vehicleCapacity = vehicle?.capacity || 500;
-  const fuelPercent = 90;
-
-  // Lógica dinâmica de cor da barra de combustível (Ciano para adequado, Vermelho/Âmbar para crítico)
-  const fuelBarColor = fuelPercent < 20 ? '#EF4444' : fuelPercent < 50 ? '#F59E0B' : '#00C4D0';
 
   const handleStartOperation = async (releaseMethod: 'facial' | 'ble_fallback' = 'facial') => {
     if (!vehicle) return;
@@ -148,37 +144,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const isBleAvailable = getBleLock().isAvailable();
 
-  // Histórico de abastecimentos real / demonstrativo formatado
-  const mockHistory = [
-    {
-      id: 1,
-      date: '13/10/2026 • 18:00',
-      volume: '450.0 L',
-      plate: vehicle?.plate || 'USB04E06',
-      method: 'Biometria Facial',
-      status: 'Concluído',
-      station: 'Posto Rodovia Anhanguera',
-    },
-    {
-      id: 2,
-      date: '13/10/2026 • 17:42',
-      volume: '500.0 L',
-      plate: vehicle?.plate || 'USB04E06',
-      method: 'Biometria Facial',
-      status: 'Concluído',
-      station: 'Posto Central SP',
-    },
-    {
-      id: 3,
-      date: '10/10/2026 • 09:15',
-      volume: '380.0 L',
-      plate: vehicle?.plate || 'USB04E06',
-      method: 'Bluetooth Fallback',
-      status: 'Concluído',
-      station: 'Auto Posto Bandeirantes',
-    },
-  ];
-
   return (
     <View style={styles.container}>
       {/* Top Header Unificado em Dark Mode */}
@@ -245,7 +210,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </View>
 
-                  {/* Metrics Section: Capacidade & Nível Atual */}
+                  {/* Metrics Section: Capacidade */}
                   <View style={styles.metricsContainer}>
                     <View style={styles.metricItem}>
                       <View style={styles.metricLabelRow}>
@@ -253,33 +218,9 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                         <Text style={styles.metricLabel}>Capacidade</Text>
                       </View>
                       <Text style={styles.metricValue}>
-                        {parseFloat(String(vehicleCapacity)).toFixed(1)} L
+                        {vehicle.capacity ? `${vehicle.capacity} L` : '—'}
                       </Text>
                     </View>
-
-                    <View style={styles.metricItem}>
-                      <View style={styles.metricLabelRow}>
-                        <Text style={styles.metricIcon}>⛽</Text>
-                        <Text style={styles.metricLabel}>Nível atual</Text>
-                      </View>
-                      <Text style={[styles.metricValue, { color: fuelBarColor }]}>
-                        {fuelPercent}%
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Barra de Progresso com Cor Dinâmica (Ciano -> Vermelho/Âmbar) */}
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        {
-                          width: `${fuelPercent}%`,
-                          backgroundColor: fuelBarColor,
-                          shadowColor: fuelBarColor,
-                        },
-                      ]}
-                    />
                   </View>
                 </>
               ) : (
@@ -340,42 +281,13 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ================= ABA 2: HISTÓRICO ================= */}
         {activeTab === 'historico' && (
-          <View>
-            {/* Summary Banner */}
-            <View style={styles.historySummaryCard}>
-              <View style={styles.historySummaryCol}>
-                <Text style={styles.historySummaryLabel}>Volume Acumulado</Text>
-                <Text style={styles.historySummaryValue}>1.330 L</Text>
-              </View>
-              <View style={styles.historySummaryDivider} />
-              <View style={styles.historySummaryCol}>
-                <Text style={styles.historySummaryLabel}>Abastecimentos</Text>
-                <Text style={styles.historySummaryValue}>3 registrados</Text>
-              </View>
+          <View style={styles.emptyHistoryCard}>
+            <View style={styles.emptyHistoryIconBox}>
+              <Text style={styles.emptyHistoryIcon}>⏱️</Text>
             </View>
-
-            {/* Lista de Registros */}
-            {mockHistory.map((item) => (
-              <View key={item.id} style={styles.historyCard}>
-                <View style={styles.historyCardRow}>
-                  <View>
-                    <Text style={styles.historyCardPlate}>{item.plate}</Text>
-                    <Text style={styles.historyCardDate}>{item.date}</Text>
-                  </View>
-                  <View style={styles.historyCardVolumeBox}>
-                    <Text style={styles.historyCardVolume}>{item.volume}</Text>
-                    <View style={styles.historyCardStatusBadge}>
-                      <Text style={styles.historyCardStatusText}>{item.status}</Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.historyCardDivider} />
-                <View style={styles.historyCardFooter}>
-                  <Text style={styles.historyCardStation}>{item.station}</Text>
-                  <Text style={styles.historyCardMethod}>{item.method}</Text>
-                </View>
-              </View>
-            ))}
+            <Text style={styles.emptyHistoryText}>
+              Seu histórico de abastecimentos aparecerá aqui.
+            </Text>
           </View>
         )}
 
@@ -395,7 +307,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
               <Text style={styles.profileName}>{driver?.name || 'Motorista'}</Text>
-              <Text style={styles.profileEmail}>{driver?.email || 'motorista@ehr.com'}</Text>
+              <Text style={styles.profileEmail}>{driver?.email || 'Não informado'}</Text>
 
               {/* Borda / Badge Indicativa de Biometria Facial Cadastrada */}
               <View style={styles.biometricBadge}>
@@ -432,7 +344,9 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
               <View style={styles.profileRow}>
                 <Text style={styles.profileRowLabel}>Versão do App</Text>
-                <Text style={styles.profileRowValue}>v1.0.4 • EHR Solutions</Text>
+                <Text style={styles.profileRowValue}>
+                  {Constants.expoConfig?.version ? `v${Constants.expoConfig.version} • EHR Solutions` : 'v1.0.0 • EHR Solutions'}
+                </Text>
               </View>
             </View>
 
@@ -781,95 +695,33 @@ const styles = StyleSheet.create({
   },
 
   // Histórico
-  historySummaryCard: {
-    flexDirection: 'row',
+  emptyHistoryCard: {
     backgroundColor: '#0F1A2C',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
-    marginBottom: 14,
-  },
-  historySummaryCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  historySummaryDivider: {
-    width: 1,
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  historySummaryLabel: {
-    fontSize: 11,
-    color: '#8899A6',
-    fontWeight: '600',
-  },
-  historySummaryValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#00C4D0',
-    marginTop: 2,
-  },
-  historyCard: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 20,
+    padding: 32,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
   },
-  historyCardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  emptyHistoryIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0, 196, 208, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  historyCardPlate: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  emptyHistoryIcon: {
+    fontSize: 26,
   },
-  historyCardDate: {
-    fontSize: 12,
-    color: '#8899A6',
-    marginTop: 2,
-  },
-  historyCardVolumeBox: {
-    alignItems: 'flex-end',
-  },
-  historyCardVolume: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#00C4D0',
-  },
-  historyCardStatusBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  historyCardStatusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  historyCardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    marginVertical: 10,
-  },
-  historyCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  historyCardStation: {
-    fontSize: 12,
-    color: '#CBD5E1',
-    fontWeight: '500',
-  },
-  historyCardMethod: {
-    fontSize: 11,
-    color: '#8899A6',
+  emptyHistoryText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   // Perfil Dark Mode

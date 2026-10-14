@@ -379,7 +379,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 <Text style={styles.statIcon}>🛢️</Text>
                 <Text style={styles.statLabel}>Tanque</Text>
                 <Text style={styles.statValue}>
-                  {parseFloat(String(vehicle?.capacity || 500)).toFixed(1)} L
+                  {vehicle?.capacity ? `${vehicle.capacity} L` : '500 L'}
                 </Text>
               </View>
             </View>

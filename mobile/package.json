@@ -19,6 +19,7 @@
     "@react-navigation/stack": "^6.4.1",
     "expo": "~57.0.26",
     "expo-camera": "~57.0.6",
+    "expo-constants": "~57.0.20",
     "expo-image-manipulator": "~57.0.20",
     "expo-location": "~57.0.20",
     "expo-secure-store": "~57.0.4",

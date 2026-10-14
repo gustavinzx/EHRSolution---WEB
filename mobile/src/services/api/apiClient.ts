@@ -46,12 +46,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     });
   } catch (error: any) {
     clearTimeout(timeoutId);
-    console.error(`[API ERROR] ${options.method || 'GET'} ${API_URL}${endpoint}:`, error);
-    if (error.name === 'AbortError') {
-      throw { status: 0, message: `Tempo limite esgotado ao conectar em ${API_URL}` } as ApiError;
+    if (__DEV__) {
+      console.error(`[API ERROR] ${options.method || 'GET'} ${API_URL}${endpoint}:`, error);
     }
-    const detail = error?.message ? ` (${error.message})` : '';
-    throw { status: 0, message: `Sem conexão com ${API_URL}${detail}` } as ApiError;
+    if (error.name === 'AbortError') {
+      const message = __DEV__
+        ? `Tempo limite esgotado ao conectar em ${API_URL}`
+        : 'Tempo limite da requisição excedido.';
+      throw { status: 0, message } as ApiError;
+    }
+    const detail = __DEV__ && error?.message ? ` (${error.message})` : '';
+    const message = __DEV__
+      ? `Sem conexão com ${API_URL}${detail}`
+      : 'Sem conexão com o servidor.';
+    throw { status: 0, message } as ApiError;
   }
   clearTimeout(timeoutId);
 
