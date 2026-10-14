@@ -31,6 +31,14 @@ vi.mock('./components/AnpStationsMap', () => ({
   ),
 }));
 
+vi.mock('./components/AuthorizedStationsMap', () => ({
+  default: ({ stations = [] }) => (
+    <div data-testid="authorized-stations-map">
+      Mapa de Postos ({stations.length} cadastrados)
+    </div>
+  ),
+}));
+
 import StationsPage, { getAnpStationBadge } from './pages/StationsPage';
 
 describe('StationsPage - Aba ANP (Brasil)', () => {

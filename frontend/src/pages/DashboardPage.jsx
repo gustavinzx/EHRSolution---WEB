@@ -77,23 +77,11 @@ export default function DashboardPage() {
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
   const today = new Date().toISOString().split('T')[0];
-  const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length || 2;
-  const critical = trucks.filter(t => pct(t) < 20).length || 0;
-  const todayFuel = logs.filter(l => l.timestamp?.startsWith(today)).length || 2;
-  const totalTrucks = trucks.length || 2;
-  const enRoutePercent = Math.round((enRoute / totalTrucks) * 100);
-
-  // Exemplo da lista de veículos com visual idêntico ao mockup
-  const displayTrucks = trucks.length >= 2 ? trucks : [
-    { id: 1, plate: 'USB04E06', model: 'Hyundai Azera', capacity_liters: 500, current_level_liters: 450, speed_kmh: 42, status: 'ok' },
-    { id: 2, plate: 'EHR-0001', model: 'Volvo FH 540', capacity_liters: 600, current_level_liters: 300, speed_kmh: 55, status: 'ok' },
-  ];
-
-  // Exemplo de logs de abastecimento com visual idêntico ao mockup
-  const displayLogs = logs.length > 0 ? logs.slice(0, 3) : [
-    { id: 1, timestamp: '2026-10-13T18:00:00Z', driver_name: 'Gustavo Silva', truck_plate: 'USB04E06', level_after: 250 },
-    { id: 2, timestamp: '2026-10-13T17:43:00Z', driver_name: 'Gustavo Silva', truck_plate: 'USB04E06', level_after: 50 },
-  ];
+  const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
+  const critical = trucks.filter(t => pct(t) < 20).length;
+  const todayFuel = logs.filter(l => l.timestamp?.startsWith(today)).length;
+  const totalTrucks = trucks.length;
+  const enRoutePercent = totalTrucks > 0 ? Math.round((enRoute / totalTrucks) * 100) : 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto' }}>
@@ -394,7 +382,7 @@ export default function DashboardPage() {
           </div>
 
           <div style={{ height: '360px', position: 'relative' }}>
-            <MapView trucks={trucks.length > 0 ? trucks : displayTrucks} />
+            <MapView trucks={trucks} />
           </div>
 
           {/* Map bottom legend */}
@@ -439,67 +427,73 @@ export default function DashboardPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {displayTrucks.slice(0, 3).map((t, i) => {
-                const currentPct = pct(t);
-                const barColor = currentPct < 20 ? '#EF4444' : currentPct < 50 ? '#F59E0B' : '#00C4D0';
-                return (
-                  <div key={t.id || i} style={{
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    borderRadius: '12px',
-                    padding: '12px 14px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              {trucks.length === 0 ? (
+                <div style={{ padding: '24px 12px', textAlign: 'center', color: '#8899A6', fontSize: '13px' }}>
+                  Nenhum caminhão cadastrado
+                </div>
+              ) : (
+                trucks.slice(0, 3).map((t, i) => {
+                  const currentPct = pct(t);
+                  const barColor = currentPct < 20 ? '#EF4444' : currentPct < 50 ? '#F59E0B' : '#00C4D0';
+                  return (
+                    <div key={t.id || i} style={{
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
+                          background: `${barColor}15`,
+                          border: `1px solid ${barColor}40`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <Truck size={15} color={barColor} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '13px' }}>{t.plate}</span>
+                          <span style={{ color: '#8899A6', fontSize: '11px', marginLeft: '6px' }}>- {t.model}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress track */}
                       <div style={{
-                        width: '30px',
-                        height: '30px',
-                        borderRadius: '8px',
-                        background: `${barColor}15`,
-                        border: `1px solid ${barColor}40`,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <Truck size={15} color={barColor} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '13px' }}>{t.plate}</span>
-                        <span style={{ color: '#8899A6', fontSize: '11px', marginLeft: '6px' }}>- {t.model}</span>
-                      </div>
-                    </div>
-
-                    {/* Progress track */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                    }}>
-                      <div style={{
-                        flex: 1,
-                        height: '7px',
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
+                        gap: '10px',
                       }}>
                         <div style={{
-                          width: `${currentPct}%`,
-                          height: '100%',
-                          background: barColor,
-                          boxShadow: `0 0 8px ${barColor}66`,
+                          flex: 1,
+                          height: '7px',
+                          background: 'rgba(255, 255, 255, 0.06)',
                           borderRadius: '4px',
-                        }} />
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            width: `${currentPct}%`,
+                            height: '100%',
+                            background: barColor,
+                            boxShadow: `0 0 8px ${barColor}66`,
+                            borderRadius: '4px',
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: barColor, minWidth: '32px', textAlign: 'right' }}>
+                          {currentPct}%
+                        </span>
+                        <span style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'nowrap' }}>
+                          {parseFloat(t.current_level_liters).toFixed(1)} L / {parseFloat(t.capacity_liters).toFixed(1)} L
+                        </span>
                       </div>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: barColor, minWidth: '32px', textAlign: 'right' }}>
-                        {currentPct}%
-                      </span>
-                      <span style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'nowrap' }}>
-                        {parseFloat(t.current_level_liters).toFixed(1)} L / {parseFloat(t.capacity_liters).toFixed(1)} L
-                      </span>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -582,55 +576,55 @@ export default function DashboardPage() {
                 <FileText size={15} color="#00C4D0" />
                 <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Últimos Abastecimentos</span>
               </div>
-              <Link to="/fueling" style={{ color: '#00C4D0', fontSize: '12px', fontWeight: 700, textDecoration: 'none' }}>
-                Ver todos →
-              </Link>
-            </div>
-
-            {/* Table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-              <thead>
-                <tr style={{ color: '#64748B', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>DATA / HORA</th>
-                  <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>MOTORISTA</th>
-                  <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 700 }}>VEÍCULO</th>
-                  <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 700 }}>VOLUME</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayLogs.map((log, idx) => {
-                  const d = log.timestamp ? new Date(log.timestamp) : new Date();
-                  const dateFormatted = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                  return (
-                    <tr key={log.id || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
-                      <td style={{ padding: '8px 4px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                        {dateFormatted}
-                      </td>
-                      <td style={{ padding: '8px 4px', color: '#FFFFFF', fontWeight: 600 }}>
-                        {log.driver_name || 'Gustavo Silva'}
-                      </td>
-                      <td style={{ padding: '8px 4px', textAlign: 'center' }}>
-                        <span style={{
-                          background: 'rgba(0, 196, 208, 0.1)',
-                          color: '#00C4D0',
-                          border: '1px solid rgba(0, 196, 208, 0.25)',
-                          borderRadius: '6px',
-                          padding: '2px 6px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          fontFamily: 'monospace',
-                        }}>
-                          {log.truck_plate || 'USB04E06'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 4px', textAlign: 'right', color: '#FFFFFF', fontWeight: 800, fontFamily: 'monospace' }}>
-                        {parseFloat(log.level_after || 250).toFixed(1)} L
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {logs.length === 0 ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: '#8899A6', fontSize: '13px' }}>
+                Nenhum abastecimento registrado
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ color: '#64748B', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>DATA / HORA</th>
+                    <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>MOTORISTA</th>
+                    <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 700 }}>VEÍCULO</th>
+                    <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 700 }}>VOLUME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.slice(0, 5).map((log, idx) => {
+                    const d = log.timestamp ? new Date(log.timestamp) : new Date();
+                    const dateFormatted = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <tr key={log.id || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                        <td style={{ padding: '8px 4px', color: '#94A3B8', fontFamily: 'monospace' }}>
+                          {dateFormatted}
+                        </td>
+                        <td style={{ padding: '8px 4px', color: '#FFFFFF', fontWeight: 600 }}>
+                          {log.driver_name || 'Motorista'}
+                        </td>
+                        <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                          <span style={{
+                            background: 'rgba(0, 196, 208, 0.1)',
+                            color: '#00C4D0',
+                            border: '1px solid rgba(0, 196, 208, 0.25)',
+                            borderRadius: '6px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            fontFamily: 'monospace',
+                          }}>
+                            {log.truck_plate || '—'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 4px', textAlign: 'right', color: '#FFFFFF', fontWeight: 800, fontFamily: 'monospace' }}>
+                          {log.level_after != null ? `${parseFloat(log.level_after).toFixed(1)} L` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
         </div>

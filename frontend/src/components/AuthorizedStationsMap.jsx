@@ -66,15 +66,6 @@ export default function AuthorizedStationsMap({
   onSelectStation,
   onToggleStation,
 }) {
-  // Test environment guard (jsdom)
-  if (import.meta.env?.MODE === 'test') {
-    return (
-      <div data-testid="mock-authorized-map" style={{ height: '100%', width: '100%', padding: '20px', color: '#8899A6' }}>
-        Mapa de Postos ({stations.length} cadastrados)
-      </div>
-    );
-  }
-
   const validStations = stations.filter(s => s.lat && s.lng);
   const defaultCenter = validStations.length > 0
     ? [parseFloat(validStations[0].lat), parseFloat(validStations[0].lng)]

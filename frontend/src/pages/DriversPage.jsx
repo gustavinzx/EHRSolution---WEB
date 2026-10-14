@@ -26,6 +26,15 @@ const glass = {
   borderRadius: '16px',
 };
 
+function getInitials(name) {
+  if (!name) return 'M';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0].slice(0, 2).toUpperCase();
+}
+
 export default function DriversPage() {
   const { user } = useAuth();
   const {
@@ -301,27 +310,50 @@ export default function DriversPage() {
                 {/* Header: Avatar, Name & Edit Button */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '12px',
-                      backgroundColor: '#1E293B',
-                      border: avatarBorder,
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: avatarGlow,
-                    }}>
-                      <img
-                        src={d.face_photo || `https://i.pravatar.cc/150?u=${d.id + 10}`}
-                        alt={d.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
+                    <div
+                      data-testid={`driver-avatar-${d.id}`}
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '12px',
+                        backgroundColor: '#1E293B',
+                        border: avatarBorder,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: avatarGlow,
+                      }}
+                    >
+                      {d.face_photo ? (
+                        <img
+                          src={d.face_photo}
+                          alt={d.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span
+                        data-testid={`driver-initials-${d.id}`}
+                        style={{
+                          display: d.face_photo ? 'none' : 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          height: '100%',
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          color: '#00C4D0',
+                          fontFamily: 'monospace',
                         }}
-                      />
+                      >
+                        {getInitials(d.name)}
+                      </span>
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
