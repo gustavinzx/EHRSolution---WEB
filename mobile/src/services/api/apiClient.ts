@@ -4,6 +4,8 @@ import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Session, ReleaseMethod } from '../../types/session';
 
+const DEFAULT_DEV_IP = '192.168.15.4';
+
 const getHostFromConstants = (): string | null => {
   const hostUri =
     Constants.expoConfig?.hostUri ||
@@ -35,10 +37,18 @@ export const getBaseUrl = (): string => {
   }
   if (envUrl) return envUrl;
 
+  const extraUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (extraUrl) return extraUrl;
+
   // No Expo Go (dispositivo físico ou emulador), detecta o IP do computador host automaticamente
   const host = getHostFromConstants();
   if (host) {
     return `http://${host}:3001/api`;
+  }
+
+  // Em ambiente de desenvolvimento no celular físico (via Wi-Fi) fora de testes automatizados
+  if (process.env.NODE_ENV !== 'test') {
+    return `http://${DEFAULT_DEV_IP}:3001/api`;
   }
 
   if (Platform.OS === 'android') return 'http://10.0.2.2:3001/api';

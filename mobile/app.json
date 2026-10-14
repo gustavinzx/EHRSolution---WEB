@@ -45,6 +45,9 @@
           "backgroundColor": "#1E293B"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "apiUrl": "http://192.168.15.4:3001/api"
+    }
   }
 }
