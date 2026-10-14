@@ -300,5 +300,51 @@ describe('DashboardScreen', () => {
       expect(apiClient.requestSession).toHaveBeenCalledTimes(1);
       expect(mockNavigation.navigate).not.toHaveBeenCalled();
     });
+
+    it('aba Início não exibe percentual de nível do tanque e exibe apenas capacidade (Bloco C2)', () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva', email: 'joao@ehr.com', phone: '11999999999' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      const { getByText, queryByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      // Shows vehicle capacity
+      expect(getByText('Capacidade')).toBeTruthy();
+      expect(getByText('500 L')).toBeTruthy();
+
+      // Does NOT show tank fuel level percentage or "Nível atual"
+      expect(queryByText(/Nível atual/i)).toBeNull();
+      expect(queryByText(/90%/i)).toBeNull();
+      expect(queryByText(/USB04E06/i)).toBeNull();
+    });
+
+    it('aba Histórico se mostra vazia sem "1.330 L" e exibe estado honesto (Bloco C2)', () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva', email: 'joao@ehr.com', phone: '11999999999' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      const { getByText, queryByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      // Switch to Histórico tab
+      fireEvent.press(getByText('Histórico'));
+
+      // Empty state honest message is displayed
+      expect(getByText('Seu histórico de abastecimentos aparecerá aqui.')).toBeTruthy();
+
+      // Mock numbers and fake data are NOT displayed
+      expect(queryByText(/1\.330/i)).toBeNull();
+      expect(queryByText(/3 registrados/i)).toBeNull();
+      expect(queryByText(/USB04E06/i)).toBeNull();
+    });
   });
 });

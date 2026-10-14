@@ -576,6 +576,7 @@ export default function DashboardPage() {
                 <FileText size={15} color="#00C4D0" />
                 <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Últimos Abastecimentos</span>
               </div>
+            </div>
             {logs.length === 0 ? (
               <div style={{ padding: '24px 12px', textAlign: 'center', color: '#8899A6', fontSize: '13px' }}>
                 Nenhum abastecimento registrado
