@@ -35,7 +35,8 @@ export const getBaseUrl = (): string => {
     }
     return envUrl;
   }
-  if (envUrl) return envUrl;
+  const isLoopbackEnv = !!envUrl && /^https?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(envUrl);
+  if (envUrl && !(isLoopbackEnv && Platform.OS !== 'web' && process.env.NODE_ENV !== 'test')) return envUrl;
 
   const extraUrl = Constants.expoConfig?.extra?.apiUrl;
   if (extraUrl) return extraUrl;
