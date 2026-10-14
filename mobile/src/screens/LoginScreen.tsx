@@ -62,7 +62,7 @@ export const LoginScreen: React.FC = () => {
         {/* Top Hero Brand Section with Dusk Truck Reference Background */}
         <View style={styles.heroSection}>
           <ImageBackground
-            source={require('../../assets/login-hero.png')}
+            source={require('../../assets/login-hero.jpg')}
             style={styles.heroBackground}
             resizeMode="cover"
           >
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 13, 24, 0.55)',
+    backgroundColor: 'rgba(7, 13, 24, 0.40)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? 48 : 32,
