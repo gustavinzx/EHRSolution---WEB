@@ -181,10 +181,10 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.settingsBtn}
+          style={styles.cancelHeaderBtn}
           onPress={handleCancelPress}
         >
-          <Text style={styles.settingsIcon}>⚙️</Text>
+          <Text style={styles.cancelHeaderText}>Cancelar</Text>
         </TouchableOpacity>
       </View>
 
@@ -230,7 +230,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.btnSection}>
           <Button
             testID="capture-btn"
-            title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "📷 Capturar Foto"}
+            title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "Capturar Foto"}
             variant="primary"
             onPress={handleCapture}
             disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
@@ -282,16 +282,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
-  settingsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  cancelHeaderBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  settingsIcon: {
-    fontSize: 16,
+  cancelHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
   },
   content: {
     flex: 1,

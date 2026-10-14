@@ -103,37 +103,34 @@ export default function DashboardPage() {
         ...panelStyle,
         position: 'relative',
         overflow: 'hidden',
-        minHeight: '130px',
+        minHeight: '110px',
         padding: '24px 32px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'linear-gradient(90deg, #07101B 0%, #0B1928 45%, #0B1E32 100%)',
-        border: '1px solid rgba(0, 196, 208, 0.25)',
+        background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 50%, rgba(11, 30, 50, 0.9) 100%)',
+        border: '1px solid rgba(0, 196, 208, 0.2)',
       }}>
-        {/* Truck photo watermark on the right */}
+        {/* Subtle decorative glow */}
         <div style={{
           position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '500px',
-          backgroundImage: 'url(/images/truck-hero.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center right',
-          opacity: 0.35,
-          maskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
-          WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
+          top: '-40px',
+          right: '200px',
+          width: '260px',
+          height: '180px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0, 196, 208, 0.12) 0%, transparent 70%)',
+          filter: 'blur(30px)',
           pointerEvents: 'none',
         }} />
 
         {/* Left greeting text */}
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
-            Olá, {(user?.name || 'Gestor').split(' ')[0]}! 👋
+          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+            Olá, {(user?.name || 'Gestor').split(' ')[0]}
           </h1>
           <p style={{ margin: '6px 0 0', color: '#8899A6', fontSize: '14px', fontWeight: 500 }}>
-            Aqui está o status da sua frota em tempo real.
+            Painel Geral • Acompanhe a telemetria e o abastecimento da frota em tempo real.
           </p>
         </div>
 

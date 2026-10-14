@@ -61,7 +61,7 @@ const FuelingAnimation: React.FC = () => {
       <View style={styles.animCircle}>
         <Animated.View style={[styles.rotatingRing, { transform: [{ rotate: spin }] }]} />
         <View style={styles.iconCenter}>
-          <Text style={styles.nozzleIcon}>⛽</Text>
+          <Text style={styles.brandIconText}>EHR</Text>
         </View>
       </View>
     </View>
@@ -293,8 +293,8 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         </TouchableOpacity>
 
         {canCancel && (
-          <TouchableOpacity style={styles.settingsBtn} onPress={confirmCancel}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
+          <TouchableOpacity style={styles.cancelHeaderBtn} onPress={confirmCancel}>
+            <Text style={styles.cancelHeaderText}>Cancelar</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -370,13 +370,11 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
             {/* Two Summary Cards */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>⛽</Text>
                 <Text style={styles.statLabel}>Vazão atual</Text>
                 <Text style={styles.statValue}>42,5 L/min</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>🚚</Text>
                 <Text style={styles.statLabel}>Tanque</Text>
                 <Text style={styles.statValue}>500.0 L</Text>
               </View>
@@ -400,7 +398,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               <View style={styles.receiptCard} testID="result-card">
                 <View style={styles.receiptRow}>
                   <View style={styles.receiptLabelRow}>
-                    <Text style={styles.receiptEmoji}>⛽</Text>
+                    <View style={styles.receiptDot} />
                     {sessionDetail.result.volume_liters != null ? (
                       <Text style={styles.receiptValue}>
                         Volume abastecido: {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(sessionDetail.result.volume_liters)} L
@@ -418,7 +416,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                     <View style={styles.receiptDivider} />
                     <View style={styles.receiptRow}>
                       <View style={styles.receiptLabelRow}>
-                        <Text style={styles.receiptEmoji}>⏱️</Text>
+                        <View style={styles.receiptDot} />
                         <Text style={styles.receiptValue}>
                           Duração: {new Intl.NumberFormat('pt-BR').format(sessionDetail.result.duration_minutes)} min
                         </Text>
@@ -430,7 +428,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 <View style={styles.receiptDivider} />
                 <View style={styles.receiptRow}>
                   <View style={styles.receiptLabelRow}>
-                    <Text style={styles.receiptEmoji}>📅</Text>
+                    <View style={styles.receiptDot} />
                     <Text style={styles.receiptValue}>
                       Data e hora: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
@@ -460,7 +458,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         {state.status === 'BLOCKED_NEEDS_MANAGER' && (
           <View style={styles.centerSection}>
             <View style={[styles.successBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-              <Text style={{ fontSize: 32 }}>⚠️</Text>
+              <Text style={{ fontSize: 26, fontWeight: '900', color: '#D97706' }}>!</Text>
             </View>
             <Text style={styles.mainTitle}>Aguardando liberação do gestor</Text>
             <Text style={styles.subTitle}>Você excedeu as tentativas faciais. O gestor foi notificado.</Text>
@@ -477,7 +475,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         {state.status === 'ERROR' && (
           <View style={styles.centerSection}>
             <View style={[styles.successBadge, { backgroundColor: '#FEF2F2', borderColor: '#EF4444' }]}>
-              <Text style={{ fontSize: 32 }}>❌</Text>
+              <Text style={{ fontSize: 26, fontWeight: '900', color: '#DC2626' }}>×</Text>
             </View>
             <Text style={[styles.mainTitle, { color: '#EF4444' }]}>Ocorreu um erro</Text>
             <Text style={styles.subTitle}>{state.error}</Text>
@@ -546,16 +544,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
-  settingsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  cancelHeaderBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  settingsIcon: {
-    fontSize: 16,
+  cancelHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
   },
   scroll: {
     paddingHorizontal: 24,
@@ -610,8 +608,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nozzleIcon: {
-    fontSize: 34,
+  brandIconText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#00C4D0',
+    letterSpacing: 1.5,
   },
   mainTitle: {
     fontSize: 20,
@@ -790,10 +791,13 @@ const styles = StyleSheet.create({
   receiptLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  receiptEmoji: {
-    fontSize: 16,
+  receiptDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00C4D0',
   },
   receiptLabel: {
     fontSize: 13,
