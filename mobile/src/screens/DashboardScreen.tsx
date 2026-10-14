@@ -306,7 +306,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     .toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.profileName}>{driver?.name || 'Motorista'}</Text>
+              <Text style={styles.profileName}>{driver?.name || 'Não informado'}</Text>
               <Text style={styles.profileEmail}>{driver?.email || 'Não informado'}</Text>
 
               {/* Borda / Badge Indicativa de Biometria Facial Cadastrada */}

@@ -359,27 +359,23 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
             <FuelingAnimation />
 
             <Text style={styles.mainTitle}>Abastecendo...</Text>
-            <Text style={styles.fuelVolumeText}>184,6 L</Text>
-            <Text style={styles.fuelTimeText}>Tempo: 0,1 min</Text>
+            <Text style={styles.subTitle}>
+              Trava liberada e fluxo de combustível ativo. Aguarde a conclusão no bocal.
+            </Text>
 
-            {/* Progress Bar */}
-            <View style={styles.fuelProgressTrack}>
-              <View style={styles.fuelProgressBar} />
-            </View>
-
-            {/* Two Summary Metric Cards */}
+            {/* Summary Metric Cards */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>⛽</Text>
-                <Text style={styles.statLabel}>Vazão atual</Text>
-                <Text style={styles.statValue}>42,5 L/min</Text>
+                <Text style={styles.statIcon}>🚛</Text>
+                <Text style={styles.statLabel}>Veículo</Text>
+                <Text style={styles.statValue}>{vehicle?.plate || '—'}</Text>
               </View>
 
               <View style={styles.statBox}>
                 <Text style={styles.statIcon}>🛢️</Text>
-                <Text style={styles.statLabel}>Tanque</Text>
+                <Text style={styles.statLabel}>Capacidade</Text>
                 <Text style={styles.statValue}>
-                  {vehicle?.capacity ? `${vehicle.capacity} L` : '500 L'}
+                  {vehicle?.capacity ? `${vehicle.capacity} L` : '—'}
                 </Text>
               </View>
             </View>
