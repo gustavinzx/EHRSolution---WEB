@@ -12,12 +12,9 @@ import {
   ScrollView,
   Switch,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
@@ -50,157 +47,172 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
+    <View style={styles.screenWrapper}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Top Hero Brand Section with Dusk Truck Reference Background */}
-        <View style={styles.heroSection}>
-          <ImageBackground
-            source={require('../../assets/login-hero.jpg')}
-            style={styles.heroBackground}
-            resizeMode="cover"
-          >
-            <View style={styles.heroOverlay}>
-              <Image
-                source={require('../../assets/ehr-logo-official.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.heroTitle}>EHR SOLUTIONS</Text>
-              <Text style={styles.heroSubtitle}>Gestão de Abastecimento de Frota</Text>
-            </View>
-          </ImageBackground>
-        </View>
+        <ImageBackground
+          source={require('../../assets/login-hero.jpg')}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        >
+          <View style={styles.imageDarkOverlay}>
+            <ScrollView
+              contentContainerStyle={styles.scroll}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Header com Logo e Marca da EHR na parte superior (área escura do céu) */}
+              <View style={styles.brandSection}>
+                <Image
+                  source={require('../../assets/ehr-logo-official.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.heroTitle}>EHR SOLUTIONS</Text>
+                <Text style={styles.heroSubtitle}>Gestão de Abastecimento de Frota</Text>
+              </View>
 
-        {/* Bottom Card Deep Navy Sheet Matching Web Dark Mode */}
-        <View style={styles.card}>
-          {/* E-mail Input */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.inputLabelIcon}>👤</Text>
-              <Text style={styles.inputLabel}>E-mail</Text>
-            </View>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.textInput}
-                value={identifier}
-                onChangeText={setIdentifier}
-                placeholder="Digite seu e-mail"
-                placeholderTextColor="#64748B"
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
+              {/* Janela Visual do Caminhão: espaço flexível permitindo ver o caminhão e suas luzes neon sem corte */}
+              <View style={styles.truckSpacer} />
+
+              {/* Card de Login com Dark Glassmorphism sobre a estrada */}
+              <View style={styles.card}>
+                {/* E-mail Input */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.inputLabelIcon}>👤</Text>
+                    <Text style={styles.inputLabel}>E-mail</Text>
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.textInput}
+                      value={identifier}
+                      onChangeText={setIdentifier}
+                      placeholder="Digite seu e-mail"
+                      placeholderTextColor="#64748B"
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                </View>
+
+                {/* Senha Input */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.inputLabelIcon}>🔒</Text>
+                    <Text style={styles.inputLabel}>Senha</Text>
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={[styles.textInput, { flex: 1 }]}
+                      value={pass}
+                      onChangeText={setPass}
+                      placeholder="Digite sua senha"
+                      placeholderTextColor="#64748B"
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={styles.togglePasswordBtn}
+                    >
+                      <Text style={styles.togglePasswordIcon}>
+                        {showPassword ? '👁️' : '👁️‍🗨️'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Lembrar de mim Switch */}
+                <View style={styles.rememberRow}>
+                  <Switch
+                    value={rememberMe}
+                    onValueChange={setRememberMe}
+                    trackColor={{ false: '#334155', true: '#00C4D0' }}
+                    thumbColor={rememberMe ? '#FFFFFF' : '#94A3B8'}
+                  />
+                  <Text style={styles.rememberText}>Lembrar de mim</Text>
+                </View>
+
+                {errorMessage ? (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                ) : null}
+
+                {/* Botão Entrar Cyan Pill */}
+                <Button
+                  title={loading ? "Entrando..." : "Entrar"}
+                  variant="primary"
+                  onPress={handleLogin}
+                  loading={loading}
+                  style={styles.loginBtn}
+                />
+
+                {/* Footer Corporativo */}
+                <View style={styles.footerInfo}>
+                  <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
+                  {__DEV__ && (
+                    <Text style={styles.devEnvironmentTag}>Ambiente de Desenvolvimento Seguro</Text>
+                  )}
+                </View>
+              </View>
+            </ScrollView>
           </View>
-
-          {/* Senha Input */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.inputLabelIcon}>🔒</Text>
-              <Text style={styles.inputLabel}>Senha</Text>
-            </View>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                value={pass}
-                onChangeText={setPass}
-                placeholder="Digite sua senha"
-                placeholderTextColor="#64748B"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={styles.togglePasswordBtn}
-              >
-                <Text style={styles.togglePasswordIcon}>
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Lembrar de mim Switch */}
-          <View style={styles.rememberRow}>
-            <Switch
-              value={rememberMe}
-              onValueChange={setRememberMe}
-              trackColor={{ false: '#334155', true: '#00C4D0' }}
-              thumbColor={rememberMe ? '#FFFFFF' : '#94A3B8'}
-            />
-            <Text style={styles.rememberText}>Lembrar de mim</Text>
-          </View>
-
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
-
-          {/* Botão Entrar Cyan Pill */}
-          <Button
-            title={loading ? "Entrando..." : "Entrar"}
-            variant="primary"
-            onPress={handleLogin}
-            loading={loading}
-            style={styles.loginBtn}
-          />
-
-          {/* Footer Corporativo Seguro (Sem expor URL da API em produção) */}
-          <View style={styles.footerInfo}>
-            <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
-            {__DEV__ && (
-              <Text style={styles.devEnvironmentTag}>Ambiente de Desenvolvimento Seguro</Text>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ImageBackground>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenWrapper: {
+    flex: 1,
+    backgroundColor: '#030712',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
+    width: '100%',
+    maxWidth: 440,
     backgroundColor: '#070D18',
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  imageDarkOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 13, 24, 0.25)',
   },
   scroll: {
     flexGrow: 1,
     justifyContent: 'space-between',
+    minHeight: '100%',
   },
-  heroSection: {
-    width: '100%',
-    height: Math.max(SCREEN_HEIGHT * 0.42, 260),
-  },
-  heroBackground: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 13, 24, 0.40)',
+  brandSection: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 48 : 32,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
     paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   logoImage: {
-    width: 72,
-    height: 72,
-    marginBottom: 8,
+    width: 68,
+    height: 68,
+    marginBottom: 6,
   },
   heroTitle: {
     fontSize: 22,
     fontWeight: '900',
     color: '#00C4D0',
     letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
@@ -210,34 +222,38 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
+  truckSpacer: {
+    flex: 1,
+    minHeight: 140,
+  },
   card: {
-    backgroundColor: '#0F1A2C',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 30,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    backgroundColor: 'rgba(11, 20, 36, 0.92)',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 22,
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    borderColor: 'rgba(0, 196, 208, 0.3)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
     elevation: 10,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputLabelIcon: {
     fontSize: 13,
@@ -252,20 +268,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#070E1A',
     borderRadius: 14,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 16,
-    height: 52,
+    paddingHorizontal: 14,
+    height: 50,
   },
   textInput: {
-    flex: 1,
-    fontSize: 15,
     color: '#FFFFFF',
-    fontWeight: '500',
+    fontSize: 14,
+    width: '100%',
+    padding: 0,
   },
   togglePasswordBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    padding: 6,
   },
   togglePasswordIcon: {
     fontSize: 16,
@@ -273,48 +288,44 @@ const styles = StyleSheet.create({
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 10,
     gap: 10,
+    marginVertical: 10,
   },
   rememberText: {
     fontSize: 13,
     color: '#94A3B8',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 12,
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
   loginBtn: {
-    height: 52,
-    borderRadius: 26,
-    marginTop: 8,
-    backgroundColor: '#00C4D0',
-    borderColor: '#00B4C0',
+    marginTop: 6,
+    marginBottom: 10,
   },
   footerInfo: {
-    marginTop: 20,
     alignItems: 'center',
+    marginTop: 8,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   devEnvironmentTag: {
     fontSize: 10,
     color: '#475569',
-    marginTop: 4,
-    fontWeight: '600',
+    marginTop: 2,
   },
 });
