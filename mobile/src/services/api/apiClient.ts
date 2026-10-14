@@ -16,7 +16,7 @@ const getBaseUrl = (): string => {
   return 'http://localhost:3001/api';
 };
 
-const API_URL = getBaseUrl();
+export const API_URL = getBaseUrl();
 
 let onUnauthorizedCb: ((message?: string) => void) | null = null;
 
@@ -46,10 +46,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     });
   } catch (error: any) {
     clearTimeout(timeoutId);
+    console.error(`[API ERROR] ${options.method || 'GET'} ${API_URL}${endpoint}:`, error);
     if (error.name === 'AbortError') {
-      throw { status: 0, message: 'Tempo limite da requisição excedido.' } as ApiError;
+      throw { status: 0, message: `Tempo limite esgotado ao conectar em ${API_URL}` } as ApiError;
     }
-    throw { status: 0, message: 'Sem conexão com o servidor.' } as ApiError;
+    const detail = error?.message ? ` (${error.message})` : '';
+    throw { status: 0, message: `Sem conexão com ${API_URL}${detail}` } as ApiError;
   }
   clearTimeout(timeoutId);
 

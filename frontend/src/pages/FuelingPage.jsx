@@ -110,7 +110,7 @@ export default function FuelingPage() {
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', color: '#fff' }}>
       <header style={{ marginBottom: '24px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>
-          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, margin: '0 0 4px 0' }}><Fuel size={28} color="#2FBEB5" /> Sessãode Abastecimento</h1>
+          <h1 style={{display:'flex', alignItems:'center', gap:'12px',  fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 700, margin: '0 0 4px 0' }}><Fuel size={28} color="#00C4D0" /> Sessão de Abastecimento</h1>
           <p style={{ color: '#94a3b8', margin: 0, fontSize: '14px' }}>Autorize travas e monitore logs de combustível</p>
         </div>
       </header>

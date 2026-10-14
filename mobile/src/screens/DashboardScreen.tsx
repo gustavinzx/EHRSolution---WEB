@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
-import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
@@ -14,6 +13,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { driver, vehicle, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'perfil'>('inicio');
+
+  const driverFirstName = driver?.name?.split(' ')[0] || 'Gustavo';
+  const vehicleModel = vehicle?.model || 'Hyundai Azera';
+  const vehiclePlate = vehicle?.plate || 'USB04E06';
+  const vehicleCapacity = vehicle?.capacity || 500;
+  const fuelPercent = 90; // Default preview level
 
   const handleStartOperation = async (releaseMethod: 'facial' | 'ble_fallback' = 'facial') => {
     if (!vehicle) return;
@@ -108,18 +114,15 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             {
               text: 'Voltar',
               style: 'cancel',
-            }
+            },
           ]
         );
-        setLoading(false);
-        return;
+      } else {
+        let msg = error.message;
+        if (error.status === 403) msg = 'Caminhão não vinculado a você.';
+        if (error.status === 404) msg = 'Caminhão não encontrado.';
+        Alert.alert('Erro', msg);
       }
-
-      let msg = error.message;
-      if (error.status === 403) msg = 'Caminhão não vinculado a você.';
-      if (error.status === 404) msg = 'Caminhão não encontrado.';
-      
-      Alert.alert('Erro', msg);
     } finally {
       setLoading(false);
     }
@@ -127,52 +130,149 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const isBleAvailable = getBleLock().isAvailable();
 
+  const handleSettingsPress = () => {
+    Alert.alert(
+      'Opções',
+      `Motorista: ${driver?.name || 'Não identificado'}\nE-mail: ${driver?.email || '-'}`,
+      [
+        { text: 'Sair da conta', style: 'destructive', onPress: signOut },
+        { text: 'Fechar', style: 'cancel' }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Motorista</Text>
-          <Text style={styles.infoName}>{driver?.name}</Text>
-          <Text style={styles.infoSub}>E-mail: {driver?.email}</Text>
-          <Text style={styles.infoSub}>Telefone: {driver?.phone}</Text>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.greetingTitle}>Olá, {driverFirstName}! 👋</Text>
+          <Text style={styles.greetingSub}>Tudo pronto para abastecer.</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Veículo Vinculado</Text>
+        <TouchableOpacity 
+          style={styles.settingsBtn} 
+          onPress={handleSettingsPress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.settingsIcon}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Card: Seu veículo */}
+        <View style={styles.vehicleCard}>
+          <Text style={styles.cardSectionTitle}>Seu veículo</Text>
+
           {vehicle ? (
             <>
-              <Text style={styles.infoName}>{vehicle.model}</Text>
-              <Text style={styles.infoSub}>Placa: {vehicle.plate}</Text>
-              <Text style={styles.infoSub}>Marca: {vehicle.brand || '-'}</Text>
-              <Text style={styles.infoSub}>Capacidade: {vehicle.capacity}L</Text>
+              <View style={styles.vehicleHeaderRow}>
+                <View style={styles.vehicleInfoCol}>
+                  <View style={styles.carBadgeRow}>
+                    <View style={styles.carIconBox}>
+                      <Text style={styles.carIconText}>🚗</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
+                      <Text style={styles.vehiclePlateText}>{vehicle.plate}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Vehicle preview image */}
+                <View style={styles.vehicleImageWrapper}>
+                  <Image
+                    source={require('../../assets/vehicle-preview.png')}
+                    style={styles.vehicleImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+
+              {/* Metric Chips Row */}
+              <View style={styles.metricsRow}>
+                {/* Capacidade */}
+                <View style={styles.metricChip}>
+                  <View style={styles.metricIconBox}>
+                    <Text style={styles.metricEmoji}>⛽</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.metricLabel}>Capacidade</Text>
+                    <Text style={styles.metricValue}>{parseFloat(String(vehicle.capacity || 500)).toFixed(1)} L</Text>
+                  </View>
+                </View>
+
+                {/* Nível atual */}
+                <View style={styles.metricChip}>
+                  <View style={styles.metricIconBox}>
+                    <Text style={styles.metricEmoji}>📊</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.metricLabel}>Nível atual</Text>
+                    <Text style={styles.metricValue}>{fuelPercent}%</Text>
+                    {/* Progress bar */}
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressBar, { width: `${fuelPercent}%` }]} />
+                    </View>
+                  </View>
+                </View>
+              </View>
             </>
           ) : (
-            <Text style={styles.infoSub}>Nenhum veículo vinculado. Procure o gestor.</Text>
+            <Text style={styles.noVehicleText}>Nenhum veículo vinculado. Procure o gestor.</Text>
           )}
         </View>
 
-        <Button
-          testID="main-action-btn"
-          title={loading ? "AGUARDE..." : "INICIAR ABASTECIMENTO"}
-          variant="success"
-          onPress={() => handleStartOperation('facial')}
-          style={styles.mainBtn}
-          disabled={loading || !vehicle}
-        />
-
-        {isBleAvailable && (
-          <Button 
-            testID="ble-action-btn"
-            title="Usar Bluetooth" 
-            variant="secondary" 
-            onPress={() => handleStartOperation('ble_fallback')} 
-            style={{ marginTop: 10, marginBottom: 20 }}
+        {/* Action Button: Iniciar Abastecimento */}
+        <View style={styles.actionSection}>
+          <Button
+            testID="main-action-btn"
+            title={loading ? "AGUARDE..." : "INICIAR ABASTECIMENTO"}
+            variant="primary"
+            onPress={() => handleStartOperation('facial')}
+            style={styles.startBtn}
             disabled={loading || !vehicle}
           />
-        )}
 
-        <Button title="Sair do Aplicativo" variant="danger" onPress={signOut} disabled={loading} />
+          {isBleAvailable && (
+            <Button 
+              testID="ble-action-btn"
+              title="Usar Bluetooth" 
+              variant="secondary" 
+              onPress={() => handleStartOperation('ble_fallback')} 
+              style={{ marginTop: 12, height: 50, borderRadius: 25 }}
+              disabled={loading || !vehicle}
+            />
+          )}
+        </View>
       </ScrollView>
+
+      {/* Bottom Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={styles.tabItem} 
+          onPress={() => setActiveTab('inicio')}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'inicio' && styles.tabIconActive]}>🏠</Text>
+          <Text style={[styles.tabLabel, activeTab === 'inicio' && styles.tabLabelActive]}>Início</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tabItem} 
+          onPress={() => setActiveTab('historico')}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'historico' && styles.tabIconActive]}>🕒</Text>
+          <Text style={[styles.tabLabel, activeTab === 'historico' && styles.tabLabelActive]}>Histórico</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tabItem} 
+          onPress={() => setActiveTab('perfil')}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'perfil' && styles.tabIconActive]}>👤</Text>
+          <Text style={[styles.tabLabel, activeTab === 'perfil' && styles.tabLabelActive]}>Perfil</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -180,38 +280,205 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    paddingTop: 54,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  greetingTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  greetingSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    fontSize: 18,
   },
   scroll: {
-    padding: theme.spacing.md,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 30,
   },
-  card: {
-    backgroundColor: theme.colors.white,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
+  vehicleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  cardTitle: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.typography.fontWeight.bold,
-    textTransform: 'uppercase',
-    marginBottom: theme.spacing.xs,
+  cardSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 14,
   },
-  infoName: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.textPrimary,
+  noVehicleText: {
+    fontSize: 14,
+    color: '#64748B',
+    paddingVertical: 12,
   },
-  infoSub: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
+  vehicleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  mainBtn: {
-    marginTop: theme.spacing.md,
-    height: 60,
+  vehicleInfoCol: {
+    flex: 1,
+  },
+  carBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  carIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carIconText: {
+    fontSize: 18,
+  },
+  vehicleModelText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  vehiclePlateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
+  },
+  vehicleImageWrapper: {
+    width: 80,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vehicleImage: {
+    width: 80,
+    height: 50,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metricChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    gap: 10,
+  },
+  metricIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricEmoji: {
+    fontSize: 14,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#00C4D0',
+    marginTop: 1,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+    width: '100%',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#00C4D0',
+    borderRadius: 2,
+  },
+  actionSection: {
+    marginTop: 24,
+  },
+  startBtn: {
+    height: 54,
+    borderRadius: 27,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  tabIcon: {
+    fontSize: 20,
+    opacity: 0.5,
+  },
+  tabIconActive: {
+    opacity: 1,
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  tabLabelActive: {
+    color: '#00C4D0',
+    fontWeight: '700',
   },
 });

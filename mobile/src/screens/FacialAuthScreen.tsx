@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Button } from '../components/Button';
-import { theme } from '../theme/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
@@ -100,8 +99,8 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
         base64ToSend = manipulated.base64 || '';
-      } else if (photo.base64) {
-        base64ToSend = photo.base64;
+      } else {
+        base64ToSend = photo.base64 || '';
       }
 
       base64ToSend = base64ToSend.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
@@ -113,7 +112,6 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       const res = await apiClient.verifyFace(sessionId, base64ToSend);
-
       if (res.verified) {
         dispatch({ type: 'FACIAL_VERIFY_SUCCESS' });
       } else {
@@ -164,7 +162,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 20 }}>Precisamos de acesso à sua câmera.</Text>
+        <Text style={{ color: '#0F172A', textAlign: 'center', marginBottom: 20 }}>Precisamos de acesso à sua câmera.</Text>
         <Button title="Permitir Câmera" onPress={requestPermission} />
       </View>
     );
@@ -172,53 +170,82 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      {state.status === 'FACIAL_PENDING' || state.status === 'VERIFYING' ? (
-        <>
-          <View style={styles.cameraContainer}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.popToTop()}
+        >
+          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.headerTitle}>Validação Facial</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.settingsBtn}
+          onPress={handleCancelPress}
+        >
+          <Text style={styles.settingsIcon}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Content */}
+      <View style={styles.content}>
+        {/* Camera Viewfinder */}
+        <View style={styles.viewfinderCard}>
+          <View style={styles.cameraFrame}>
             <CameraView 
               style={styles.camera} 
               facing="front" 
               ref={cameraRef}
               onCameraReady={() => setCameraReady(true)}
             />
+
+            {/* Corner Brackets */}
+            <View style={[styles.corner, styles.cornerTL]} />
+            <View style={[styles.corner, styles.cornerTR]} />
+            <View style={[styles.corner, styles.cornerBL]} />
+            <View style={[styles.corner, styles.cornerBR]} />
+
             {state.status === 'VERIFYING' && (
               <View style={styles.overlay}>
-                <Text style={styles.overlayText}>Validando Rosto...</Text>
+                <View style={styles.verifyingBadge}>
+                  <Text style={styles.overlayText}>Validando Identidade...</Text>
+                </View>
               </View>
             )}
           </View>
-          
-          <View style={styles.infoContainer}>
-            {state.error ? (
-              <Text style={styles.errorText}>{state.error}</Text>
-            ) : (
-              <Text style={styles.instructionText}>Alinhe seu rosto e confirme a identidade para liberar o abastecimento.</Text>
-            )}
-            
-            <Button
-              testID="capture-btn"
-              title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "TIRAR FOTO"}
-              onPress={handleCapture}
-              disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
-              style={{ marginTop: 20 }}
-            />
-
-            {state.status === 'FACIAL_PENDING' && (
-              <Button
-                testID="cancel-btn"
-                title="Cancelar abastecimento"
-                variant="danger"
-                onPress={handleCancelPress}
-                style={{ marginTop: 10 }}
-              />
-            )}
-          </View>
-        </>
-      ) : (
-        <View style={styles.infoContainer}>
-          <Text style={styles.instructionText}>Redirecionando...</Text>
         </View>
-      )}
+
+        <Text style={styles.instructionText}>
+          Posicione seu rosto dentro do quadro
+        </Text>
+
+        {state.error ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{state.error}</Text>
+          </View>
+        ) : null}
+
+        {/* Buttons */}
+        <View style={styles.btnSection}>
+          <Button
+            testID="capture-btn"
+            title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "📷 Capturar Foto"}
+            variant="primary"
+            onPress={handleCapture}
+            disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
+            style={styles.captureBtn}
+          />
+
+          <TouchableOpacity 
+            testID="cancel-btn"
+            onPress={handleCancelPress} 
+            style={styles.cancelLink}
+          >
+            <Text style={styles.cancelLinkText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 };
@@ -226,52 +253,166 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  cameraContainer: {
+  header: {
+    paddingTop: 54,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backArrow: {
+    fontSize: 26,
+    fontWeight: '300',
+    color: '#0F172A',
+    lineHeight: 28,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  settingsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    fontSize: 16,
+  },
+  content: {
     flex: 1,
-    position: 'relative',
-    margin: 16,
-    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    alignItems: 'center',
+  },
+  viewfinderCard: {
+    width: 280,
+    height: 320,
+    borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: theme.colors.border,
+    backgroundColor: '#0F172A',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  cameraFrame: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
   },
   camera: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  corner: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderColor: '#00C4D0',
+  },
+  cornerTL: {
+    top: 14,
+    left: 14,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 8,
+  },
+  cornerTR: {
+    top: 14,
+    right: 14,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 8,
+  },
+  cornerBL: {
+    bottom: 14,
+    left: 14,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 8,
+  },
+  cornerBR: {
+    bottom: 14,
+    right: 14,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 8,
   },
   overlay: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    inset: 0,
+    backgroundColor: 'rgba(7, 13, 24, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  overlayText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+  verifyingBadge: {
+    backgroundColor: '#0F172A',
+    borderColor: '#00C4D0',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  infoContainer: {
-    padding: 24,
-    backgroundColor: theme.colors.white,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+  overlayText: {
+    color: '#00C4D0',
+    fontSize: 14,
+    fontWeight: '700',
   },
   instructionText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
     textAlign: 'center',
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 8,
+    width: '100%',
   },
   errorText: {
-    color: theme.colors.error,
-    fontSize: 16,
+    color: '#EF4444',
+    fontSize: 13,
     textAlign: 'center',
-    marginBottom: 8,
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  btnSection: {
+    width: '100%',
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  captureBtn: {
+    width: '100%',
+  },
+  cancelLink: {
+    marginTop: 12,
+    padding: 8,
+  },
+  cancelLinkText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
