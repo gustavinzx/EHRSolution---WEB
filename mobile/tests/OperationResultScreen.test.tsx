@@ -617,4 +617,29 @@ describe('OperationResultScreen', () => {
       expect(queryByTestId('result-card')).toBeNull();
     });
   });
+
+  describe('Fueling State Honesty (Bloco C2)', () => {
+    it('renders fueling in-progress without fabricated flow metrics and with dash fallback when capacity is missing', () => {
+      const { getByText, getAllByText, queryByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'FUELING' } } as any} 
+        />
+      );
+
+      // Honest monitoring labels
+      expect(getByText('Abastecendo...')).toBeTruthy();
+      expect(getByText('Trava liberada e fluxo de combustível ativo. Aguarde a conclusão no bocal.')).toBeTruthy();
+      expect(getByText('Capacidade')).toBeTruthy();
+      expect(getByText('Veículo')).toBeTruthy();
+      // Vehicle plate and capacity are undefined in mock, so fallback is '—'
+      expect(getAllByText('—').length).toBe(2);
+
+      // NEVER shows fabricated metrics
+      expect(queryByText('500 L')).toBeNull();
+      expect(queryByText('184,6 L')).toBeNull();
+      expect(queryByText('42,5 L/min')).toBeNull();
+      expect(queryByText('Tempo: 0,1 min')).toBeNull();
+    });
+  });
 });
