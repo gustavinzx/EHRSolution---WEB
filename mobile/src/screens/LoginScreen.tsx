@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
+import { getBaseUrl } from '../services/api/apiClient';
 
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
@@ -156,7 +157,7 @@ export const LoginScreen: React.FC = () => {
                 <View style={styles.footerInfo}>
                   <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
                   {__DEV__ && (
-                    <Text style={styles.devEnvironmentTag}>Ambiente de Desenvolvimento Seguro</Text>
+                    <Text style={styles.devEnvironmentTag}>API: {getBaseUrl()}</Text>
                   )}
                 </View>
               </View>
