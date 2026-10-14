@@ -7,7 +7,6 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  ImageBackground,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
@@ -152,7 +151,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       id: 1,
       date: '13/10/2026 • 18:00',
       volume: '450.0 L',
-      plate: vehicle?.plate || 'U8B04E06',
+      plate: vehicle?.plate || 'USB04E06',
       method: 'Biometria Facial',
       status: 'Concluído',
       station: 'Posto Rodovia Anhanguera',
@@ -161,7 +160,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       id: 2,
       date: '13/10/2026 • 17:42',
       volume: '500.0 L',
-      plate: vehicle?.plate || 'U8B04E06',
+      plate: vehicle?.plate || 'USB04E06',
       method: 'Biometria Facial',
       status: 'Concluído',
       station: 'Posto Central SP',
@@ -170,7 +169,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       id: 3,
       date: '10/10/2026 • 09:15',
       volume: '380.0 L',
-      plate: vehicle?.plate || 'U8B04E06',
+      plate: vehicle?.plate || 'USB04E06',
       method: 'Bluetooth Fallback',
       status: 'Concluído',
       station: 'Auto Posto Bandeirantes',
@@ -179,21 +178,24 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Corporativo */}
+      {/* Top Header Light Matching Mockup Screen 2 */}
       <View style={styles.header}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.companyBadge}>EHR SOLUTIONS</Text>
-          <Text style={styles.greetingTitle}>Olá, {driverFirstName}</Text>
-          <Text style={styles.greetingSub}>Sistema conectado e operacional</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerDot} />
+          <View>
+            <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
+            <Text style={styles.greetingSub}>Tudo pronto para abastecer.</Text>
+          </View>
         </View>
 
-        {/* Botão de Sair no Header */}
+        {/* Botão de Configuração / Sair no Header */}
         <TouchableOpacity
           style={styles.headerLogoutBtn}
           onPress={signOut}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Sair da conta"
         >
-          <Text style={styles.headerLogoutText}>Sair</Text>
+          <Text style={styles.headerLogoutIcon}>⚙️</Text>
         </TouchableOpacity>
       </View>
 
@@ -201,51 +203,57 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* ================= ABA 1: INÍCIO ================= */}
         {activeTab === 'inicio' && (
           <View>
-            {/* Card do Veículo Vinculado */}
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardSectionTitle}>Caminhão Designado</Text>
-                <View style={styles.statusOnlineBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusOnlineText}>Monitorado</Text>
+            {/* Card "Seu veículo" (Clean truck card with specs, NO car photo) */}
+            <View style={styles.vehicleCard}>
+              <View style={styles.vehicleCardHeader}>
+                <Text style={styles.vehicleCardTitle}>Seu veículo</Text>
+                <View style={styles.monitoredBadge}>
+                  <View style={styles.monitoredDot} />
+                  <Text style={styles.monitoredText}>Monitorado</Text>
                 </View>
               </View>
 
               {vehicle ? (
                 <>
-                  {/* Truck Banner com imagem temática */}
-                  <View style={styles.truckBannerBox}>
-                    <ImageBackground
-                      source={require('../../assets/truck-hero.png')}
-                      style={styles.truckBannerImg}
-                      imageStyle={styles.truckBannerImgStyle}
-                      resizeMode="cover"
-                    >
-                      <View style={styles.truckBannerOverlay}>
-                        <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
-                        <View style={styles.plateBadge}>
-                          <Text style={styles.plateText}>{vehicle.plate}</Text>
-                        </View>
+                  {/* Vehicle Identity Row (Clean truck badge, model & plate) */}
+                  <View style={styles.vehicleIdentityRow}>
+                    <View style={styles.truckIconBadge}>
+                      <Text style={styles.truckIconSymbol}>🚛</Text>
+                    </View>
+                    <View style={styles.vehicleInfoCol}>
+                      <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
+                      <View style={styles.plateBadge}>
+                        <Text style={styles.plateText}>{vehicle.plate}</Text>
                       </View>
-                    </ImageBackground>
+                    </View>
                   </View>
 
-                  {/* Métricas de Capacidade e Nível */}
-                  <View style={styles.metricsRow}>
-                    <View style={styles.metricBox}>
-                      <Text style={styles.metricLabel}>Capacidade Total</Text>
+                  {/* Metrics Section: Capacidade & Nível Atual */}
+                  <View style={styles.metricsContainer}>
+                    <View style={styles.metricItem}>
+                      <View style={styles.metricLabelRow}>
+                        <Text style={styles.metricIcon}>💧</Text>
+                        <Text style={styles.metricLabel}>Capacidade</Text>
+                      </View>
                       <Text style={styles.metricValue}>
-                        {parseFloat(String(vehicle.capacity || 500)).toFixed(1)} L
+                        {parseFloat(String(vehicleCapacity)).toFixed(1)} L
                       </Text>
                     </View>
 
-                    <View style={styles.metricBox}>
-                      <Text style={styles.metricLabel}>Nível Estimado</Text>
-                      <Text style={styles.metricValue}>{fuelPercent}%</Text>
-                      <View style={styles.progressTrack}>
-                        <View style={[styles.progressBar, { width: `${fuelPercent}%` }]} />
+                    <View style={styles.metricItem}>
+                      <View style={styles.metricLabelRow}>
+                        <Text style={styles.metricIcon}>⛽</Text>
+                        <Text style={styles.metricLabel}>Nível atual</Text>
                       </View>
+                      <Text style={[styles.metricValue, styles.fuelPercentValue]}>
+                        {fuelPercent}%
+                      </Text>
                     </View>
+                  </View>
+
+                  {/* Cyan Level Progress Bar */}
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressBar, { width: `${fuelPercent}%` }]} />
                   </View>
                 </>
               ) : (
@@ -253,7 +261,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Seção de Ações de Abastecimento */}
+            {/* Seção de Ações de Abastecimento (Cyan Pill Button) */}
             <View style={styles.actionSection}>
               <Button
                 testID="main-action-btn"
@@ -276,9 +284,10 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Guia de Procedimento Rápido */}
+            {/* Procedimento de Abastecimento / Info Card */}
             <View style={styles.guideCard}>
               <Text style={styles.guideTitle}>Procedimento de Liberação</Text>
+              
               <View style={styles.guideStepRow}>
                 <View style={styles.guideStepNumberBox}>
                   <Text style={styles.guideStepNumber}>1</Text>
@@ -290,14 +299,14 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.guideStepNumberBox}>
                   <Text style={styles.guideStepNumber}>2</Text>
                 </View>
-                <Text style={styles.guideStepText}>Toque em Iniciar e realize o reconhecimento facial.</Text>
+                <Text style={styles.guideStepText}>Toque em Iniciar e realize a validação facial.</Text>
               </View>
 
               <View style={styles.guideStepRow}>
                 <View style={styles.guideStepNumberBox}>
                   <Text style={styles.guideStepNumber}>3</Text>
                 </View>
-                <Text style={styles.guideStepText}>A trava da bomba destrava automaticamente.</Text>
+                <Text style={styles.guideStepText}>A bomba é liberada instantaneamente pelo hardware.</Text>
               </View>
             </View>
           </View>
@@ -317,6 +326,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.historySummaryLabel}>Volume Acumulado</Text>
                 <Text style={styles.historySummaryValue}>1.330 L</Text>
               </View>
+              <View style={styles.historySummaryDivider} />
               <View style={styles.historySummaryCol}>
                 <Text style={styles.historySummaryLabel}>Abastecimentos</Text>
                 <Text style={styles.historySummaryValue}>3 registrados</Text>
@@ -333,9 +343,12 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                   <View style={styles.historyCardVolumeBox}>
                     <Text style={styles.historyCardVolume}>{item.volume}</Text>
-                    <Text style={styles.historyCardStatus}>{item.status}</Text>
+                    <View style={styles.historyCardStatusBadge}>
+                      <Text style={styles.historyCardStatusText}>{item.status}</Text>
+                    </View>
                   </View>
                 </View>
+                <View style={styles.historyCardDivider} />
                 <View style={styles.historyCardFooter}>
                   <Text style={styles.historyCardStation}>{item.station}</Text>
                   <Text style={styles.historyCardMethod}>{item.method}</Text>
@@ -363,12 +376,12 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.profileName}>{driver?.name || 'Motorista'}</Text>
               <Text style={styles.profileEmail}>{driver?.email || 'motorista@ehr.com'}</Text>
               <View style={styles.biometricBadge}>
-                <Text style={styles.biometricBadgeText}>Biometria Facial Ativa</Text>
+                <Text style={styles.biometricBadgeText}>✓ Biometria Facial Cadastrada</Text>
               </View>
             </View>
 
             {/* Informações da Conta */}
-            <View style={styles.card}>
+            <View style={styles.profileDetailsCard}>
               <Text style={styles.cardSectionTitle}>Dados Cadastrais</Text>
 
               <View style={styles.profileRow}>
@@ -401,7 +414,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* Botão Sair da Conta */}
-            <View style={{ marginTop: 10 }}>
+            <View style={{ marginTop: 14 }}>
               <Button
                 title="Sair da Conta"
                 variant="danger"
@@ -413,36 +426,48 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Barra de Abas Inferior Profissional (Sem emojis) */}
+      {/* Docked Bottom Tab Bar (3 tabs: Início, Histórico, Perfil) */}
       <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'inicio' && styles.tabItemActive]}
+          style={styles.tabItem}
           onPress={() => setActiveTab('inicio')}
+          activeOpacity={0.7}
         >
+          <Text style={[styles.tabIcon, activeTab === 'inicio' && styles.tabIconActive]}>
+            🏠
+          </Text>
           <Text style={[styles.tabLabel, activeTab === 'inicio' && styles.tabLabelActive]}>
             Início
           </Text>
-          {activeTab === 'inicio' && <View style={styles.activeIndicator} />}
+          {activeTab === 'inicio' && <View style={styles.activeDot} />}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'historico' && styles.tabItemActive]}
+          style={styles.tabItem}
           onPress={() => setActiveTab('historico')}
+          activeOpacity={0.7}
         >
+          <Text style={[styles.tabIcon, activeTab === 'historico' && styles.tabIconActive]}>
+            ⏱️
+          </Text>
           <Text style={[styles.tabLabel, activeTab === 'historico' && styles.tabLabelActive]}>
             Histórico
           </Text>
-          {activeTab === 'historico' && <View style={styles.activeIndicator} />}
+          {activeTab === 'historico' && <View style={styles.activeDot} />}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'perfil' && styles.tabItemActive]}
+          style={styles.tabItem}
           onPress={() => setActiveTab('perfil')}
+          activeOpacity={0.7}
         >
+          <Text style={[styles.tabIcon, activeTab === 'perfil' && styles.tabIconActive]}>
+            👤
+          </Text>
           <Text style={[styles.tabLabel, activeTab === 'perfil' && styles.tabLabelActive]}>
             Perfil
           </Text>
-          {activeTab === 'perfil' && <View style={styles.activeIndicator} />}
+          {activeTab === 'perfil' && <View style={styles.activeDot} />}
         </TouchableOpacity>
       </View>
     </View>
@@ -452,217 +477,242 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070D18',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingTop: 54,
-    paddingHorizontal: 20,
-    paddingBottom: 18,
-    backgroundColor: '#0B1424',
+    paddingTop: Platform.OS === 'ios' ? 54 : 44,
+    paddingHorizontal: 22,
+    paddingBottom: 16,
+    backgroundColor: '#F8FAFC',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 196, 208, 0.2)',
   },
-  headerTextContainer: {
-    flex: 1,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  companyBadge: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#00C4D0',
-    letterSpacing: 1.5,
-    marginBottom: 4,
+  headerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#00C4D0',
   },
   greetingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
   greetingSub: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#64748B',
     marginTop: 2,
     fontWeight: '500',
   },
   headerLogoutBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  headerLogoutText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '700',
+  headerLogoutIcon: {
+    fontSize: 18,
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
+    paddingTop: 8,
+    paddingBottom: 90,
   },
-  card: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 20,
+
+  // Seu Veículo Card
+  vehicleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    borderColor: '#E2E8F0',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 4,
-    marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+    marginBottom: 18,
   },
-  cardHeaderRow: {
+  vehicleCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  cardSectionTitle: {
-    fontSize: 14,
+  vehicleCardTitle: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    color: '#0F172A',
   },
-  statusOnlineBadge: {
+  monitoredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    gap: 5,
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
   },
-  statusDot: {
+  monitoredDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#10B981',
   },
-  statusOnlineText: {
+  monitoredText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#059669',
   },
-  noVehicleText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    paddingVertical: 12,
+  vehicleIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 18,
   },
-  truckBannerBox: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
-  },
-  truckBannerImg: {
-    width: '100%',
-    minHeight: 100,
-  },
-  truckBannerImgStyle: {
-    borderRadius: 16,
-  },
-  truckBannerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 13, 24, 0.75)',
-    padding: 16,
+  truckIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+  },
+  truckIconSymbol: {
+    fontSize: 24,
+  },
+  vehicleInfoCol: {
+    flex: 1,
   },
   vehicleModelText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   plateBadge: {
+    marginTop: 4,
     alignSelf: 'flex-start',
-    backgroundColor: '#070E1A',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 196, 208, 0.4)',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   plateText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#00C4D0',
-    letterSpacing: 1.5,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 0.8,
   },
-  metricsRow: {
+  metricsContainer: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    marginBottom: 12,
   },
-  metricBox: {
+  metricItem: {
     flex: 1,
-    backgroundColor: '#070E1A',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  metricLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  metricIcon: {
+    fontSize: 12,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#8899A6',
+    color: '#64748B',
   },
   metricValue: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
-    marginTop: 4,
+    color: '#0F172A',
+  },
+  fuelPercentValue: {
+    color: '#00C4D0',
   },
   progressTrack: {
-    height: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 8,
     width: '100%',
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#00C4D0',
-    borderRadius: 3,
+    borderRadius: 4,
   },
+  noVehicleText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+
+  // Actions
   actionSection: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   startBtn: {
-    height: 52,
-    borderRadius: 26,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#00C4D0',
+    borderColor: '#00B4C0',
   },
   bleBtn: {
-    marginTop: 10,
-    height: 48,
-    borderRadius: 24,
+    height: 50,
+    borderRadius: 25,
+    marginTop: 8,
   },
+
+  // Guide Card
   guideCard: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 18,
-    padding: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
   guideTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 12,
+    color: '#0F172A',
+    marginBottom: 14,
   },
   guideStepRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   guideStepNumberBox: {
     width: 24,
@@ -671,63 +721,69 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 196, 208, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.4)',
   },
   guideStepNumber: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     color: '#00C4D0',
   },
   guideStepText: {
+    fontSize: 13,
+    color: '#475569',
     flex: 1,
-    fontSize: 12,
-    color: '#CBD5E1',
-    lineHeight: 17,
+    lineHeight: 18,
   },
+
+  // Histórico
   historyHeader: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   historyTitle: {
     fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   historySub: {
     fontSize: 13,
-    color: '#8899A6',
+    color: '#64748B',
     marginTop: 2,
   },
   historySummaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
-    marginBottom: 16,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
   },
   historySummaryCol: {
     flex: 1,
+    alignItems: 'center',
+  },
+  historySummaryDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: '#E2E8F0',
   },
   historySummaryLabel: {
     fontSize: 11,
-    color: '#8899A6',
+    color: '#64748B',
     fontWeight: '600',
   },
   historySummaryValue: {
     fontSize: 18,
     fontWeight: '900',
     color: '#00C4D0',
-    marginTop: 4,
+    marginTop: 2,
   },
   historyCard: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 12,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
   },
   historyCardRow: {
     flexDirection: 'row',
@@ -735,13 +791,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   historyCardPlate: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   historyCardDate: {
     fontSize: 12,
-    color: '#8899A6',
+    color: '#64748B',
     marginTop: 2,
   },
   historyCardVolumeBox: {
@@ -752,133 +808,174 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#00C4D0',
   },
-  historyCardStatus: {
-    fontSize: 11,
+  historyCardStatusBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  historyCardStatusText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#10B981',
-    marginTop: 2,
+    color: '#059669',
+  },
+  historyCardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
   },
   historyCardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   historyCardStation: {
-    fontSize: 11,
-    color: '#94A3B8',
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '500',
   },
   historyCardMethod: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#00C4D0',
+    color: '#64748B',
   },
+
+  // Perfil
   profileHeaderCard: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    borderColor: '#E2E8F0',
     marginBottom: 16,
   },
   profileAvatar: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#070E1A',
+    backgroundColor: '#00C4D0',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#00C4D0',
     marginBottom: 12,
+    shadowColor: '#00C4D0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   profileAvatarText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#00C4D0',
-  },
-  profileName: {
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: '900',
     color: '#FFFFFF',
   },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
   profileEmail: {
     fontSize: 13,
-    color: '#8899A6',
+    color: '#64748B',
     marginTop: 2,
   },
   biometricBadge: {
-    marginTop: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingVertical: 5,
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    marginTop: 10,
   },
   biometricBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#059669',
+  },
+  profileDetailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cardSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 14,
   },
   profileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   profileRowLabel: {
     fontSize: 13,
-    color: '#8899A6',
-    fontWeight: '600',
+    color: '#64748B',
   },
   profileRowValue: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   profileDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#F1F5F9',
   },
   logoutBtn: {
-    height: 48,
-    borderRadius: 24,
+    height: 52,
+    borderRadius: 26,
   },
+
+  // Docked Bottom Tab Bar
   tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#0B1424',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 76 : 64,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 196, 208, 0.18)',
-    paddingVertical: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-    justifyContent: 'space-around',
+    borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingBottom: Platform.OS === 'ios' ? 16 : 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 8,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     position: 'relative',
   },
-  tabItemActive: {},
+  tabIcon: {
+    fontSize: 18,
+    opacity: 0.45,
+  },
+  tabIconActive: {
+    opacity: 1,
+  },
   tabLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#94A3B8',
+    marginTop: 2,
   },
   tabLabelActive: {
     color: '#00C4D0',
     fontWeight: '800',
   },
-  activeIndicator: {
+  activeDot: {
     position: 'absolute',
-    bottom: -6,
-    width: 24,
-    height: 3,
+    top: 2,
+    width: 4,
+    height: 4,
     borderRadius: 2,
     backgroundColor: '#00C4D0',
   },

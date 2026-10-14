@@ -21,7 +21,7 @@ const FuelingAnimation: React.FC = () => {
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
+          toValue: 1.08,
           duration: 900,
           useNativeDriver: true,
         }),
@@ -36,7 +36,7 @@ const FuelingAnimation: React.FC = () => {
     const rotate = Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 3000,
+        duration: 2500,
         useNativeDriver: true,
       })
     );
@@ -61,7 +61,7 @@ const FuelingAnimation: React.FC = () => {
       <View style={styles.animCircle}>
         <Animated.View style={[styles.rotatingRing, { transform: [{ rotate: spin }] }]} />
         <View style={styles.iconCenter}>
-          <Text style={styles.brandIconText}>EHR</Text>
+          <Text style={styles.pumpIconSymbol}>⛽</Text>
         </View>
       </View>
     </View>
@@ -342,13 +342,13 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               </View>
             </View>
 
-            {/* Cancel Danger Button */}
+            {/* Cancel Danger Pill Button */}
             <Button
               testID="cancel-btn"
               title="Cancelar abastecimento"
               variant="danger"
               onPress={confirmCancel}
-              style={styles.actionBtn}
+              style={styles.cancelActionBtn}
             />
           </View>
         )}
@@ -367,17 +367,28 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               <View style={styles.fuelProgressBar} />
             </View>
 
-            {/* Two Summary Cards */}
+            {/* Two Summary Metric Cards */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
+                <Text style={styles.statIcon}>⛽</Text>
                 <Text style={styles.statLabel}>Vazão atual</Text>
                 <Text style={styles.statValue}>42,5 L/min</Text>
               </View>
 
               <View style={styles.statBox}>
+                <Text style={styles.statIcon}>🛢️</Text>
                 <Text style={styles.statLabel}>Tanque</Text>
-                <Text style={styles.statValue}>500.0 L</Text>
+                <Text style={styles.statValue}>
+                  {parseFloat(String(vehicle?.capacity || 500)).toFixed(1)} L
+                </Text>
               </View>
+            </View>
+
+            {/* Safe fueling banner during in progress */}
+            <View style={styles.fuelingNoticeCard}>
+              <Text style={styles.fuelingNoticeText}>
+                ✓ Trava de abastecimento liberada. O fluxo está sendo monitorado pelos sensores.
+              </Text>
             </View>
           </View>
         )}
@@ -391,14 +402,14 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
             </View>
 
             <Text style={styles.mainTitle}>Abastecimento concluído</Text>
-            <Text style={styles.subTitle}>Operação finalizada com sucesso.</Text>
+            <Text style={styles.subTitle}>Operação finalizada com sucesso!</Text>
 
             {/* Receipt Summary Card */}
             {sessionDetail?.result && (
               <View style={styles.receiptCard} testID="result-card">
                 <View style={styles.receiptRow}>
                   <View style={styles.receiptLabelRow}>
-                    <View style={styles.receiptDot} />
+                    <Text style={styles.receiptIcon}>📄</Text>
                     {sessionDetail.result.volume_liters != null ? (
                       <Text style={styles.receiptValue}>
                         Volume abastecido: {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(sessionDetail.result.volume_liters)} L
@@ -416,7 +427,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                     <View style={styles.receiptDivider} />
                     <View style={styles.receiptRow}>
                       <View style={styles.receiptLabelRow}>
-                        <View style={styles.receiptDot} />
+                        <Text style={styles.receiptIcon}>⏱️</Text>
                         <Text style={styles.receiptValue}>
                           Duração: {new Intl.NumberFormat('pt-BR').format(sessionDetail.result.duration_minutes)} min
                         </Text>
@@ -428,21 +439,21 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 <View style={styles.receiptDivider} />
                 <View style={styles.receiptRow}>
                   <View style={styles.receiptLabelRow}>
-                    <View style={styles.receiptDot} />
+                    <Text style={styles.receiptIcon}>📅</Text>
                     <Text style={styles.receiptValue}>
-                      Data e hora: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      Data e hora: {new Date().toLocaleDateString('pt-BR')}, {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
                 </View>
               </View>
             )}
 
-            {/* Actions */}
+            {/* Actions matching Screen 6 */}
             <Button
               title="Voltar ao Início"
               variant="primary"
               onPress={() => navigation.popToTop()}
-              style={styles.actionBtn}
+              style={styles.doneBtn}
             />
 
             <Button
@@ -467,7 +478,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               title="Cancelar abastecimento"
               variant="danger"
               onPress={confirmCancel}
-              style={styles.actionBtn}
+              style={styles.cancelActionBtn}
             />
           </View>
         )}
@@ -485,7 +496,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 title="Refazer Validação Facial"
                 variant="primary"
                 onPress={() => navigation.replace('FacialAuth', { sessionId, status: 'requested', releaseMethod: 'facial' })}
-                style={styles.actionBtn}
+                style={styles.doneBtn}
               />
             )}
 
@@ -495,7 +506,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 title="Cancelar sessão"
                 variant="danger"
                 onPress={executeCancel}
-                style={styles.actionBtn}
+                style={styles.cancelActionBtn}
               />
             )}
 
@@ -608,11 +619,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandIconText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#00C4D0',
-    letterSpacing: 1.5,
+  pumpIconSymbol: {
+    fontSize: 34,
   },
   mainTitle: {
     fontSize: 20,
@@ -638,6 +646,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginVertical: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
   stepRow: {
     flexDirection: 'row',
@@ -700,11 +713,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   fuelVolumeText: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'center',
     marginTop: 6,
+    letterSpacing: -0.5,
   },
   fuelTimeText: {
     fontSize: 13,
@@ -715,39 +729,44 @@ const styles = StyleSheet.create({
   },
   fuelProgressTrack: {
     width: '100%',
-    height: 6,
+    height: 8,
     backgroundColor: '#E2E8F0',
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   fuelProgressBar: {
     width: '65%',
     height: '100%',
     backgroundColor: '#00C4D0',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   statBox: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   statIcon: {
-    fontSize: 20,
-    marginBottom: 6,
+    fontSize: 22,
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -756,6 +775,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
+  },
+  fuelingNoticeCard: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    borderRadius: 14,
+    padding: 14,
+    width: '100%',
+  },
+  fuelingNoticeText: {
+    fontSize: 12,
+    color: '#0F766E',
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   successBadge: {
     width: 80,
@@ -781,6 +815,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginVertical: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   receiptRow: {
     flexDirection: 'row',
@@ -793,11 +832,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  receiptDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00C4D0',
+  receiptIcon: {
+    fontSize: 14,
   },
   receiptLabel: {
     fontSize: 13,
@@ -809,22 +845,33 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '800',
   },
-  receiptPendingText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontStyle: 'italic',
-  },
   receiptDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
   },
-  actionBtn: {
+  cancelActionBtn: {
     width: '100%',
+    height: 52,
+    borderRadius: 26,
     marginTop: 8,
+    backgroundColor: '#EF4444',
+    borderColor: '#DC2626',
+  },
+  doneBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 26,
+    marginTop: 8,
+    backgroundColor: '#00C4D0',
+    borderColor: '#00B4C0',
   },
   historyBtn: {
     width: '100%',
+    height: 50,
+    borderRadius: 25,
     marginTop: 6,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
   },
   networkBanner: {
     backgroundColor: '#F59E0B',

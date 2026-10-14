@@ -12,10 +12,13 @@ import {
   ScrollView,
   Switch,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { API_URL } from '../services/api/apiClient';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
@@ -52,43 +55,45 @@ export const LoginScreen: React.FC = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} bounces={false} keyboardShouldPersistTaps="handled">
-        {/* Top Hero Brand Section with Blueish Truck Reference Background */}
-        <View style={styles.heroCardContainer}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Top Hero Brand Section with Dusk Truck Reference Background */}
+        <View style={styles.heroSection}>
           <ImageBackground
             source={require('../../assets/login-hero.png')}
             style={styles.heroBackground}
-            imageStyle={styles.heroImageStyle}
             resizeMode="cover"
           >
             <View style={styles.heroOverlay}>
-              {/* Clean logo without square box border */}
               <Image
                 source={require('../../assets/ehr-logo-official.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
               <Text style={styles.heroTitle}>EHR SOLUTIONS</Text>
-              <Text style={styles.heroSubtitle}>Portal do Motorista • Gestão de Frota</Text>
+              <Text style={styles.heroSubtitle}>Gestão de Abastecimento de Frota</Text>
             </View>
           </ImageBackground>
         </View>
 
-        {/* Card com Formulário Corporativo Dark Navy */}
+        {/* Bottom Card White Sheet Matching Reference Design */}
         <View style={styles.card}>
-          <Text style={styles.cardHeaderTitle}>Acessar Conta</Text>
-          <Text style={styles.cardHeaderSub}>Digite suas credenciais corporativas</Text>
-
           {/* E-mail Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>E-mail</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabelIcon}>👤</Text>
+              <Text style={styles.inputLabel}>E-mail</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.textInput}
                 value={identifier}
                 onChangeText={setIdentifier}
-                placeholder="exemplo@ehr.com"
-                placeholderTextColor="#64748B"
+                placeholder="Digite seu e-mail"
+                placeholderTextColor="#94A3B8"
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -97,14 +102,17 @@ export const LoginScreen: React.FC = () => {
 
           {/* Senha Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Senha</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabelIcon}>🔒</Text>
+              <Text style={styles.inputLabel}>Senha</Text>
+            </View>
             <View style={styles.inputContainer}>
               <TextInput
                 style={[styles.textInput, { flex: 1 }]}
                 value={pass}
                 onChangeText={setPass}
-                placeholder="••••••••"
-                placeholderTextColor="#64748B"
+                placeholder="Digite sua senha"
+                placeholderTextColor="#94A3B8"
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -112,8 +120,8 @@ export const LoginScreen: React.FC = () => {
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={styles.togglePasswordBtn}
               >
-                <Text style={styles.togglePasswordText}>
-                  {showPassword ? 'Ocultar' : 'Mostrar'}
+                <Text style={styles.togglePasswordIcon}>
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -124,10 +132,10 @@ export const LoginScreen: React.FC = () => {
             <Switch
               value={rememberMe}
               onValueChange={setRememberMe}
-              trackColor={{ false: '#334155', true: '#00C4D0' }}
-              thumbColor={rememberMe ? '#FFFFFF' : '#94A3B8'}
+              trackColor={{ false: '#CBD5E1', true: '#00C4D0' }}
+              thumbColor={rememberMe ? '#FFFFFF' : '#F1F5F9'}
             />
-            <Text style={styles.rememberText}>Lembrar de mim neste dispositivo</Text>
+            <Text style={styles.rememberText}>Lembrar de mim</Text>
           </View>
 
           {errorMessage ? (
@@ -136,7 +144,7 @@ export const LoginScreen: React.FC = () => {
             </View>
           ) : null}
 
-          {/* Botão Entrar */}
+          {/* Botão Entrar Cyan Pill */}
           <Button
             title={loading ? "Entrando..." : "Entrar"}
             variant="primary"
@@ -147,7 +155,6 @@ export const LoginScreen: React.FC = () => {
 
           {/* Footer Corporativo */}
           <View style={styles.footerInfo}>
-            <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
             <Text style={styles.apiFooter}>API: {API_URL}</Text>
           </View>
         </View>
@@ -163,132 +170,116 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 36,
+    justifyContent: 'space-between',
   },
-  heroCardContainer: {
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
+  heroSection: {
+    width: '100%',
+    height: Math.max(SCREEN_HEIGHT * 0.42, 260),
   },
   heroBackground: {
     width: '100%',
-    minHeight: 180,
-  },
-  heroImageStyle: {
-    borderRadius: 24,
+    height: '100%',
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(7, 13, 24, 0.78)',
+    backgroundColor: 'rgba(7, 13, 24, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingTop: Platform.OS === 'ios' ? 48 : 32,
     paddingHorizontal: 20,
   },
   logoImage: {
-    width: 64,
-    height: 64,
-    marginBottom: 10,
+    width: 72,
+    height: 72,
+    marginBottom: 8,
   },
   heroTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#00C4D0',
     letterSpacing: 2,
-    textShadowColor: 'rgba(0, 196, 208, 0.6)',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
+    textShadowRadius: 8,
   },
   heroSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#E2E8F0',
     marginTop: 4,
     fontWeight: '600',
     letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   card: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  cardHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  cardHeaderSub: {
-    fontSize: 13,
-    color: '#8899A6',
-    marginTop: 4,
-    marginBottom: 20,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 8,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 18,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  inputLabelIcon: {
+    fontSize: 13,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#CBD5E1',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#334155',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#070E1A',
+    backgroundColor: '#F8FAFC',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     height: 52,
   },
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontWeight: '500',
   },
   togglePasswordBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 4,
   },
-  togglePasswordText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#00C4D0',
+  togglePasswordIcon: {
+    fontSize: 16,
   },
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 14,
+    marginVertical: 10,
     gap: 10,
   },
   rememberText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '500',
   },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: '#FCA5A5',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -302,20 +293,17 @@ const styles = StyleSheet.create({
   loginBtn: {
     height: 52,
     borderRadius: 26,
-    marginTop: 6,
+    marginTop: 8,
+    backgroundColor: '#00C4D0',
+    borderColor: '#00B4C0',
   },
   footerInfo: {
-    marginTop: 24,
+    marginTop: 20,
     alignItems: 'center',
   },
-  footerText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
   apiFooter: {
-    fontSize: 10,
-    color: '#475569',
-    marginTop: 4,
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });
