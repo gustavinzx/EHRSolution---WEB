@@ -27,6 +27,7 @@ router.param('truckId', (req, res, next, truckId) => {
 
 // Fueling logs (Manager)
 router.get("/", authMiddleware, fuelingController.list);
+router.get("/history", driverOnly, fuelingController.getHistory);
 
 // Fuel stations (Manager) — declaradas antes de /sessions/:id para não colidir
 router.get("/stations", authMiddleware, stationsController.list);
