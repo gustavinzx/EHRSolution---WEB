@@ -238,6 +238,57 @@ Encerra a sessão. Protegido por `anyActor` (Gestor, Motorista ou Hardware).
 
 ---
 
+### `GET /api/fueling/history`
+Consulta o histórico de abastecimentos do próprio motorista autenticado de forma paginada e com resumo acumulado dos últimos 30 dias. Protegido por `driverOnly` (apenas motoristas autenticados).
+
+**Quem chama:** App Mobile (Motorista).  
+**Nota de Escopo:** O motorista só tem acesso ao seu próprio histórico (isolamento estrito baseado no token JWT). Gestores, hardware ou outros atores recebem negação de acesso pelo middleware.
+
+**Parâmetros de Consulta (Query Params):**
+- `page`: Número da página (inteiro >= 1, padrão: `1`).
+- `limit`: Quantidade de itens por página (inteiro >= 1, padrão: `20`, máximo: `50`; valores maiores são limitados automaticamente a 50).
+
+**Corpo da requisição:** Vazio.
+
+**Autenticação e Erros (401/403/400):**
+- **400 Bad Request**: `{ "error": "page inválido" }`
+- **400 Bad Request**: `{ "error": "limit inválido" }`
+- **401 Unauthorized**: `{ "error": "Authorization token missing or invalid" }`
+- **401 Unauthorized**: `{ "error": "Invalid or expired token" }`
+- **403 Forbidden**: `{ "error": "driver_inactive" }`
+- **403 Forbidden**: `{ "error": "Acesso restrito ao app do motorista" }`
+
+**Resposta de Sucesso (200 OK):**
+```json
+{
+  "items": [
+    {
+      "id": 105,
+      "timestamp": "2026-10-14T19:30:00.000Z",
+      "truck_plate": "ABC-1234",
+      "volume_liters": 45.5,
+      "duration_minutes": 12.0,
+      "release_method": "facial",
+      "station_name": "Posto Shell Rodoeste"
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 1,
+  "summary": {
+    "count": 1,
+    "total_liters": 45.5
+  }
+}
+```
+
+*Regras de projeção e privacidade:*
+- `volume_liters`: Segue a mesma regra do resultado da sessão (`GET /sessions/:id`), sendo retornado como `null` quando o log for não verificado (`data_source === 'unverified'`).
+- `summary`: Cobre exclusivamente os últimos 30 dias do motorista autenticado (`count` de abastecimentos e soma dos `volume_liters` não nulos; `0` se não houver registros).
+- Nenhuma coluna sensível de telemetria interna, CNPJ de postos, coordenadas brutas, chaves de hardware ou dados de conciliação ANP é exposta na resposta.
+
+---
+
 ## 3. Hardware (Placa IoT)
 
 ### `GET /api/fueling/sessions/:truckId/active`
@@ -347,3 +398,5 @@ sequenceDiagram
 
 1. **Provedor Facial em Nuvem Real:** A integração com provedores reais em nuvem (ex.: AWS Rekognition) é um esqueleto e responderá com erro em tempo de execução (`NOT_IMPLEMENTED`). Em desenvolvimento, utiliza-se exclusivamente `FACE_PROVIDER=mock`.
 2. **Bluetooth Low Energy (BLE) Nativo:** A comunicação BLE com o microcontrolador na bomba física depende dos módulos de rádio do hardware embarcado; o fallback é validado logicamente através da API mobile e mock do hardware.
+3. **Histórico de Abastecimentos do Motorista:** O histórico de abastecimentos (`GET /api/fueling/history`) é estritamente paginado com limite máximo de 50 registros por requisição para preservar a performance em conexões móveis e isolado por motorista; logs marcados como 'unverified' não possuem volume em litros confirmado e são exibidos com volume nulo tanto na listagem quanto no cálculo de litros do resumo.
+
