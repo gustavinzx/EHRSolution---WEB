@@ -4,21 +4,23 @@ import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Session, ReleaseMethod } from '../../types/session';
 
-const DEFAULT_DEV_IP = '192.168.15.4';
+const isLoopbackHost = (host: string): boolean => host === 'localhost' || host === '127.0.0.1';
+
+const isLoopbackUrl = (url: string): boolean => /^https?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
 
 const getHostFromConstants = (): string | null => {
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ||
     (Constants as any).manifest?.debuggerHost;
-  if (hostUri) {
+  if (typeof hostUri === 'string' && hostUri) {
     const host = hostUri.split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') return host;
+    if (host && !isLoopbackHost(host)) return host;
   }
   const linkingUri = (Constants as any).linkingUri || (Constants as any).experienceUrl;
   if (typeof linkingUri === 'string' && linkingUri.startsWith('exp://')) {
     const host = linkingUri.replace('exp://', '').split('/')[0].split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') return host;
+    if (host && !isLoopbackHost(host)) return host;
   }
   return null;
 };
@@ -35,22 +37,12 @@ export const getBaseUrl = (): string => {
     }
     return envUrl;
   }
-  const isLoopbackEnv = !!envUrl && /^https?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(envUrl);
-  if (envUrl && !(isLoopbackEnv && Platform.OS !== 'web' && process.env.NODE_ENV !== 'test')) return envUrl;
 
-  const extraUrl = Constants.expoConfig?.extra?.apiUrl;
-  if (extraUrl) return extraUrl;
+  const isNative = Platform.OS !== 'web';
+  if (envUrl && !(isNative && isLoopbackUrl(envUrl))) return envUrl;
 
-  // No Expo Go (dispositivo físico ou emulador), detecta o IP do computador host automaticamente
   const host = getHostFromConstants();
-  if (host) {
-    return `http://${host}:3001/api`;
-  }
-
-  // Em ambiente de desenvolvimento no celular físico (via Wi-Fi) fora de testes automatizados
-  if (process.env.NODE_ENV !== 'test') {
-    return `http://${DEFAULT_DEV_IP}:3001/api`;
-  }
+  if (host) return `http://${host}:3001/api`;
 
   if (Platform.OS === 'android') return 'http://10.0.2.2:3001/api';
   return 'http://localhost:3001/api';
