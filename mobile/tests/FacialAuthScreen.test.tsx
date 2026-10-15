@@ -5,6 +5,7 @@ import { apiClient } from '../src/services/api/apiClient';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 let mockAutoCameraReady = true;
+let mockTakePictureAsync = jest.fn();
 
 jest.mock('expo-camera', () => {
   const React = require('react');
@@ -12,7 +13,7 @@ jest.mock('expo-camera', () => {
     useCameraPermissions: () => [{ granted: true }, jest.fn()],
     CameraView: React.forwardRef((props: any, ref: any) => {
       React.useImperativeHandle(ref, () => ({
-        takePictureAsync: jest.fn().mockResolvedValue({ uri: 'file:///photo.jpg' })
+        takePictureAsync: (...args: any[]) => mockTakePictureAsync(...args)
       }));
       React.useEffect(() => {
         if (mockAutoCameraReady && props.onCameraReady) {
@@ -51,6 +52,11 @@ describe('FacialAuthScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAutoCameraReady = true;
+    mockTakePictureAsync = jest.fn().mockResolvedValue({ uri: 'file:///photo.jpg' });
+    (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
+      uri: 'file:///manipulated.jpg',
+      base64: 'pure_manipulated_base64_string',
+    });
   });
 
   it('button is disabled before camera is ready', () => {
@@ -384,6 +390,129 @@ describe('FacialAuthScreen', () => {
       });
       expect(getByTestId('cancel-btn')).toBeTruthy();
       expect(mockNavigation.popToTop).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Camera Timeout & Resilience (Bloco D / E3)', () => {
+    it('takePictureAsync que não resolve => após 10s exibe mensagem de erro e reabilita botão', async () => {
+      jest.useFakeTimers();
+      mockTakePictureAsync.mockReturnValue(new Promise(() => {}));
+
+      const { getByTestId, findByText } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      const btn = getByTestId('capture-btn');
+      fireEvent.press(btn);
+
+      // Status becomes VERIFYING, button disabled
+      expect(btn.props.accessibilityState?.disabled).toBe(true);
+
+      // Advance 10s
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+
+      const errorMsg = await findByText('A câmera demorou para responder. Tente novamente.');
+      expect(errorMsg).toBeTruthy();
+
+      // Button is enabled again
+      await waitFor(() => {
+        expect(getByTestId('capture-btn').props.accessibilityState?.disabled).toBeFalsy();
+      });
+
+      expect(apiClient.verifyFace).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('manipulateAsync que não resolve => após 10s exibe mensagem de erro e reabilita botão', async () => {
+      jest.useFakeTimers();
+      mockTakePictureAsync.mockResolvedValue({ uri: 'file:///photo.jpg' });
+      (ImageManipulator.manipulateAsync as jest.Mock).mockReturnValue(new Promise(() => {}));
+
+      const { getByTestId, findByText } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      const btn = getByTestId('capture-btn');
+      fireEvent.press(btn);
+
+      // Allow takePictureAsync to resolve so manipulateAsync is called
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+
+      const errorMsg = await findByText('A câmera demorou para responder. Tente novamente.');
+      expect(errorMsg).toBeTruthy();
+
+      await waitFor(() => {
+        expect(getByTestId('capture-btn').props.accessibilityState?.disabled).toBeFalsy();
+      });
+
+      expect(apiClient.verifyFace).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('toque duplo dispara uma única captura (proteção contra clique duplo)', async () => {
+      let resolveCapture: (val: any) => void;
+      mockTakePictureAsync.mockReturnValue(
+        new Promise((resolve) => {
+          resolveCapture = resolve;
+        })
+      );
+
+      const { getByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      const btn = getByTestId('capture-btn');
+      fireEvent.press(btn);
+      fireEvent.press(btn);
+
+      expect(mockTakePictureAsync).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveCapture!({ uri: 'file:///photo.jpg' });
+      });
+    });
+
+    it('desmontar durante a captura não lança erro nem faz dispatch de estado', async () => {
+      jest.useFakeTimers();
+      mockTakePictureAsync.mockReturnValue(new Promise(() => {}));
+
+      const { getByTestId, unmount } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      fireEvent.press(getByTestId('capture-btn'));
+
+      // Unmount while capture is pending
+      unmount();
+
+      // Advancing timer after unmount should be safely ignored by unmounted guard
+      expect(() => {
+        act(() => {
+          jest.advanceTimersByTime(10000);
+        });
+      }).not.toThrow();
+
+      jest.useRealTimers();
     });
   });
 });

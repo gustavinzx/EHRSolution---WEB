@@ -145,9 +145,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleTabPress = (tab: 'inicio' | 'historico' | 'perfil') => {
     setActiveTab(tab);
-    if (tab === 'historico') {
-      loadHistory(1);
-    }
   };
 
   const driverFirstName = driver?.name?.split(' ')[0] || 'Motorista';
