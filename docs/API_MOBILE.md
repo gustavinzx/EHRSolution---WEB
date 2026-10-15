@@ -245,7 +245,7 @@ Consulta o histórico de abastecimentos do próprio motorista autenticado de for
 **Nota de Escopo:** O motorista só tem acesso ao seu próprio histórico (isolamento estrito baseado no token JWT). Gestores, hardware ou outros atores recebem negação de acesso pelo middleware.
 
 **Parâmetros de Consulta (Query Params):**
-- `page`: Número da página (inteiro >= 1, padrão: `1`).
+- `page`: Número da página (inteiro entre 1 e 100000, padrão: `1`; valores fora desse intervalo retornam `{ "error": "page inválido" }`).
 - `limit`: Quantidade de itens por página (inteiro >= 1, padrão: `20`, máximo: `50`; valores maiores são limitados automaticamente a 50).
 
 **Corpo da requisição:** Vazio.

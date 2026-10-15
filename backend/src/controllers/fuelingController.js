@@ -138,6 +138,9 @@ exports.getHistory = async (req, res) => {
         return res.status(400).json({ error: "page inválido" });
       }
       page = parseInt(pageStr, 10);
+      if (!Number.isSafeInteger(page) || page > 100000) {
+        return res.status(400).json({ error: "page inválido" });
+      }
     }
 
     let limit = 20;
