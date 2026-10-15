@@ -139,5 +139,119 @@ module.exports = [
   { name: "GET session hardware own truck 200", method: "get", path: (ids) => `/api/fueling/sessions/${ids.sessGetOwner}`, auth: "hw", status: 200, assertBody: (b, ids) => { expect(b.id).toBe(ids.sessGetOwner); expect(b.truck_id).toBe(ids.truckId); } },
   { name: "GET session hardware other truck 404", method: "get", path: (ids) => `/api/fueling/sessions/${ids.sessGetOtherDrv}`, auth: "hw", status: 404, error: "Sessão não encontrada" },
   { name: "GET session manager 200", method: "get", path: (ids) => `/api/fueling/sessions/${ids.sessGetOtherDrv}`, auth: "mgr", status: 200, assertBody: (b, ids) => { expect(b.id).toBe(ids.sessGetOtherDrv); } },
-  { name: "GET session nonexistent 404", method: "get", path: () => "/api/fueling/sessions/99999", auth: "mgr", status: 404, error: "Sessão não encontrada" }
+  { name: "GET session nonexistent 404", method: "get", path: () => "/api/fueling/sessions/99999", auth: "mgr", status: 404, error: "Sessão não encontrada" },
+
+  // GET /api/fueling/history
+  {
+    name: "History 200 with items",
+    setup: async (ids) => {
+      await ids.db.query(
+        "INSERT INTO fueling_logs (driver_id, truck_id, timestamp, volume_liters, duration_minutes, release_method, station_name, data_source) VALUES ($1, $2, NOW(), 45.5, 12.0, 'facial', 'Posto Shell Rodoeste', 'manager')",
+        [ids.drvId, ids.truckId]
+      );
+    },
+    method: "get",
+    path: () => "/api/fueling/history",
+    auth: "drv",
+    status: 200,
+    assertBody: (b) => {
+      expect(Array.isArray(b.items)).toBe(true);
+      expect(b.items.length).toBeGreaterThan(0);
+      expect(b.page).toBe(1);
+      expect(b.limit).toBe(20);
+      expect(b.total).toBeGreaterThan(0);
+      expect(b.summary).toBeDefined();
+      expect(b.summary.count).toBeGreaterThan(0);
+      expect(b.summary.total_liters).toBeGreaterThan(0);
+    }
+  },
+  {
+    name: "History 200 empty",
+    method: "get",
+    path: () => "/api/fueling/history",
+    auth: "otherDrv",
+    status: 200,
+    assertBody: (b) => {
+      expect(b.items).toEqual([]);
+      expect(b.total).toBe(0);
+      expect(b.summary).toEqual({ count: 0, total_liters: 0 });
+    }
+  },
+  {
+    name: "History 400 page invalid",
+    method: "get",
+    path: () => "/api/fueling/history?page=0",
+    auth: "drv",
+    status: 400,
+    error: "page inválido"
+  },
+  {
+    name: "History 400 page huge overflow",
+    method: "get",
+    path: () => "/api/fueling/history?page=99999999999999999999",
+    auth: "drv",
+    status: 400,
+    error: "page inválido"
+  },
+  {
+    name: "History 400 page over 100000",
+    method: "get",
+    path: () => "/api/fueling/history?page=100001",
+    auth: "drv",
+    status: 400,
+    error: "page inválido"
+  },
+  {
+    name: "History 200 page 100000 empty items",
+    method: "get",
+    path: () => "/api/fueling/history?page=100000",
+    auth: "drv",
+    status: 200,
+    assertBody: (b) => {
+      expect(b.items).toEqual([]);
+      expect(b.page).toBe(100000);
+    }
+  },
+  {
+    name: "History 400 limit invalid",
+    method: "get",
+    path: () => "/api/fueling/history?limit=0",
+    auth: "drv",
+    status: 400,
+    error: "limit inválido"
+  },
+  {
+    name: "History 200 limit over 50 caps at 50",
+    method: "get",
+    path: () => "/api/fueling/history?limit=100",
+    auth: "drv",
+    status: 200,
+    assertBody: (b) => {
+      expect(b.limit).toBe(50);
+    }
+  },
+  {
+    name: "History 401 no token",
+    method: "get",
+    path: () => "/api/fueling/history",
+    auth: "none",
+    status: 401,
+    error: "Authorization token missing or invalid"
+  },
+  {
+    name: "History 403 manager",
+    method: "get",
+    path: () => "/api/fueling/history",
+    auth: "mgr",
+    status: 403,
+    error: "Acesso restrito ao app do motorista"
+  },
+  {
+    name: "History 401 hardware",
+    method: "get",
+    path: () => "/api/fueling/history",
+    auth: "hw",
+    status: 401,
+    error: "Authorization token missing or invalid"
+  }
 ];

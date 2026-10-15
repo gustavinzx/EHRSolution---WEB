@@ -7,7 +7,7 @@ if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
   process.exit(1);
 }
 
-let tokenManager, driverId, truckId;
+let tokenManager, driverId, truckId, stationId;
 
 const clean = require('./clean');
 beforeAll(async () => {
@@ -31,7 +31,7 @@ beforeAll(async () => {
   tokenDriver = jwt.sign({ id: driverId, role: 'driver' }, process.env.JWT_SECRET);
   
   const s = await db.query("INSERT INTO fuel_stations (name, lat, lng) VALUES ('S', -23, -46) RETURNING id");
-  const stationId = s.rows[0].id;
+  stationId = s.rows[0].id;
   
   const t = await db.query("INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key, fuel_station_id) VALUES ('ABC1', 'M', 100, 50, 'hw_secret_123', $1) RETURNING id", [stationId]);
   truckId = t.rows[0].id;
@@ -183,5 +183,83 @@ describe('Leak Checks', () => {
     const rCancel = await request(app).post(`/api/fueling/sessions/${sessId}/cancel`).set('Authorization', 'Bearer ' + tokenDriver);
     expect(rCancel.status).toBe(200);
     checkRecursiveSession(rCancel.body);
+  });
+
+  it('GET /api/fueling/history sem leak recursivo de chaves e valores secretos', async () => {
+    const anp = await db.query(`
+      INSERT INTO anp_stations (cnpj, razao_social, uf, lat, lng)
+      VALUES ('99887766000155', 'secret_razao', 'SP', -23, -46)
+      ON CONFLICT (cnpj) DO UPDATE SET razao_social = 'secret_razao'
+      RETURNING id
+    `);
+    const anpId = anp.rows[0].id;
+
+    await db.query(`
+      INSERT INTO fueling_logs
+        (driver_id, truck_id, timestamp, lat, lng, level_before, level_after, release_method, station_id, station_name, duration_minutes, volume_liters, pump_liters, tank_liters_delta, data_source, anp_station_id, station_match_status, station_match_source)
+      VALUES
+        ($1, $2, NOW(), -23.55, -46.63, 10.0, 55.5, 'facial', $3, 'Posto Seguro', 15.0, 45.5, 99.0, 88.0, 'manager', $4, 'matched', 'truck_telemetry')
+    `, [driverId, truckId, stationId, anpId]);
+
+    const res = await request(app)
+      .get('/api/fueling/history')
+      .set('Authorization', 'Bearer ' + tokenDriver);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items.length).toBeGreaterThan(0);
+
+    function checkRecursiveHistory(obj) {
+      if (!obj) return;
+      if (Array.isArray(obj)) {
+        obj.forEach(checkRecursiveHistory);
+        return;
+      }
+      if (typeof obj === 'object') {
+        for (const key of Object.keys(obj)) {
+          if (
+            key.includes('password') ||
+            key.includes('face_template_ref') ||
+            key.includes('api_key') ||
+            key.includes('metadata') ||
+            key.startsWith('facial_') ||
+            key.startsWith('ble_') ||
+            key === 'pump_liters' ||
+            key === 'tank_liters_delta' ||
+            key === 'data_source' ||
+            key === 'level_before' ||
+            key === 'level_after' ||
+            key === 'lat' ||
+            key === 'lng' ||
+            key === 'session_id' ||
+            key === 'station_id' ||
+            key === 'anp_station_id' ||
+            key.startsWith('station_match') ||
+            key === 'cnpj' ||
+            key.startsWith('anp_')
+          ) {
+            throw new Error('HISTORY LEAK DETECTED (KEY): ' + key);
+          }
+          const val = obj[key];
+          if (typeof val === 'string' && val.includes('secret_')) {
+            throw new Error('HISTORY LEAK DETECTED (VALUE): ' + val);
+          }
+          checkRecursiveHistory(val);
+        }
+      }
+    }
+
+    checkRecursiveHistory(res.body);
+
+    for (const item of res.body.items) {
+      expect(Object.keys(item).sort()).toEqual([
+        "duration_minutes",
+        "id",
+        "release_method",
+        "station_name",
+        "timestamp",
+        "truck_plate",
+        "volume_liters"
+      ]);
+    }
   });
 });

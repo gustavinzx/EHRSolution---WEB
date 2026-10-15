@@ -124,6 +124,104 @@ exports.list = async (req, res) => {
   }
 };
 
+exports.getHistory = async (req, res) => {
+  try {
+    const driverId = req.actor?.id;
+    if (!driverId) {
+      return res.status(401).json({ error: "Authorization token missing or invalid" });
+    }
+
+    let page = 1;
+    if (req.query.page !== undefined) {
+      const pageStr = String(req.query.page);
+      if (!/^[1-9]\d*$/.test(pageStr)) {
+        return res.status(400).json({ error: "page inválido" });
+      }
+      page = parseInt(pageStr, 10);
+      if (!Number.isSafeInteger(page) || page > 100000) {
+        return res.status(400).json({ error: "page inválido" });
+      }
+    }
+
+    let limit = 20;
+    if (req.query.limit !== undefined) {
+      const limitStr = String(req.query.limit);
+      if (!/^[1-9]\d*$/.test(limitStr)) {
+        return res.status(400).json({ error: "limit inválido" });
+      }
+      limit = parseInt(limitStr, 10);
+      if (limit > 50) {
+        limit = 50;
+      }
+    }
+
+    const offset = (page - 1) * limit;
+
+    const [totalRes, itemsRes, summaryRes] = await Promise.all([
+      db.query(
+        "SELECT COUNT(*)::int AS total FROM fueling_logs WHERE driver_id = $1",
+        [driverId]
+      ),
+      db.query(
+        `SELECT f.id, f.timestamp, f.volume_liters, f.duration_minutes, f.release_method, f.station_name, f.data_source,
+                t.plate AS truck_plate
+           FROM fueling_logs f
+           LEFT JOIN trucks t ON t.id = f.truck_id
+          WHERE f.driver_id = $1
+          ORDER BY f.timestamp DESC, f.id DESC
+          LIMIT $2 OFFSET $3`,
+        [driverId, limit, offset]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS count,
+                COALESCE(SUM(CASE WHEN (data_source IS NULL OR data_source != 'unverified') AND volume_liters IS NOT NULL THEN volume_liters ELSE 0 END), 0)::float AS total_liters
+           FROM fueling_logs
+          WHERE driver_id = $1
+            AND timestamp >= NOW() - INTERVAL '30 days'`,
+        [driverId]
+      )
+    ]);
+
+    const total = totalRes.rows[0]?.total || 0;
+    const summaryRow = summaryRes.rows[0];
+    const summaryCount = summaryRow?.count || 0;
+    const rawTotalLiters = summaryRow?.total_liters;
+    const totalLiters = (summaryCount > 0 && rawTotalLiters != null)
+      ? parseFloat(Number(rawTotalLiters).toFixed(2))
+      : 0;
+
+    const items = itemsRes.rows.map((row) => {
+      const volume = row.data_source === "unverified"
+        ? null
+        : (row.volume_liters != null ? parseFloat(row.volume_liters) : null);
+      const duration = row.duration_minutes != null ? parseFloat(row.duration_minutes) : null;
+      return {
+        id: row.id,
+        timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : null,
+        truck_plate: row.truck_plate || null,
+        volume_liters: volume,
+        duration_minutes: duration,
+        release_method: row.release_method || null,
+        station_name: row.station_name || null,
+      };
+    });
+
+    return res.json({
+      items,
+      page,
+      limit,
+      total,
+      summary: {
+        count: summaryCount,
+        total_liters: totalLiters,
+      },
+    });
+  } catch (err) {
+    console.error("Get fueling history error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 exports.requestSession = async (req, res) => {
   try {
