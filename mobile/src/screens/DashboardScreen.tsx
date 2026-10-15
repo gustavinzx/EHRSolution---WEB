@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Constants from 'expo-constants';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,6 +19,50 @@ import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { getBleLock } from '../services/bluetooth/bleLock';
 import { getCancelErrorMessage } from '../utils/cancelError';
+import { HistoryItem, HistorySummary } from '../types/history';
+
+const formatReleaseMethod = (method: string): string => {
+  switch (method) {
+    case 'facial':
+      return 'Facial';
+    case 'ble_fallback':
+      return 'Contingência Bluetooth';
+    case 'manager_override':
+      return 'Liberação do gestor';
+    default:
+      return method;
+  }
+};
+
+const formatVolume = (liters: number | null): string => {
+  if (liters == null) return 'Volume a confirmar';
+  return `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(liters)} L`;
+};
+
+const formatDateTime = (timestamp: string): string => {
+  try {
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return timestamp;
+    const dateStr = d.toLocaleDateString('pt-BR');
+    const timeStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr}, ${timeStr}`;
+  } catch {
+    return timestamp;
+  }
+};
+
+const getSummaryText = (summary: HistorySummary | null): string => {
+  if (!summary) return 'Últimos 30 dias: 0 abastecimentos • 0 L';
+  const count = summary.count;
+  const countLabel = `${count} ${count === 1 ? 'abastecimento' : 'abastecimentos'}`;
+  let volumeLabel: string;
+  if (count > 0 && summary.total_liters === 0) {
+    volumeLabel = 'Volume a confirmar';
+  } else {
+    volumeLabel = `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(summary.total_liters)} L`;
+  }
+  return `Últimos 30 dias: ${countLabel} • ${volumeLabel}`;
+};
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -23,6 +70,85 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { driver, vehicle, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'perfil'>('inicio');
+
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const latestRequestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const loadHistory = useCallback(async (page: number = 1, isRefresh: boolean = false, isLoadMore: boolean = false) => {
+    const reqId = ++latestRequestIdRef.current;
+
+    if (isRefresh) {
+      setHistoryRefreshing(true);
+      setHistoryError(null);
+    } else if (isLoadMore) {
+      setHistoryLoadingMore(true);
+    } else {
+      setHistoryLoading(true);
+      setHistoryError(null);
+    }
+
+    try {
+      const res = await apiClient.getHistory(page, 20);
+      if (!isMountedRef.current || reqId !== latestRequestIdRef.current) return;
+
+      if (page === 1) {
+        setHistoryItems(res.items);
+      } else {
+        setHistoryItems((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const newItems = res.items.filter((i) => !existingIds.has(i.id));
+          return [...prev, ...newItems];
+        });
+      }
+      setHistorySummary(res.summary);
+      setHistoryTotal(res.total);
+      setHistoryPage(res.page);
+      setHistoryError(null);
+    } catch (err: any) {
+      if (!isMountedRef.current || reqId !== latestRequestIdRef.current) return;
+      const msg = err?.status === 0
+        ? 'Sem conexão. Verifique sua rede e tente novamente.'
+        : 'Não foi possível carregar o histórico.';
+      setHistoryError(msg);
+    } finally {
+      if (isMountedRef.current && reqId === latestRequestIdRef.current) {
+        setHistoryLoading(false);
+        setHistoryRefreshing(false);
+        setHistoryLoadingMore(false);
+      }
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'historico') {
+        loadHistory(1);
+      }
+    }, [activeTab, loadHistory])
+  );
+
+  const handleTabPress = (tab: 'inicio' | 'historico' | 'perfil') => {
+    setActiveTab(tab);
+    if (tab === 'historico') {
+      loadHistory(1);
+    }
+  };
 
   const driverFirstName = driver?.name?.split(' ')[0] || 'Motorista';
 
@@ -181,7 +307,20 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          activeTab === 'historico' ? (
+            <RefreshControl
+              refreshing={historyRefreshing}
+              onRefresh={() => loadHistory(1, true)}
+              tintColor="#00C4D0"
+              colors={['#00C4D0']}
+            />
+          ) : undefined
+        }
+      >
         {/* ================= ABA 1: INÍCIO (ABASTECIMENTO) ================= */}
         {activeTab === 'inicio' && (
           <View>
@@ -281,13 +420,125 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ================= ABA 2: HISTÓRICO ================= */}
         {activeTab === 'historico' && (
-          <View style={styles.emptyHistoryCard}>
-            <View style={styles.emptyHistoryIconBox}>
-              <Text style={styles.emptyHistoryIcon}>⏱️</Text>
-            </View>
-            <Text style={styles.emptyHistoryText}>
-              Seu histórico de abastecimentos aparecerá aqui.
-            </Text>
+          <View style={styles.historyContainer}>
+            {/* Loading initial state */}
+            {historyLoading && historyItems.length === 0 ? (
+              <View style={styles.historyLoadingBox} testID="history-loading-indicator">
+                <ActivityIndicator size="large" color="#00C4D0" />
+                <Text style={styles.historyLoadingText}>Carregando histórico...</Text>
+              </View>
+            ) : historyError && historyItems.length === 0 ? (
+              /* Error state */
+              <View style={styles.historyErrorBox} testID="history-error-card">
+                <Text style={styles.historyErrorIcon}>⚠️</Text>
+                <Text style={styles.historyErrorText}>{historyError}</Text>
+                <TouchableOpacity
+                  style={styles.retryBtn}
+                  onPress={() => loadHistory(1)}
+                  testID="history-retry-btn"
+                >
+                  <Text style={styles.retryBtnText}>Tentar novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ) : historyItems.length === 0 ? (
+              /* Empty state */
+              <View style={styles.emptyHistoryCard} testID="history-empty-card">
+                <View style={styles.emptyHistoryIconBox}>
+                  <Text style={styles.emptyHistoryIcon}>⏱️</Text>
+                </View>
+                <Text style={styles.emptyHistoryText}>
+                  Seu histórico de abastecimentos aparecerá aqui.
+                </Text>
+              </View>
+            ) : (
+              /* List of items */
+              <View>
+                {/* Summary Badge at Top */}
+                <View style={styles.historySummaryCard} testID="history-summary-card">
+                  <View style={styles.historySummaryIconBox}>
+                    <Text style={styles.historySummaryIcon}>📊</Text>
+                  </View>
+                  <View style={styles.historySummaryContent}>
+                    <Text style={styles.historySummaryTitle}>Resumo</Text>
+                    <Text style={styles.historySummaryText} testID="history-summary-text">
+                      {getSummaryText(historySummary)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Items */}
+                {historyItems.map((item) => (
+                  <View key={item.id} style={styles.historyItemCard} testID={`history-item-${item.id}`}>
+                    <View style={styles.historyItemHeader}>
+                      <Text style={styles.historyItemDate}>{formatDateTime(item.timestamp)}</Text>
+                      <View style={styles.historyMethodBadge}>
+                        <Text style={styles.historyMethodText}>{formatReleaseMethod(item.release_method)}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.historyItemDivider} />
+
+                    <View style={styles.historyItemRow}>
+                      <View style={styles.historyItemCol}>
+                        <View style={styles.historyFieldLabelRow}>
+                          <Text style={styles.historyFieldIcon}>🚛</Text>
+                          <Text style={styles.historyFieldLabel}>Veículo</Text>
+                        </View>
+                        <Text style={styles.historyFieldValue}>{item.truck_plate || '—'}</Text>
+                      </View>
+
+                      <View style={styles.historyItemCol}>
+                        <View style={styles.historyFieldLabelRow}>
+                          <Text style={styles.historyFieldIcon}>⛽</Text>
+                          <Text style={styles.historyFieldLabel}>Posto</Text>
+                        </View>
+                        <Text style={styles.historyFieldValue}>{item.station_name || 'Posto não informado'}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.historyItemDivider} />
+
+                    <View style={styles.historyItemRow}>
+                      <View style={styles.historyItemCol}>
+                        <View style={styles.historyFieldLabelRow}>
+                          <Text style={styles.historyFieldIcon}>💧</Text>
+                          <Text style={styles.historyFieldLabel}>Volume</Text>
+                        </View>
+                        <Text style={styles.historyFieldValueHighlight}>{formatVolume(item.volume_liters)}</Text>
+                      </View>
+
+                      {item.duration_minutes != null && (
+                        <View style={styles.historyItemCol}>
+                          <View style={styles.historyFieldLabelRow}>
+                            <Text style={styles.historyFieldIcon}>⏱️</Text>
+                            <Text style={styles.historyFieldLabel}>Duração</Text>
+                          </View>
+                          <Text style={styles.historyFieldValue}>
+                            {new Intl.NumberFormat('pt-BR').format(item.duration_minutes)} min
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+
+                {/* Load More Button */}
+                {historyItems.length < historyTotal && (
+                  <TouchableOpacity
+                    style={styles.loadMoreBtn}
+                    onPress={() => loadHistory(historyPage + 1, false, true)}
+                    disabled={historyLoadingMore}
+                    testID="history-load-more-btn"
+                  >
+                    {historyLoadingMore ? (
+                      <ActivityIndicator size="small" color="#00C4D0" />
+                    ) : (
+                      <Text style={styles.loadMoreBtnText}>Carregar mais</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -368,7 +619,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => setActiveTab('inicio')}
+          onPress={() => handleTabPress('inicio')}
           activeOpacity={0.7}
         >
           <Text style={[styles.tabIcon, activeTab === 'inicio' ? styles.tabIconActive : styles.tabIconInactive]}>
@@ -382,7 +633,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => setActiveTab('historico')}
+          onPress={() => handleTabPress('historico')}
           activeOpacity={0.7}
         >
           <Text style={[styles.tabIcon, activeTab === 'historico' ? styles.tabIconActive : styles.tabIconInactive]}>
@@ -396,7 +647,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => setActiveTab('perfil')}
+          onPress={() => handleTabPress('perfil')}
           activeOpacity={0.7}
         >
           <Text style={[styles.tabIcon, activeTab === 'perfil' ? styles.tabIconActive : styles.tabIconInactive]}>
@@ -695,6 +946,54 @@ const styles = StyleSheet.create({
   },
 
   // Histórico
+  historyContainer: {
+    paddingBottom: 20,
+  },
+  historyLoadingBox: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  historyLoadingText: {
+    fontSize: 14,
+    color: '#8899A6',
+    fontWeight: '600',
+  },
+  historyErrorBox: {
+    backgroundColor: '#0F1A2C',
+    borderRadius: 20,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  historyErrorIcon: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
+  historyErrorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  retryBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.35)',
+  },
+  retryBtnText: {
+    color: '#00C4D0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   emptyHistoryCard: {
     backgroundColor: '#0F1A2C',
     borderRadius: 20,
@@ -722,6 +1021,140 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  historySummaryCard: {
+    backgroundColor: '#0F1A2C',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.25)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  historySummaryIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historySummaryIcon: {
+    fontSize: 20,
+  },
+  historySummaryContent: {
+    flex: 1,
+  },
+  historySummaryTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8899A6',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  historySummaryText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  historyItemCard: {
+    backgroundColor: '#0F1A2C',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  historyItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historyItemDate: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  historyMethodBadge: {
+    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 196, 208, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  historyMethodText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#00C4D0',
+  },
+  historyItemDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: 10,
+  },
+  historyItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  historyItemCol: {
+    flex: 1,
+  },
+  historyFieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  historyFieldIcon: {
+    fontSize: 11,
+  },
+  historyFieldLabel: {
+    fontSize: 11,
+    color: '#8899A6',
+    fontWeight: '600',
+  },
+  historyFieldValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  historyFieldValueHighlight: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#00C4D0',
+  },
+  loadMoreBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  loadMoreBtnText: {
+    color: '#00C4D0',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // Perfil Dark Mode
