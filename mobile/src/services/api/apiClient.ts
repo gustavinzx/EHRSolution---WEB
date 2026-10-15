@@ -1,17 +1,49 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Session, ReleaseMethod } from '../../types/session';
 
-const getBaseUrl = (): string => {
+const isLoopbackHost = (host: string): boolean => host === 'localhost' || host === '127.0.0.1';
+
+const isLoopbackUrl = (url: string): boolean => /^https?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
+
+const getHostFromConstants = (): string | null => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ||
+    (Constants as any).manifest?.debuggerHost;
+  if (typeof hostUri === 'string' && hostUri) {
+    const host = hostUri.split(':')[0];
+    if (host && !isLoopbackHost(host)) return host;
+  }
+  const linkingUri = (Constants as any).linkingUri || (Constants as any).experienceUrl;
+  if (typeof linkingUri === 'string' && linkingUri.startsWith('exp://')) {
+    const host = linkingUri.replace('exp://', '').split('/')[0].split(':')[0];
+    if (host && !isLoopbackHost(host)) return host;
+  }
+  return null;
+};
+
+export const getBaseUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!__DEV__) {
+    if (envUrl && envUrl.startsWith('https://')) return envUrl;
+    if (process.env.NODE_ENV === 'test') {
+      return envUrl || 'https://api.ehrsolutions.com.br/api';
+    }
     if (!envUrl || !envUrl.startsWith('https://')) {
       throw new Error('Em produção, EXPO_PUBLIC_API_URL é obrigatório e deve usar HTTPS.');
     }
     return envUrl;
   }
-  if (envUrl) return envUrl;
+
+  const isNative = Platform.OS !== 'web';
+  if (envUrl && !(isNative && isLoopbackUrl(envUrl))) return envUrl;
+
+  const host = getHostFromConstants();
+  if (host) return `http://${host}:3001/api`;
+
   if (Platform.OS === 'android') return 'http://10.0.2.2:3001/api';
   return 'http://localhost:3001/api';
 };
@@ -22,6 +54,7 @@ let onUnauthorizedCb: ((message?: string) => void) | null = null;
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = await secureStorage.getToken();
+  const baseUrl = getBaseUrl();
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -36,7 +69,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${endpoint}`, {
+    response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
       headers: {
         ...headers,
@@ -47,17 +80,17 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (__DEV__) {
-      console.error(`[API ERROR] ${options.method || 'GET'} ${API_URL}${endpoint}:`, error);
+      console.error(`[API ERROR] ${options.method || 'GET'} ${baseUrl}${endpoint}:`, error);
     }
     if (error.name === 'AbortError') {
       const message = __DEV__
-        ? `Tempo limite esgotado ao conectar em ${API_URL}`
+        ? `Tempo limite esgotado ao conectar em ${baseUrl}`
         : 'Tempo limite da requisição excedido.';
       throw { status: 0, message } as ApiError;
     }
     const detail = __DEV__ && error?.message ? ` (${error.message})` : '';
     const message = __DEV__
-      ? `Sem conexão com ${API_URL}${detail}`
+      ? `Sem conexão com ${baseUrl}${detail}`
       : 'Sem conexão com o servidor.';
     throw { status: 0, message } as ApiError;
   }
