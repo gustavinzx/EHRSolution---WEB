@@ -432,15 +432,19 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                   </>
                 )}
 
-                <View style={styles.receiptDivider} />
-                <View style={styles.receiptRow}>
-                  <View style={styles.receiptLabelRow}>
-                    <Text style={styles.receiptIcon}>📅</Text>
-                    <Text style={styles.receiptValue}>
-                      Data e hora: {new Date().toLocaleDateString('pt-BR')}, {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                </View>
+                {sessionDetail.completed_at ? (
+                  <>
+                    <View style={styles.receiptDivider} />
+                    <View style={styles.receiptRow}>
+                      <View style={styles.receiptLabelRow}>
+                        <Text style={styles.receiptIcon}>📅</Text>
+                        <Text style={styles.receiptValue}>
+                          Data e hora: {new Date(sessionDetail.completed_at).toLocaleDateString('pt-BR')}, {new Date(sessionDetail.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                    </View>
+                  </>
+                ) : null}
               </View>
             )}
 
