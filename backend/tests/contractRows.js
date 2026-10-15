@@ -186,6 +186,33 @@ module.exports = [
     error: "page inválido"
   },
   {
+    name: "History 400 page huge overflow",
+    method: "get",
+    path: () => "/api/fueling/history?page=99999999999999999999",
+    auth: "drv",
+    status: 400,
+    error: "page inválido"
+  },
+  {
+    name: "History 400 page over 100000",
+    method: "get",
+    path: () => "/api/fueling/history?page=100001",
+    auth: "drv",
+    status: 400,
+    error: "page inválido"
+  },
+  {
+    name: "History 200 page 100000 empty items",
+    method: "get",
+    path: () => "/api/fueling/history?page=100000",
+    auth: "drv",
+    status: 200,
+    assertBody: (b) => {
+      expect(b.items).toEqual([]);
+      expect(b.page).toBe(100000);
+    }
+  },
+  {
     name: "History 400 limit invalid",
     method: "get",
     path: () => "/api/fueling/history?limit=0",

@@ -297,4 +297,37 @@ describe('Driver History API (GET /api/fueling/history)', () => {
     expect(res.status).toBe(200);
     expect(res.body.limit).toBe(50);
   });
+
+  it('Tratamento de overflow e limite superior de page sem logar erro no console (spy em console.error)', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      // 1. page=99999999999999999999 => 400 { "error": "page inválido" }
+      const rHuge = await request(app)
+        .get('/api/fueling/history?page=99999999999999999999')
+        .set('Authorization', 'Bearer ' + driverAToken);
+      expect(rHuge.status).toBe(400);
+      expect(rHuge.body).toEqual({ error: 'page inválido' });
+
+      // 2. page=100001 => 400 { "error": "page inválido" }
+      const rOver = await request(app)
+        .get('/api/fueling/history?page=100001')
+        .set('Authorization', 'Bearer ' + driverAToken);
+      expect(rOver.status).toBe(400);
+      expect(rOver.body).toEqual({ error: 'page inválido' });
+
+      // 3. page=100000 => 200 com items vazio
+      const rBound = await request(app)
+        .get('/api/fueling/history?page=100000')
+        .set('Authorization', 'Bearer ' + driverAToken);
+      expect(rBound.status).toBe(200);
+      expect(rBound.body.page).toBe(100000);
+      expect(rBound.body.items).toEqual([]);
+
+      // Confirmação de que nenhum deles gerou erro no console do servidor
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 });
