@@ -7,6 +7,7 @@ import { useAlerts } from '../hooks/useAlerts';
 import { useAuth } from '../hooks/useAuth';
 import { getAlertMeta } from '../utils/alertMapping';
 import { isSameLocalDay } from '../utils/dayRange';
+import { getTruckVisualState } from '../utils/truckVisualState';
 import MapView from '../components/MapView';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -32,10 +33,8 @@ const getSeverityBadge = (severity) => {
   }
 };
 
-const isAlertTruck = (t) => {
-  const state = t.sim_state || t.status;
-  return state === 'no_signal' || state === 'fueling' || state === 'security_alert';
-};
+const isAlertTruck = (t) => getTruckVisualState(t) === 'alert';
+const isFuelingTruck = (t) => getTruckVisualState(t) === 'fueling';
 
 function DonutChart({ percent = 100 }) {
   const r = 42;
@@ -122,6 +121,7 @@ export default function DashboardPage() {
   };
 
   const alertTrucksCount = trucks.filter(isAlertTruck).length;
+  const fuelingTrucksCount = trucks.filter(isFuelingTruck).length;
   const activeAlerts = (Array.isArray(allAlerts) ? allAlerts : [])
     .filter(a => !a.resolved_at)
     .slice(0, 4);
@@ -458,6 +458,10 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
               <span>Comb. baixo ({critical})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
+              <span>Abastecendo ({fuelingTrucksCount})</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 6px #f87171' }} />
