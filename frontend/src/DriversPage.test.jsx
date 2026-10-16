@@ -1,13 +1,25 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import DriversPage from './pages/DriversPage';
 import { useDrivers } from './hooks/useDrivers';
+import { useFleet } from './hooks/useFleet';
+import { useAuth } from './hooks/useAuth';
 
 vi.mock('./hooks/useDrivers');
+vi.mock('./hooks/useFleet');
+vi.mock('./hooks/useAuth');
 
 describe('DriversPage', () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
+    useAuth.mockReturnValue({
+      user: { role: 'manager', name: 'Gestor Teste' }
+    });
+    useFleet.mockReturnValue({
+      trucks: []
+    });
     useDrivers.mockReturnValue({
       drivers: [
         { id: 1, name: 'João Silva', is_active: true, face_enrolled: true },
