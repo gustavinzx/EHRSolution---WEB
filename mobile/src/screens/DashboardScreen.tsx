@@ -79,9 +79,16 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [historyRefreshing, setHistoryRefreshing] = useState(false);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyInlineError, setHistoryInlineError] = useState<string | null>(null);
 
   const latestRequestIdRef = useRef(0);
   const isMountedRef = useRef(true);
+  const hasHistoryItemsRef = useRef(false);
+  const lastFailedRequestRef = useRef<{ page: number; isRefresh: boolean; isLoadMore: boolean }>({
+    page: 1,
+    isRefresh: false,
+    isLoadMore: true,
+  });
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -93,6 +100,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const loadHistory = useCallback(async (page: number = 1, isRefresh: boolean = false, isLoadMore: boolean = false) => {
     const reqId = ++latestRequestIdRef.current;
 
+    setHistoryInlineError(null);
     if (isRefresh) {
       setHistoryRefreshing(true);
       setHistoryError(null);
@@ -108,24 +116,36 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       if (!isMountedRef.current || reqId !== latestRequestIdRef.current) return;
 
       if (page === 1) {
+        hasHistoryItemsRef.current = res.items.length > 0;
         setHistoryItems(res.items);
       } else {
         setHistoryItems((prev) => {
           const existingIds = new Set(prev.map((i) => i.id));
           const newItems = res.items.filter((i) => !existingIds.has(i.id));
-          return [...prev, ...newItems];
+          const next = [...prev, ...newItems];
+          hasHistoryItemsRef.current = next.length > 0;
+          return next;
         });
       }
       setHistorySummary(res.summary);
       setHistoryTotal(res.total);
       setHistoryPage(res.page);
       setHistoryError(null);
+      setHistoryInlineError(null);
     } catch (err: any) {
       if (!isMountedRef.current || reqId !== latestRequestIdRef.current) return;
-      const msg = err?.status === 0
-        ? 'Sem conexão. Verifique sua rede e tente novamente.'
-        : 'Não foi possível carregar o histórico.';
-      setHistoryError(msg);
+      if (isLoadMore || isRefresh || hasHistoryItemsRef.current) {
+        lastFailedRequestRef.current = { page, isRefresh, isLoadMore };
+        const inlineMsg = err?.status === 0
+          ? 'Sem conexão. Verifique sua rede e tente novamente.'
+          : 'Não foi possível carregar mais. Toque para tentar de novo.';
+        setHistoryInlineError(inlineMsg);
+      } else {
+        const msg = err?.status === 0
+          ? 'Sem conexão. Verifique sua rede e tente novamente.'
+          : 'Não foi possível carregar o histórico.';
+        setHistoryError(msg);
+      }
     } finally {
       if (isMountedRef.current && reqId === latestRequestIdRef.current) {
         setHistoryLoading(false);
@@ -518,6 +538,25 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </View>
                 ))}
+
+                {/* Inline Error below list */}
+                {historyInlineError && (
+                  <View style={styles.historyInlineErrorBox} testID="history-inline-error">
+                    <TouchableOpacity
+                      style={styles.historyInlineRetryBtn}
+                      onPress={() => {
+                        const { page, isRefresh, isLoadMore } = lastFailedRequestRef.current;
+                        loadHistory(page, isRefresh, isLoadMore);
+                      }}
+                      testID="history-inline-retry-btn"
+                    >
+                      <Text style={styles.historyInlineErrorText}>{historyInlineError}</Text>
+                      <View style={styles.historyInlineRetryBadge}>
+                        <Text style={styles.historyInlineRetryBtnText}>Repetir</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Load More Button */}
                 {historyItems.length < historyTotal && (
@@ -1151,6 +1190,40 @@ const styles = StyleSheet.create({
   loadMoreBtnText: {
     color: '#00C4D0',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  historyInlineErrorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  historyInlineRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  historyInlineErrorText: {
+    flex: 1,
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  historyInlineRetryBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  historyInlineRetryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
   },
 

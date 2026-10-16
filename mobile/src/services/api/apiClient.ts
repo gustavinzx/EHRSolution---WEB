@@ -81,7 +81,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (__DEV__) {
-      console.error(`[API ERROR] ${options.method || 'GET'} ${baseUrl}${endpoint}:`, error);
+      console.warn(`[API ERROR] ${options.method || 'GET'} ${baseUrl}${endpoint}:`, error);
     }
     if (error.name === 'AbortError') {
       const message = __DEV__
@@ -109,7 +109,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     const errorMessage = data.error || 'Ocorreu um erro inesperado.';
-    
+    if (__DEV__) {
+      console.warn(`[API ERROR] ${options.method || 'GET'} ${baseUrl}${endpoint}: HTTP ${response.status}`, data);
+    }
+
     if (response.status === 401) {
       if (endpoint !== '/auth/driver/login' && onUnauthorizedCb) {
         onUnauthorizedCb();

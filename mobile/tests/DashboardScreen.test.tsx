@@ -772,5 +772,131 @@ describe('DashboardScreen', () => {
       expect(getByText('NEW-9999')).toBeTruthy();
       expect(queryByText('OLD-1111')).toBeNull();
     });
+
+    it('falha em "Carregar mais" com itens já renderizados exibe a mensagem inline mantendo os itens visíveis, e repetir limpa o erro (C1/C3)', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock)
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 1,
+              timestamp: '2026-10-15T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 20,
+              duration_minutes: 5,
+              release_method: 'facial',
+              station_name: 'Posto 1',
+            },
+          ],
+          page: 1,
+          limit: 1,
+          total: 2,
+          summary: { count: 2, total_liters: 50 },
+        })
+        .mockRejectedValueOnce({ status: 500, message: 'Internal Server Error' })
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 2,
+              timestamp: '2026-10-14T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 30,
+              duration_minutes: 8,
+              release_method: 'facial',
+              station_name: 'Posto 2',
+            },
+          ],
+          page: 2,
+          limit: 1,
+          total: 2,
+          summary: { count: 2, total_liters: 50 },
+        });
+
+      const { getByText, getByTestId, queryByText, queryByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-1')).toBeTruthy();
+        expect(getByTestId('history-load-more-btn')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('history-load-more-btn'));
+
+      await waitFor(() => {
+        expect(getByText('Não foi possível carregar mais. Toque para tentar de novo.')).toBeTruthy();
+        expect(getByTestId('history-inline-retry-btn')).toBeTruthy();
+      });
+
+      expect(getByTestId('history-item-1')).toBeTruthy();
+      expect(queryByTestId('history-error-card')).toBeNull();
+
+      fireEvent.press(getByTestId('history-inline-retry-btn'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-2')).toBeTruthy();
+      });
+
+      expect(queryByText('Não foi possível carregar mais. Toque para tentar de novo.')).toBeNull();
+      expect(queryByTestId('history-inline-error')).toBeNull();
+      expect(getByTestId('history-item-1')).toBeTruthy();
+    });
+
+    it('falha com status 0 em "Carregar mais" com itens já renderizados exibe Sem conexão inline sem esconder a lista', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock)
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 1,
+              timestamp: '2026-10-15T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 20,
+              duration_minutes: 5,
+              release_method: 'facial',
+              station_name: 'Posto 1',
+            },
+          ],
+          page: 1,
+          limit: 1,
+          total: 2,
+          summary: { count: 2, total_liters: 50 },
+        })
+        .mockRejectedValueOnce({ status: 0, message: 'Sem conexão' });
+
+      const { getByText, getByTestId, queryByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-1')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('history-load-more-btn'));
+
+      await waitFor(() => {
+        expect(getByText('Sem conexão. Verifique sua rede e tente novamente.')).toBeTruthy();
+        expect(getByTestId('history-inline-error')).toBeTruthy();
+      });
+
+      expect(getByTestId('history-item-1')).toBeTruthy();
+      expect(queryByTestId('history-error-card')).toBeNull();
+    });
   });
 });
