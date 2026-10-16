@@ -6,6 +6,7 @@ import { useFueling } from '../hooks/useFueling';
 import { useAlerts } from '../hooks/useAlerts';
 import { useAuth } from '../hooks/useAuth';
 import { getAlertMeta } from '../utils/alertMapping';
+import { isSameLocalDay } from '../utils/dayRange';
 import MapView from '../components/MapView';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -99,15 +100,14 @@ export default function DashboardPage() {
   const pct = (t) => t.capacity_liters > 0
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = yesterdayDate.toISOString().split('T')[0];
+  const now = new Date();
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(now.getDate() - 1);
 
   const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
   const critical = trucks.filter(t => pct(t) < 20).length;
-  const todayFuel = logs.filter(l => l.timestamp?.startsWith(today)).length;
-  const yesterdayFuel = logs.filter(l => l.timestamp?.startsWith(yesterday)).length;
+  const todayFuel = logs.filter(l => isSameLocalDay(l.timestamp, now)).length;
+  const yesterdayFuel = logs.filter(l => isSameLocalDay(l.timestamp, yesterdayDate)).length;
   const hasFuelTrend = yesterdayFuel > 0;
   const fuelTrendPct = hasFuelTrend
     ? Math.round(((todayFuel - yesterdayFuel) / yesterdayFuel) * 100)
