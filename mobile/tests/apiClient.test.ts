@@ -459,4 +459,125 @@ describe('apiClient', () => {
       }
     });
   });
+
+  describe('getHistory (Bloco A)', () => {
+    it('calls GET /fueling/history with default query parameters, headers, and no body', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('valid_token_123');
+      const mockResponse = {
+        items: [
+          {
+            id: 101,
+            timestamp: '2026-10-15T12:00:00.000Z',
+            truck_plate: 'ABC-1234',
+            volume_liters: 45.5,
+            duration_minutes: 15.0,
+            release_method: 'facial',
+            station_name: 'Posto Central',
+          },
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+        summary: {
+          count: 1,
+          total_liters: 45.5,
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockResponse),
+      });
+
+      const res = await apiClient.getHistory();
+      expect(res).toEqual(mockResponse);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/history?page=1&limit=20`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer valid_token_123',
+          },
+        })
+      );
+      const callOptions = mockFetch.mock.calls[0][1];
+      expect(callOptions.body).toBeUndefined();
+    });
+
+    it('passes custom page and limit query parameters', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('token_abc');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ items: [], page: 3, limit: 10, total: 0, summary: { count: 0, total_liters: 0 } }),
+      });
+
+      await apiClient.getHistory(3, 10);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/history?page=3&limit=10`,
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('handles 400 page inválido error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: 'page inválido' }),
+      });
+
+      await expect(apiClient.getHistory(0, 20)).rejects.toMatchObject({
+        status: 400,
+        code: 'page inválido',
+        message: 'page inválido',
+      });
+      expect(onUnauthorizedMock).not.toHaveBeenCalled();
+    });
+
+    it('handles 400 limit inválido error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: 'limit inválido' }),
+      });
+
+      await expect(apiClient.getHistory(1, 0)).rejects.toMatchObject({
+        status: 400,
+        code: 'limit inválido',
+        message: 'limit inválido',
+      });
+      expect(onUnauthorizedMock).not.toHaveBeenCalled();
+    });
+
+    it('handles 401 error and calls onUnauthorized callback', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: 'Invalid or expired token' }),
+      });
+
+      await expect(apiClient.getHistory()).rejects.toMatchObject({
+        status: 401,
+        code: 'Invalid or expired token',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalled();
+    });
+
+    it('handles 403 driver_inactive error and notifies user', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => JSON.stringify({ error: 'driver_inactive' }),
+      });
+
+      await expect(apiClient.getHistory()).rejects.toMatchObject({
+        status: 403,
+        code: 'driver_inactive',
+      });
+      expect(onUnauthorizedMock).toHaveBeenCalledWith('Seu acesso foi desativado. Procure o gestor.');
+    });
+  });
 });

@@ -8,7 +8,9 @@ Aplicativo mobile em React Native / Expo para motoristas realizarem autenticaç�
 - **Início e Retomada de Sessão**: Solicitação de sessão biométrica (`facial`) ou de contingência (`ble_fallback`).
 - **Validação Facial na Nuvem**: Captura de imagem com redimensionamento a 720px, compressão JPEG e envio em Base64 puro para `POST /sessions/:id/verify-face`.
 - **Cancelamento de Sessões**: O motorista pode cancelar o abastecimento nos estados permitidos (`FACIAL_PENDING`, `AUTHORIZING`, `WAITING_HARDWARE`, `BLOCKED_NEEDS_MANAGER`), bem como em sessões pendentes retomadas no Dashboard e em telas de erro de sessões travadas.
-- **Resultado do Abastecimento**: Na conclusão (`DONE`), o app consulta `GET /sessions/:id` e exibe o volume abastecido e a duração em formato pt-BR (ou aviso de volume pendente de confirmação quando a telemetria não aferiu o dado).
+- **Resultado do Abastecimento**: Na conclusão (`DONE`), o app consulta `GET /sessions/:id` e exibe o volume abastecido, duração e a data/hora real de conclusão (`completed_at` do backend) em formato pt-BR (se ausente, a linha de data é omitida; nenhum dado fictício é exibido).
+- **Aba de Histórico Real**: Aba "Histórico" no Dashboard conectada a `GET /api/fueling/history` com paginação cumulativa, resumo dos últimos 30 dias (`count` e `total_liters`), listagem com data formatada pt-BR, placa, posto, volume ou aviso de confirmação, duração e método legível; tratamento de erros de rede (status 0) e retry.
+- **Robustez e Timeout de Câmera**: Captura e redimensionamento de foto facial protegidos por timeout de 10s via utilitário `withTimeout`, impedindo travamento do app caso a câmera do dispositivo não responda, com proteção contra duplo disparo e cancelamento interativo.
 
 ## Como Testar Localmente
 
@@ -32,3 +34,4 @@ Aplicativo mobile em React Native / Expo para motoristas realizarem autenticaç�
 
 1. **Protocolo BLE da Trava do Bocal**: A confirmação de hardware da trava física depende da especificação do protocolo GATT embarcado (Service UUID, Characteristic UUID, handshake criptográfico de desafio e resposta).
 2. **Provedor Facial Real com Prova de Vida (Liveness)**: Integração com SDK de biometria facial passiva/ativa ou serviço de nuvem em produção.
+

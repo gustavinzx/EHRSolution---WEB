@@ -616,6 +616,55 @@ describe('OperationResultScreen', () => {
 
       expect(queryByTestId('result-card')).toBeNull();
     });
+
+    it('displays date and time formatted in pt-BR from completed_at on receipt', async () => {
+      const completedAt = '2026-10-15T14:30:00.000Z';
+      (apiClient.getSession as jest.Mock).mockResolvedValueOnce({
+        id: 1,
+        status: 'completed',
+        completed_at: completedAt,
+        result: {
+          volume_liters: 45.5,
+          duration_minutes: 14,
+        }
+      });
+
+      const { findByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'DONE' } } as any} 
+        />
+      );
+
+      const d = new Date(completedAt);
+      const expectedDate = d.toLocaleDateString('pt-BR');
+      const expectedTime = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const dateText = await findByText(new RegExp(`Data e hora: ${expectedDate}, ${expectedTime}`));
+      expect(dateText).toBeTruthy();
+    });
+
+    it('does not display date row when completed_at is null or absent', async () => {
+      (apiClient.getSession as jest.Mock).mockResolvedValueOnce({
+        id: 1,
+        status: 'completed',
+        completed_at: null,
+        result: {
+          volume_liters: 45.5,
+          duration_minutes: 14,
+        }
+      });
+
+      const { findByText, queryByText } = render(
+        <OperationResultScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, initialState: 'DONE' } } as any} 
+        />
+      );
+
+      await findByText(/Volume abastecido: 45,5 L/);
+      expect(queryByText(/Data e hora:/)).toBeNull();
+    });
   });
 
   describe('Fueling State Honesty (Bloco C2)', () => {

@@ -6,6 +6,22 @@ import { apiClient } from '../src/services/api/apiClient';
 import { getBleLock } from '../src/services/bluetooth/bleLock';
 import { useAuth } from '../src/hooks/useAuth';
 
+let mockLastFocusEffectCallback: (() => void | (() => void)) | null = null;
+
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
+  const React = require('react');
+  return {
+    ...actual,
+    useFocusEffect: jest.fn((cb) => {
+      mockLastFocusEffectCallback = cb;
+      React.useEffect(() => {
+        cb();
+      }, [cb]);
+    }),
+  };
+});
+
 jest.mock('../src/hooks/useAuth');
 jest.mock('../src/services/api/apiClient');
 jest.mock('../src/services/bluetooth/bleLock');
@@ -15,6 +31,13 @@ const mockNavigation = { navigate: jest.fn() } as any;
 describe('DashboardScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (apiClient.getHistory as jest.Mock).mockResolvedValue({
+      items: [],
+      page: 1,
+      limit: 20,
+      total: 0,
+      summary: { count: 0, total_liters: 0 },
+    });
   });
 
   it('hides BLE button when BleLock is not available', () => {
@@ -323,7 +346,7 @@ describe('DashboardScreen', () => {
       expect(queryByText(/USB04E06/i)).toBeNull();
     });
 
-    it('aba Histórico se mostra vazia sem "1.330 L" e exibe estado honesto (Bloco C2)', () => {
+    it('aba Histórico se mostra vazia sem "1.330 L" e exibe estado honesto (Bloco C2)', async () => {
       (useAuth as jest.Mock).mockReturnValue({
         driver: { name: 'João Silva', email: 'joao@ehr.com', phone: '11999999999' },
         vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
@@ -339,12 +362,415 @@ describe('DashboardScreen', () => {
       fireEvent.press(getByText('Histórico'));
 
       // Empty state honest message is displayed
-      expect(getByText('Seu histórico de abastecimentos aparecerá aqui.')).toBeTruthy();
+      await waitFor(() => {
+        expect(getByText('Seu histórico de abastecimentos aparecerá aqui.')).toBeTruthy();
+      });
 
       // Mock numbers and fake data are NOT displayed
       expect(queryByText(/1\.330/i)).toBeNull();
       expect(queryByText(/3 registrados/i)).toBeNull();
       expect(queryByText(/USB04E06/i)).toBeNull();
+    });
+  });
+
+  describe('Histórico Tab (Bloco B / E1)', () => {
+    it('mostra indicador de carregamento enquanto busca histórico', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      let resolveHistory: (val: any) => void;
+      (apiClient.getHistory as jest.Mock).mockReturnValue(
+        new Promise((res) => {
+          resolveHistory = res;
+        })
+      );
+
+      const { getByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      expect(getByTestId('history-loading-indicator')).toBeTruthy();
+      expect(getByText('Carregando histórico...')).toBeTruthy();
+
+      await act(async () => {
+        resolveHistory!({ items: [], page: 1, limit: 20, total: 0, summary: { count: 0, total_liters: 0 } });
+      });
+    });
+
+    it('renderiza lista de itens com volume, data local, posto, duração e método formatados', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      const mockItems = [
+        {
+          id: 1,
+          timestamp: '2026-10-14T10:30:00.000Z',
+          truck_plate: 'ABC-1234',
+          volume_liters: 12.5,
+          duration_minutes: 15.0,
+          release_method: 'facial',
+          station_name: 'Posto Shell Rodoeste',
+        },
+        {
+          id: 2,
+          timestamp: '2026-10-13T15:00:00.000Z',
+          truck_plate: 'DEF-5678',
+          volume_liters: null,
+          duration_minutes: null,
+          release_method: 'ble_fallback',
+          station_name: null,
+        },
+        {
+          id: 3,
+          timestamp: '2026-10-12T09:00:00.000Z',
+          truck_plate: 'GHI-9012',
+          volume_liters: 50,
+          duration_minutes: 20.0,
+          release_method: 'manager_override',
+          station_name: 'Posto Ipiranga Centro',
+        },
+      ];
+
+      (apiClient.getHistory as jest.Mock).mockResolvedValueOnce({
+        items: mockItems,
+        page: 1,
+        limit: 20,
+        total: 3,
+        summary: { count: 3, total_liters: 62.5 },
+      });
+
+      const { getByText, queryByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-1')).toBeTruthy();
+      });
+
+      // Volume 12.5 in pt-BR => "12,5 L"
+      expect(getByText('12,5 L')).toBeTruthy();
+
+      // Volume null => "Volume a confirmar"
+      expect(getByText('Volume a confirmar')).toBeTruthy();
+
+      // Station null => "Posto não informado"
+      expect(getByText('Posto não informado')).toBeTruthy();
+      expect(getByText('Posto Shell Rodoeste')).toBeTruthy();
+
+      // Duration: 15 min shown for item 1, 20 min for item 3
+      expect(getByText('15 min')).toBeTruthy();
+      expect(getByText('20 min')).toBeTruthy();
+
+      // Method labels
+      expect(getByText('Facial')).toBeTruthy();
+      expect(getByText('Contingência Bluetooth')).toBeTruthy();
+      expect(getByText('Liberação do gestor')).toBeTruthy();
+
+      // Summary badge using summary data
+      expect(getByTestId('history-summary-text')).toBeTruthy();
+      expect(getByText('Últimos 30 dias: 3 abastecimentos • 62,5 L')).toBeTruthy();
+
+      // NEVER shows invented entries or "1.330 L"
+      expect(queryByText(/1\.330/i)).toBeNull();
+    });
+
+    it('resumo com count > 0 e total_liters === 0 exibe Volume a confirmar', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock).mockResolvedValueOnce({
+        items: [
+          {
+            id: 10,
+            timestamp: '2026-10-14T10:00:00.000Z',
+            truck_plate: 'ABC-1234',
+            volume_liters: null,
+            duration_minutes: null,
+            release_method: 'facial',
+            station_name: 'Posto Teste',
+          },
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+        summary: { count: 1, total_liters: 0 },
+      });
+
+      const { getByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByText('Últimos 30 dias: 1 abastecimento • Volume a confirmar')).toBeTruthy();
+      });
+    });
+
+    it('exibe mensagem de conexão quando status 0 e botão Tentar novamente refaz chamada', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock)
+        .mockRejectedValueOnce({ status: 0, message: 'Sem conexão' })
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 1,
+              timestamp: '2026-10-15T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 30,
+              duration_minutes: 10,
+              release_method: 'facial',
+              station_name: 'Posto ABC',
+            },
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          summary: { count: 1, total_liters: 30 },
+        });
+
+      const { getByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByText('Sem conexão. Verifique sua rede e tente novamente.')).toBeTruthy();
+        expect(getByTestId('history-retry-btn')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('history-retry-btn'));
+
+      await waitFor(() => {
+        expect(getByText('30 L')).toBeTruthy();
+      });
+      expect(apiClient.getHistory).toHaveBeenCalledTimes(2);
+    });
+
+    it('exibe mensagem genérica quando status de erro é diferente de 0', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock).mockRejectedValueOnce({ status: 500, message: 'Server error' });
+
+      const { getByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByText('Não foi possível carregar o histórico.')).toBeTruthy();
+      });
+    });
+
+    it('botão Carregar mais pagina e adiciona itens sem duplicar por id', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock)
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 1,
+              timestamp: '2026-10-15T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 20,
+              duration_minutes: 5,
+              release_method: 'facial',
+              station_name: 'Posto 1',
+            },
+          ],
+          page: 1,
+          limit: 1,
+          total: 2,
+          summary: { count: 2, total_liters: 50 },
+        })
+        .mockResolvedValueOnce({
+          items: [
+            // Returns id 1 again + id 2
+            {
+              id: 1,
+              timestamp: '2026-10-15T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 20,
+              duration_minutes: 5,
+              release_method: 'facial',
+              station_name: 'Posto 1',
+            },
+            {
+              id: 2,
+              timestamp: '2026-10-14T10:00:00.000Z',
+              truck_plate: 'ABC-1234',
+              volume_liters: 30,
+              duration_minutes: 8,
+              release_method: 'facial',
+              station_name: 'Posto 2',
+            },
+          ],
+          page: 2,
+          limit: 1,
+          total: 2,
+          summary: { count: 2, total_liters: 50 },
+        });
+
+      const { getByText, getByTestId, queryAllByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-1')).toBeTruthy();
+        expect(getByTestId('history-load-more-btn')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('history-load-more-btn'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-2')).toBeTruthy();
+      });
+
+      expect(apiClient.getHistory).toHaveBeenCalledWith(2, 20);
+      expect(queryAllByTestId('history-item-1').length).toBe(1);
+      expect(queryAllByTestId('history-item-2').length).toBe(1);
+    });
+
+    it('recarrega histórico ao ganhar foco através do useFocusEffect', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      (apiClient.getHistory as jest.Mock).mockResolvedValue({
+        items: [],
+        page: 1,
+        limit: 20,
+        total: 0,
+        summary: { count: 0, total_liters: 0 },
+      });
+
+      const { getByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(apiClient.getHistory).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        mockLastFocusEffectCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(apiClient.getHistory).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('ignora resposta de requisição antiga que resolve depois de uma nova requisição', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João Silva' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+      });
+      (getBleLock as jest.Mock).mockReturnValue({ isAvailable: () => false });
+
+      let resolveFirstReq: (val: any) => void;
+      const firstPromise = new Promise((resolve) => {
+        resolveFirstReq = resolve;
+      });
+
+      (apiClient.getHistory as jest.Mock)
+        .mockReturnValueOnce(firstPromise)
+        .mockResolvedValueOnce({
+          items: [
+            {
+              id: 99,
+              timestamp: '2026-10-15T12:00:00.000Z',
+              truck_plate: 'NEW-9999',
+              volume_liters: 99,
+              duration_minutes: 9,
+              release_method: 'facial',
+              station_name: 'Posto Recente',
+            },
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          summary: { count: 1, total_liters: 99 },
+        });
+
+      const { getByText, queryByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      act(() => {
+        mockLastFocusEffectCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(getByText('NEW-9999')).toBeTruthy();
+      });
+
+      await act(async () => {
+        resolveFirstReq!({
+          items: [
+            {
+              id: 11,
+              timestamp: '2026-10-10T12:00:00.000Z',
+              truck_plate: 'OLD-1111',
+              volume_liters: 11,
+              duration_minutes: 5,
+              release_method: 'facial',
+              station_name: 'Posto Antigo',
+            },
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          summary: { count: 1, total_liters: 11 },
+        });
+      });
+
+      expect(getByText('NEW-9999')).toBeTruthy();
+      expect(queryByText('OLD-1111')).toBeNull();
     });
   });
 });

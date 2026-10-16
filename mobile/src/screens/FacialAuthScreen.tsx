@@ -8,6 +8,7 @@ import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { sessionReducer, initialSessionState } from '../session/sessionMachine';
 import { getCancelErrorMessage } from '../utils/cancelError';
+import { withTimeout, TimeoutError } from '../utils/withTimeout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FacialAuth'>;
 
@@ -17,6 +18,15 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   const [cameraReady, setCameraReady] = useState(false);
   const [retryBlocked, setRetryBlocked] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+  const isCapturingRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const [state, dispatch] = useReducer(sessionReducer, {
     ...initialSessionState,
@@ -80,11 +90,26 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [state.status, navigation, sessionId, releaseMethod]);
 
   const handleCapture = async () => {
+    if (isCapturingRef.current) return;
     if (!cameraRef.current) return;
-    dispatch({ type: 'FACIAL_VERIFY_START' });
+
+    isCapturingRef.current = true;
+    if (isMountedRef.current) {
+      dispatch({ type: 'FACIAL_VERIFY_START' });
+    }
 
     try {
-      const photo = await cameraRef.current.takePictureAsync();
+      const t0 = Date.now();
+      const photo = await withTimeout(
+        cameraRef.current.takePictureAsync(),
+        10000,
+        'A câmera demorou para responder. Tente novamente.'
+      );
+      if (__DEV__) {
+        console.log(`[FACIAL TIMING] Captura: ${Date.now() - t0}ms`);
+      }
+
+      if (!isMountedRef.current) return;
 
       if (!photo?.uri && !photo?.base64) {
         dispatch({ type: 'FACIAL_VERIFY_FAIL', attempts: state.attempts || 0, attemptsLeft: state.attemptsLeft || 3, error: 'Falha ao capturar imagem.' });
@@ -93,11 +118,20 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
       let base64ToSend = '';
       if (photo.uri) {
-        const manipulated = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: 720 } }],
-          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        const tManipStart = Date.now();
+        const manipulated = await withTimeout(
+          ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ resize: { width: 720 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          ),
+          10000,
+          'A câmera demorou para responder. Tente novamente.'
         );
+        if (__DEV__) {
+          console.log(`[FACIAL TIMING] Redimensionamento: ${Date.now() - tManipStart}ms`);
+        }
+        if (!isMountedRef.current) return;
         base64ToSend = manipulated.base64 || '';
       } else {
         base64ToSend = photo.base64 || '';
@@ -107,42 +141,69 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
       const decodedBytes = (base64ToSend.length * 3) / 4;
       if (decodedBytes > 2 * 1024 * 1024) {
-        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Imagem muito grande. Tente capturar novamente.' });
+        if (isMountedRef.current) {
+          dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Imagem muito grande. Tente capturar novamente.' });
+        }
         return;
       }
 
+      const tSendStart = Date.now();
+      if (__DEV__) {
+        console.log('[FACIAL TIMING] Envio iniciado');
+      }
       const res = await apiClient.verifyFace(sessionId, base64ToSend);
+      if (__DEV__) {
+        console.log(`[FACIAL TIMING] Resposta recebida: ${Date.now() - tSendStart}ms`);
+      }
+
+      if (!isMountedRef.current) return;
+
       if (res.verified) {
         dispatch({ type: 'FACIAL_VERIFY_SUCCESS' });
       } else {
         const attemptsLeft = res.attempts_left;
         if (attemptsLeft === 0) {
           await apiClient.reportFacialFailure(sessionId).catch(() => {});
-          dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Rosto não reconhecido. Tentativas esgotadas.' });
+          if (isMountedRef.current) {
+            dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Rosto não reconhecido. Tentativas esgotadas.' });
+          }
         } else if (typeof attemptsLeft === 'number' && attemptsLeft > 0) {
-          dispatch({ 
-            type: 'FACIAL_VERIFY_FAIL', 
-            attempts: res.attempts || 0, 
-            attemptsLeft: attemptsLeft, 
-            error: `Rosto não reconhecido. Restam ${attemptsLeft} tentativa(s).` 
-          });
+          if (isMountedRef.current) {
+            dispatch({ 
+              type: 'FACIAL_VERIFY_FAIL', 
+              attempts: res.attempts || 0, 
+              attemptsLeft: attemptsLeft, 
+              error: `Rosto não reconhecido. Restam ${attemptsLeft} tentativa(s).` 
+            });
+          }
         } else {
-          dispatch({ 
-            type: 'FACIAL_VERIFY_FAIL', 
-            attempts: res.attempts || 0, 
-            attemptsLeft: 0, 
-            error: 'Rosto não reconhecido. Tente novamente.' 
-          });
+          if (isMountedRef.current) {
+            dispatch({ 
+              type: 'FACIAL_VERIFY_FAIL', 
+              attempts: res.attempts || 0, 
+              attemptsLeft: 0, 
+              error: 'Rosto não reconhecido. Tente novamente.' 
+            });
+          }
         }
       }
     } catch (error: any) {
+      if (!isMountedRef.current) return;
+
+      if (error instanceof TimeoutError || error?.name === 'TimeoutError') {
+        dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'A câmera demorou para responder. Tente novamente.' });
+        return;
+      }
+
       if (error.status === 409 && error.code === 'face_not_enrolled') {
         setRetryBlocked(true);
         dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Seu rosto não está cadastrado. Procure o gestor.' });
       } else if (error.status === 429) {
         if (typeof error.message === 'string' && error.message.includes('sessão')) {
           await apiClient.reportFacialFailure(sessionId).catch(() => {});
-          dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Limite de tentativas da sessão atingido.' });
+          if (isMountedRef.current) {
+            dispatch({ type: 'FACIAL_VERIFY_LOCKED', error: 'Limite de tentativas da sessão atingido.' });
+          }
         } else {
           setRetryBlocked(true);
           dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Muitas tentativas. Tente mais tarde.' });
@@ -154,6 +215,8 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
       } else {
         dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Sem conexão. Verifique sua rede e tente novamente.' });
       }
+    } finally {
+      isCapturingRef.current = false;
     }
   };
 
