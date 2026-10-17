@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   test: {
+    globalSetup: ['./src/test/globalSetup.js'],
     setupFiles: ['./src/test/setup.js'],
   },
 });

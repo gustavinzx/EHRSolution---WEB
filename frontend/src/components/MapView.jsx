@@ -6,6 +6,7 @@ import StationMarker from './StationMarker';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import useFleetState from '../store/useFleetState';
+import { getTruckVisualState } from '../utils/truckVisualState';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
   ok:        '#34d399',
   low_fuel:  '#fbbf24',
   no_signal: '#f87171',
-  fueling:   '#f87171',
+  fueling:   '#38bdf8',
   security_alert: '#fb7185',
   arrived: '#60a5fa',
 };
@@ -287,9 +288,14 @@ export default function MapView({ trucks = [] }) {
           const lat = parseFloat(truck.lat);
           const lng = parseFloat(truck.lng);
           if (!lat || !lng) return null;
-          const color = STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || '#34d399';
+          const visualState = getTruckVisualState(truck);
+          const isFueling = visualState === 'fueling';
+          const color = isFueling
+            ? STATUS_COLORS.fueling
+            : visualState === 'alert'
+              ? (STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || STATUS_COLORS.no_signal)
+              : (STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || STATUS_COLORS.ok);
           const pct = getLevelPct(truck);
-          const isFueling = truck.route_phase === 'fueling' || truck.route_phase === 'awaiting_fueling_authorization';
 
           return (
             <LiveTruckMarker

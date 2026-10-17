@@ -6,6 +6,8 @@ import { useFueling } from '../hooks/useFueling';
 import { useAlerts } from '../hooks/useAlerts';
 import { useAuth } from '../hooks/useAuth';
 import { getAlertMeta } from '../utils/alertMapping';
+import { isSameLocalDay } from '../utils/dayRange';
+import { getTruckVisualState } from '../utils/truckVisualState';
 import MapView from '../components/MapView';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -31,10 +33,8 @@ const getSeverityBadge = (severity) => {
   }
 };
 
-const isAlertTruck = (t) => {
-  const state = t.sim_state || t.status;
-  return state === 'no_signal' || state === 'fueling' || state === 'security_alert';
-};
+const isAlertTruck = (t) => getTruckVisualState(t) === 'alert';
+const isFuelingTruck = (t) => getTruckVisualState(t) === 'fueling';
 
 function DonutChart({ percent = 100 }) {
   const r = 42;
@@ -99,15 +99,14 @@ export default function DashboardPage() {
   const pct = (t) => t.capacity_liters > 0
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = yesterdayDate.toISOString().split('T')[0];
+  const now = new Date();
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(now.getDate() - 1);
 
   const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
   const critical = trucks.filter(t => pct(t) < 20).length;
-  const todayFuel = logs.filter(l => l.timestamp?.startsWith(today)).length;
-  const yesterdayFuel = logs.filter(l => l.timestamp?.startsWith(yesterday)).length;
+  const todayFuel = logs.filter(l => isSameLocalDay(l.timestamp, now)).length;
+  const yesterdayFuel = logs.filter(l => isSameLocalDay(l.timestamp, yesterdayDate)).length;
   const hasFuelTrend = yesterdayFuel > 0;
   const fuelTrendPct = hasFuelTrend
     ? Math.round(((todayFuel - yesterdayFuel) / yesterdayFuel) * 100)
@@ -122,6 +121,7 @@ export default function DashboardPage() {
   };
 
   const alertTrucksCount = trucks.filter(isAlertTruck).length;
+  const fuelingTrucksCount = trucks.filter(isFuelingTruck).length;
   const activeAlerts = (Array.isArray(allAlerts) ? allAlerts : [])
     .filter(a => !a.resolved_at)
     .slice(0, 4);
@@ -458,6 +458,10 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
               <span>Comb. baixo ({critical})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
+              <span>Abastecendo ({fuelingTrucksCount})</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 6px #f87171' }} />

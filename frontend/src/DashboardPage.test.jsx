@@ -10,6 +10,8 @@ import { useFueling } from './hooks/useFueling';
 import { useAuth } from './hooks/useAuth';
 import { useDrivers } from './hooks/useDrivers';
 import { useAlerts } from './hooks/useAlerts';
+import { getTruckVisualState } from './utils/truckVisualState';
+import { isSameLocalDay } from './utils/dayRange';
 
 vi.mock('./hooks/useFleet');
 vi.mock('./hooks/useFueling');
@@ -312,5 +314,114 @@ describe('DashboardPage & Avatar Tests (Bloco C1)', () => {
     expect(screen.queryByText(/vs\. ontem/i)).toBeNull();
     expect(screen.queryByText(/\+100%/i)).toBeNull();
     expect(screen.queryByText(/Em manutenção/i)).toBeNull();
+  });
+
+  it('getTruckVisualState evaluates each state and respects sim_state precedence over status', () => {
+    expect(getTruckVisualState(null)).toBe('ok');
+    expect(getTruckVisualState({ status: 'ok' })).toBe('ok');
+    expect(getTruckVisualState({ status: 'low_fuel' })).toBe('ok');
+    expect(getTruckVisualState({ status: 'arrived' })).toBe('ok');
+
+    expect(getTruckVisualState({ status: 'no_signal' })).toBe('alert');
+    expect(getTruckVisualState({ status: 'security_alert' })).toBe('alert');
+    expect(getTruckVisualState({ status: 'ok', sim_state: 'no_signal' })).toBe('alert');
+    expect(getTruckVisualState({ status: 'ok', sim_state: 'security_alert' })).toBe('alert');
+
+    expect(getTruckVisualState({ status: 'ok', sim_state: 'fueling' })).toBe('fueling');
+    expect(getTruckVisualState({ status: 'ok', route_phase: 'fueling' })).toBe('fueling');
+    expect(getTruckVisualState({ status: 'ok', route_phase: 'awaiting_fueling_authorization' })).toBe('fueling');
+
+    // Precedence: sim_state wins over status and route_phase
+    expect(getTruckVisualState({ status: 'no_signal', sim_state: 'fueling' })).toBe('fueling');
+    expect(getTruckVisualState({ status: 'no_signal', sim_state: 'ok' })).toBe('ok');
+    expect(getTruckVisualState({ status: 'fueling', route_phase: 'fueling', sim_state: 'security_alert' })).toBe('alert');
+  });
+
+  it('renders "Alerta (0)" and "Abastecendo (1)" when 1 truck is in fueling state', () => {
+    useFleet.mockReturnValue({
+      trucks: [
+        { id: 1, plate: 'AAA1111', status: 'ok', sim_state: 'fueling', speed_kmh: 0, capacity_liters: 500, current_level_liters: 300 },
+      ],
+      loading: false,
+      isConnected: true,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Alerta (0)')).not.toBeNull();
+    expect(screen.getByText('Abastecendo (1)')).not.toBeNull();
+  });
+
+  it('renders "Alerta (1)" and "Abastecendo (0)" when 1 truck has no_signal', () => {
+    useFleet.mockReturnValue({
+      trucks: [
+        { id: 2, plate: 'BBB2222', status: 'no_signal', speed_kmh: 0, capacity_liters: 500, current_level_liters: 300 },
+      ],
+      loading: false,
+      isConnected: true,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Alerta (1)')).not.toBeNull();
+    expect(screen.getByText('Abastecendo (0)')).not.toBeNull();
+  });
+
+  it('counts log at 23:30 local (next day in UTC) as today, log at 00:10 yesterday local as yesterday, and computes local trend', () => {
+    vi.useFakeTimers();
+    try {
+      // 2026-10-16 23:45:00 in America/Sao_Paulo (UTC-3) => 2026-10-17T02:45:00.000Z
+      const refNow = new Date('2026-10-17T02:45:00.000Z');
+      vi.setSystemTime(refNow);
+
+      const logToday2330Local = '2026-10-17T02:30:00.000Z'; // 2026-10-16 23:30:00 BRT
+      const logToday1400Local = '2026-10-16T17:00:00.000Z'; // 2026-10-16 14:00:00 BRT
+      const logYesterday0010Local = '2026-10-15T03:10:00.000Z'; // 2026-10-15 00:10:00 BRT
+
+      expect(isSameLocalDay(logToday2330Local, refNow)).toBe(true);
+      const refYesterday = new Date(refNow);
+      refYesterday.setDate(refNow.getDate() - 1);
+      expect(isSameLocalDay(logYesterday0010Local, refYesterday)).toBe(true);
+
+      useFleet.mockReturnValue({
+        trucks: [],
+        loading: false,
+        isConnected: true,
+        refetch: vi.fn(),
+      });
+      useFueling.mockReturnValue({
+        logs: [
+          { id: 1, truck_plate: 'AAA1111', driver_name: 'Mot 1', timestamp: logToday2330Local, release_method: 'facial' },
+          { id: 2, truck_plate: 'AAA1111', driver_name: 'Mot 1', timestamp: logToday1400Local, release_method: 'facial' },
+          { id: 3, truck_plate: 'AAA1111', driver_name: 'Mot 1', timestamp: logYesterday0010Local, release_method: 'facial' },
+        ],
+        loading: false,
+      });
+
+      render(
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      );
+
+      // 2 logs today vs 1 log yesterday => +100% vs. ontem
+      const kpiLabel = screen.getByText('Abastecimentos Hoje');
+      const kpiCard = kpiLabel.parentElement;
+      expect(kpiCard.textContent).toContain('2');
+      expect(kpiCard.textContent).toContain('▲ +100%');
+      expect(kpiCard.textContent).toContain('vs. ontem');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

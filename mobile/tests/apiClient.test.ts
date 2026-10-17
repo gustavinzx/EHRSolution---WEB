@@ -458,6 +458,52 @@ describe('apiClient', () => {
         (globalThis as any).__DEV__ = originalDev;
       }
     });
+
+    it('in DEV mode (__DEV__ = true), network and HTTP errors use console.warn and NEVER console.error (C2/C3)', async () => {
+      const originalDev = (globalThis as any).__DEV__;
+      (globalThis as any).__DEV__ = true;
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+        await expect(apiClient.login('test@ehr.com', 'pass')).rejects.toMatchObject({ status: 0 });
+
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(errorSpy).not.toHaveBeenCalled();
+
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          text: async () => JSON.stringify({ error: 'Internal Server Error' }),
+        });
+        await expect(apiClient.getHistory(1, 20)).rejects.toMatchObject({ status: 500 });
+
+        expect(warnSpy).toHaveBeenCalledTimes(2);
+        expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
+        (globalThis as any).__DEV__ = originalDev;
+      }
+    });
+
+    it('in PROD mode (__DEV__ = false), neither console.warn nor console.error is called on error', async () => {
+      const originalDev = (globalThis as any).__DEV__;
+      (globalThis as any).__DEV__ = false;
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+        await expect(apiClient.login('test@ehr.com', 'pass')).rejects.toMatchObject({ status: 0 });
+
+        expect(warnSpy).not.toHaveBeenCalled();
+        expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
+        (globalThis as any).__DEV__ = originalDev;
+      }
+    });
   });
 
   describe('getHistory (Bloco A)', () => {
