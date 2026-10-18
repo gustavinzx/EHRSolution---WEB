@@ -22,7 +22,7 @@ function CenterOnTruck({ lat, lng }) {
 }
 import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert, LockKeyhole, Key, Copy, Check } from 'lucide-react';
 
 const glass = {
   background: 'var(--bg-panel)',
@@ -42,16 +42,156 @@ import useFleetState from '../store/useFleetState';
 
 import ErrorMessage from '../components/ErrorMessage';
 
+function HardwareKeyModal({ generatedData, onClose }) {
+  const [copied, setCopied] = useState(false);
+  if (!generatedData || !generatedData.api_key) return null;
+
+  const rawKey = generatedData.api_key;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(0,0,0,0.75)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hw-key-modal-title"
+        data-testid="hardware-key-modal"
+        style={{
+          background: 'rgba(11,20,36,0.98)',
+          border: '1px solid rgba(47,190,181,0.4)',
+          borderRadius: '18px',
+          width: '100%',
+          maxWidth: '500px',
+          padding: '26px',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.75)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2FBEB5', fontWeight: 700, fontSize: '17px' }}>
+          <Key size={20} />
+          <span id="hw-key-modal-title">Nova Chave do Hardware Gerada</span>
+        </div>
+
+        <p style={{ margin: 0, fontSize: '14px', color: '#fbbf24', fontWeight: 600 }}>
+          Guarde agora; ela não será exibida de novo
+        </p>
+
+        <div
+          data-testid="hardware-key-secret-value"
+          style={{
+            background: 'rgba(0,0,0,0.45)',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '14px',
+            color: '#2FBEB5',
+            wordBreak: 'break-all',
+            border: '1px solid rgba(47,190,181,0.3)',
+          }}
+        >
+          {rawKey}
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (navigator?.clipboard?.writeText) {
+                navigator.clipboard.writeText(rawKey);
+              }
+              setCopied(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              background: copied ? '#34d399' : '#2FBEB5',
+              color: '#0b1424',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            {copied ? <Check size={15} /> : <Copy size={15} />}
+            {copied ? 'Copiado!' : 'Copiar'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TruckDetailsPage() {
   const { user } = useAuth();
   const { id } = useParams();
-  const { fetchTruckDetails, error } = useFleet();
+  const {
+    fetchTruckDetails,
+    getHardwareKeyStatus,
+    generateHardwareKey,
+    revokeHardwareKey,
+    error,
+  } = useFleet();
   const [truckDetails, setTruckDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [localError, setLocalError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
+  const [hwKeyStatus, setHwKeyStatus] = useState(null);
+  const [hwKeyLoading, setHwKeyLoading] = useState(false);
+  const [hwKeyError, setHwKeyError] = useState(null);
+  const [hwKeyBusy, setHwKeyBusy] = useState(false);
+  const [generatedKeyModalData, setGeneratedKeyModalData] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null); // 'rotate' | 'revoke' | null
+
   const { fleet, truckRoutes, fetchTruckRoute, cancelTruckRoute } = useFleetState();
+
+  const loadHardwareKeyStatus = React.useCallback(async () => {
+    if (user?.role === 'auditor' || !getHardwareKeyStatus) return;
+    setHwKeyLoading(true);
+    setHwKeyError(null);
+    try {
+      const statusData = await getHardwareKeyStatus(id);
+      setHwKeyStatus(statusData);
+    } catch {
+      setHwKeyError('Não foi possível carregar o status da chave.');
+    } finally {
+      setHwKeyLoading(false);
+    }
+  }, [id, user?.role, getHardwareKeyStatus]);
 
   const loadData = () => {
     fetchTruckDetails(id).then(data => {
@@ -64,8 +204,49 @@ export default function TruckDetailsPage() {
   // Carrega apenas na montagem (para pegar dados detalhados)
   useEffect(() => {
     loadData();
+    loadHardwareKeyStatus();
     // No more polling, live telemetry comes from useFleetState
-  }, [id, fetchTruckDetails]);
+  }, [id, fetchTruckDetails, loadHardwareKeyStatus]);
+
+  const executeGenerateKey = async () => {
+    setHwKeyBusy(true);
+    setConfirmAction(null);
+    try {
+      const created = await generateHardwareKey(id);
+      setGeneratedKeyModalData(created);
+      setHwKeyStatus({
+        configured: true,
+        prefix: created.prefix,
+        created_at: created.created_at,
+        last_used_at: null,
+      });
+      setHwKeyError(null);
+    } catch {
+      toast.error('Erro ao gerar chave do hardware.');
+    } finally {
+      setHwKeyBusy(false);
+    }
+  };
+
+  const executeRevokeKey = async () => {
+    setHwKeyBusy(true);
+    setConfirmAction(null);
+    try {
+      await revokeHardwareKey(id);
+      setHwKeyStatus({
+        configured: false,
+        prefix: null,
+        created_at: null,
+        last_used_at: null,
+      });
+      setHwKeyError(null);
+      toast.success('Chave do hardware revogada.');
+    } catch {
+      toast.error('Erro ao revogar chave do hardware.');
+    } finally {
+      setHwKeyBusy(false);
+    }
+  };
 
   // Combine live telemetry from global store with detailed data
   const liveTruck = fleet.find(t => t.id === Number(id));
@@ -345,6 +526,149 @@ export default function TruckDetailsPage() {
              </div>
           </div>
 
+          {/* Hardware Key Provisioning Card (hidden for auditor) */}
+          {user?.role !== 'auditor' && (
+            <div data-testid="hardware-key-card" style={{ ...glass, padding: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600, marginBottom: '12px' }}>
+                <Key size={14} color="#2FBEB5" /> Chave do hardware
+              </div>
+
+              {hwKeyLoading ? (
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Carregando status da chave...</div>
+              ) : hwKeyError ? (
+                <div style={{ fontSize: '13px', color: '#f87171' }}>{hwKeyError}</div>
+              ) : hwKeyStatus?.configured ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div data-testid="hardware-key-active-status" style={{ fontSize: '13px', color: '#e2e8f0', lineHeight: 1.5 }}>
+                    {`Chave ativa: ${hwKeyStatus.prefix}… • criada em ${new Date(hwKeyStatus.created_at).toLocaleString('pt-BR')} • último uso ${hwKeyStatus.last_used_at ? new Date(hwKeyStatus.last_used_at).toLocaleString('pt-BR') : 'nunca'}`}
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      disabled={hwKeyBusy}
+                      onClick={() => setConfirmAction('rotate')}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(47,190,181,0.4)',
+                        background: 'rgba(47,190,181,0.12)',
+                        color: '#2FBEB5',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: hwKeyBusy ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Trocar chave
+                    </button>
+                    <button
+                      type="button"
+                      disabled={hwKeyBusy}
+                      onClick={() => setConfirmAction('revoke')}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(248,113,113,0.4)',
+                        background: 'rgba(248,113,113,0.12)',
+                        color: '#f87171',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: hwKeyBusy ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Revogar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div data-testid="hardware-key-empty-status" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    Nenhuma chave configurada
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      disabled={hwKeyBusy}
+                      onClick={executeGenerateKey}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: hwKeyBusy ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Gerar chave
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {confirmAction && (
+                <div
+                  role="alertdialog"
+                  aria-modal="true"
+                  data-testid="hardware-key-confirm-dialog"
+                  style={{
+                    marginTop: '14px',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    background: 'rgba(248,113,113,0.1)',
+                    border: '1px solid rgba(248,113,113,0.35)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: '13px', color: '#fca5a5', fontWeight: 600 }}>
+                    A chave atual para de funcionar imediatamente e a placa precisará ser reconfigurada.
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      disabled={hwKeyBusy}
+                      onClick={() => {
+                        if (confirmAction === 'rotate') executeGenerateKey();
+                        else if (confirmAction === 'revoke') executeRevokeKey();
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#f87171',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={hwKeyBusy}
+                      onClick={() => setConfirmAction(null)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        background: 'rgba(255,255,255,0.06)',
+                        color: '#e2e8f0',
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Timeline de Eventos */}
           <div style={{ ...glass, display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>
@@ -413,6 +737,10 @@ export default function TruckDetailsPage() {
         onClose={() => setIsModalOpen(false)} 
         truckId={truck.id} 
         onConfigured={(truckId) => { loadData(); fetchTruckRoute(truckId); }}
+      />
+      <HardwareKeyModal
+        generatedData={generatedKeyModalData}
+        onClose={() => setGeneratedKeyModalData(null)}
       />
     </div>
   );
