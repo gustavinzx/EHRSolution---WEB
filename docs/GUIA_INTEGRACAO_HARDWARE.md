@@ -37,27 +37,61 @@ Content-Type: application/json
 ```
 
 - A chave identifica **um caminhão**. A placa só pode agir sobre o próprio caminhão: se o `:id`/`:truckId` da URL não for o do caminhão dono da chave, a resposta é `403`.
-- Erros de autenticação nas rotas exclusivas de hardware: `401 {"error":"Hardware API Key missing"}` (sem cabeçalho) e `401 {"error":"Invalid Hardware API Key"}` (chave desconhecida).
+- Erros de autenticação nas rotas exclusivas de hardware: `401 {"error":"Hardware API Key missing"}` (sem cabeçalho) e `401 {"error":"Invalid Hardware API Key"}` (chave desconhecida, revogada ou cabeçalho com mais de 200 caracteres).
 
-### Como a chave é cadastrada hoje (limitação conhecida)
+### Como gerar, trocar e revogar a chave pelo painel
 
-**[verificado]** O cadastro de caminhão pelo painel (`POST /api/fleet`) **não cria a chave** e **não existe tela nem rota** para gerar ou trocar a chave. Hoje a chave fica na coluna `trucks.api_key` e só se define por SQL:
+**[verificado]** O provisionamento da chave é feito diretamente no painel web (**Frota → Detalhes do Caminhão → cartão "Chave do hardware"**, disponível para perfis `admin` e `manager`, oculto para `auditor`):
 
-```sql
-UPDATE trucks SET api_key = '<chave>' WHERE plate = 'ABC1D23';
-```
+1. **Geração e exibição única:** ao clicar em **Gerar chave**, o servidor gera 32 bytes aleatórios (`crypto.randomBytes(32)`) em hexadecimal (64 caracteres) e devolve a chave **uma única vez** na resposta `201`. O painel exibe a chave em uma janela modal com botão **Copiar** e o aviso *"Guarde agora; ela não será exibida de novo"*. Ao fechar a janela, a chave em texto puro é descartada da memória do navegador.
+2. **Armazenamento em hash (SHA-256):** o texto puro **nunca é persistido** no banco de dados. Um *trigger* no PostgreSQL (`trucks_hash_api_key_trg`, `BEFORE INSERT OR UPDATE OF api_key ON trucks`) calcula `api_key_hash = encode(sha256(convert_to(NEW.api_key, 'UTF8')), 'hex')`, grava os 8 primeiros caracteres em `api_key_prefix`, preenche `api_key_created_at = NOW()` e zera `NEW.api_key = NULL`. Na autenticação da placa, o backend calcula o SHA-256 (UTF-8, hex) do cabeçalho `x-api-key` e consulta `WHERE api_key_hash = $1`.
+3. **Último uso (`api_key_last_used_at`):** atualizado automaticamente na autenticação da placa no máximo **1 vez por minuto** por caminhão (`WHERE api_key_last_used_at IS NULL OR api_key_last_used_at < NOW() - INTERVAL '1 minute'`). Eventual falha nessa atualização é isolada e nunca derruba a autenticação.
+4. **Rotação (Trocar chave) e Revogação (Revogar):** exigem confirmação no painel (*"A chave atual para de funcionar imediatamente e a placa precisará ser reconfigurada."*). Ao trocar ou revogar, a chave anterior passa a responder `401 {"error":"Invalid Hardware API Key"}` imediatamente. Cada geração ou revogação grava um evento em `security_events` (`hardware_key_generated` ou `hardware_key_revoked`, severidade `low`, sem alerta em `fleet_alerts` e sem a chave no `payload`).
 
-Para gerar uma chave forte (64 caracteres), no PC do servidor:
+### Rotas do painel para gestão da chave (`authMiddleware` + `requireRole('admin', 'manager')`)
 
-```
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+- **`POST /api/fleet/:id/hardware-key`** — Gera (ou rotaciona) a chave do caminhão `:id`.
+  - **Cabeçalho:** `Authorization: Bearer <token-jwt-admin-ou-manager>`
+  - **Resposta 201 (exibida uma única vez):**
+    ```json
+    {
+      "api_key": "<64-caracteres-hex>",
+      "prefix": "<8-primeiros-caracteres>",
+      "created_at": "2026-10-18T12:00:00.000Z"
+    }
+    ```
+  - **Efeito colateral:** substitui qualquer chave anterior na hora, zera `api_key_last_used_at` e registra `hardware_key_generated` (`severity: "low"`, com `user_id` e `truck_id`, sem a chave).
+  - **Erros:** `400 {"error":"id inválido"}`; `401 {"error":"Authorization token missing or invalid"}`; `403 {"error":"forbidden_role"}` (auditor) ou `403 {"error":"Acesso restrito ao gestor"}` (motorista); `404 {"error":"Caminhão não encontrado"}`.
 
-**[verificado]** A chave é comparada diretamente por igualdade e fica guardada em texto puro no banco.
+- **`GET /api/fleet/:id/hardware-key`** — Consulta o status da chave do caminhão `:id` (nunca retorna a chave nem o hash).
+  - **Cabeçalho:** `Authorization: Bearer <token-jwt-admin-ou-manager>`
+  - **Resposta 200 (configurada):**
+    ```json
+    {
+      "configured": true,
+      "prefix": "a1b2c3d4",
+      "created_at": "2026-10-18T12:00:00.000Z",
+      "last_used_at": "2026-10-18T12:05:00.000Z"
+    }
+    ```
+  - **Resposta 200 (sem chave):**
+    ```json
+    {
+      "configured": false,
+      "prefix": null,
+      "created_at": null,
+      "last_used_at": null
+    }
+    ```
+  - **Erros:** `400 {"error":"id inválido"}`; `401`; `403`; `404 {"error":"Caminhão não encontrado"}`.
 
-**[sugestão]** Antes da produção, implementar: geração da chave pelo painel (exibida uma única vez), armazenamento só do hash, e rotação/revogação. É o próximo passo recomendado no desenvolvimento do backend.
+- **`DELETE /api/fleet/:id/hardware-key`** — Revoga a chave ativa do caminhão `:id`.
+  - **Cabeçalho:** `Authorization: Bearer <token-jwt-admin-ou-manager>`
+  - **Resposta 200:** `{ "success": true }`
+  - **Efeito colateral:** limpa `api_key_hash`, `api_key_prefix`, `api_key_created_at` e `api_key_last_used_at`, e registra `hardware_key_revoked` (`severity: "low"`, sem alerta).
+  - **Erros:** `400 {"error":"id inválido"}`; `401`; `403`; `404 {"error":"Caminhão não encontrado"}`.
 
-**Chave de desenvolvimento (somente dev):** o seed cria o caminhão `EHR-0001` com a chave `DEV_API_KEY_001`. Nunca usar em produção.
+**Chave de desenvolvimento (somente dev):** o seed cria o caminhão `EHR-0001` com a chave `DEV_API_KEY_001` (convertida automaticamente em hash pelo trigger no banco). Nunca usar em produção.
 
 ---
 
@@ -270,10 +304,9 @@ Para testar divergência, use `pump_liters` bem diferente da variação do tanqu
 
 ## 10. Pendências conhecidas do lado do servidor
 
-1. **Provisionamento de chave pelo painel** (hoje só por SQL), com armazenamento em hash e rotação (seção 2).
-2. **Provedor facial real** com prova de vida: hoje só o mock está implementado.
-3. **Protocolo BLE real**: o fluxo de contingência está pronto no servidor, mas depende do protocolo definido pelo fornecedor.
-4. **Limite de requisições (rate limit)** para as rotas da placa ainda não existe.
-5. **Identificação do posto pelo CNPJ** enviado pela placa: planejada, depende do hardware saber em que posto está.
+1. **Provedor facial real** com prova de vida: hoje só o mock está implementado.
+2. **Protocolo BLE real**: o fluxo de contingência está pronto no servidor, mas depende do protocolo definido pelo fornecedor.
+3. **Limite de requisições (rate limit)** para as rotas da placa ainda não existe.
+4. **Identificação do posto pelo CNPJ** enviado pela placa: planejada, depende do hardware saber em que posto está.
 
-*Documento gerado a partir do código verificado em 17/10/2026. Se as rotas mudarem, o `docs/API_MOBILE.md` e os testes de contrato (`docs_drift`) continuam sendo a fonte da verdade.*
+*Documento gerado a partir do código verificado em 17/10/2026 (atualizado em 18/10/2026 com provisionamento de chave por hash SHA-256). Se as rotas mudarem, o `docs/API_MOBILE.md` e os testes de contrato (`docs_drift`) continuam sendo a fonte da verdade.*
