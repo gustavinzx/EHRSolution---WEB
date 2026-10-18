@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
@@ -7,9 +8,24 @@ function allow({ manager = false, driver = false, hardware = false } = {}) {
     const authHeader = req.headers.authorization;
 
     if (hardware && apiKey) {
+      if (typeof apiKey !== 'string' || apiKey.length > 200) {
+        return res.status(401).json({ error: 'Invalid Hardware API Key' });
+      }
       try {
-        const { rows } = await db.query('SELECT id, plate FROM trucks WHERE api_key = $1', [apiKey]);
+        const keyHash = crypto.createHash('sha256').update(Buffer.from(apiKey, 'utf8')).digest('hex');
+        const { rows } = await db.query('SELECT id, plate FROM trucks WHERE api_key_hash = $1', [keyHash]);
         if (!rows.length) return res.status(401).json({ error: 'Invalid Hardware API Key' });
+        try {
+          await db.query(
+            `UPDATE trucks
+             SET api_key_last_used_at = NOW()
+             WHERE id = $1
+               AND (api_key_last_used_at IS NULL OR api_key_last_used_at < NOW() - INTERVAL '1 minute')`,
+            [rows[0].id]
+          );
+        } catch (updateErr) {
+          console.error('Failed to update api_key_last_used_at:', updateErr.message);
+        }
         req.truck = rows[0];
         req.actor = { type: 'hardware', id: rows[0].id, plate: rows[0].plate };
         return next();

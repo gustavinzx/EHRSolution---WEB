@@ -36,8 +36,9 @@ exports.list = async (req, res) => {
   try {
     const { active } = req.query;
     let query = `
-      SELECT d.*, 
-             COALESCE(json_agg(t.*) FILTER (WHERE t.id IS NOT NULL), '[]') as assigned_trucks
+      SELECT d.id, d.name, d.phone, d.email, d.is_active, d.face_enrolled,
+             d.face_consent_at, d.face_consent_version, d.created_at, d.face_photo,
+             COALESCE(json_agg(json_build_object('id', t.id, 'plate', t.plate, 'model', t.model)) FILTER (WHERE t.id IS NOT NULL), '[]') as assigned_trucks
       FROM drivers d
       LEFT JOIN driver_trucks dt ON d.id = dt.driver_id
       LEFT JOIN trucks t ON dt.truck_id = t.id
