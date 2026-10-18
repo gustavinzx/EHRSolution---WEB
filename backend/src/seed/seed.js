@@ -34,7 +34,7 @@ async function seed() {
       VALUES ('João Silva', '11999990000', 'motorista@ehr.com', $1, true)
     `, [passHash]);
 
-    // 3. Caminhão Real (com api_key para o hardware)
+    // 3. Caminhão Real (DEV_API_KEY_001 convertida em api_key_hash pelo trigger)
     await db.query(`
       INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, lat, lng, status, api_key)
       VALUES ('EHR-0001', 'Volvo FH 540', 600.0, 300.0, -23.5505, -46.6333, 'ok', 'DEV_API_KEY_001')
