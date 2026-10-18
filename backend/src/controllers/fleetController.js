@@ -353,3 +353,137 @@ exports.createTruck = async (req, res) => {
   }
 };
 
+const crypto = require('crypto');
+
+function parseTruckIdParam(rawId) {
+  const str = String(rawId ?? '');
+  if (!/^\d+$/.test(str)) return null;
+  const num = Number(str);
+  if (!Number.isSafeInteger(num) || num <= 0) return null;
+  return num;
+}
+
+exports.generateHardwareKey = async (req, res) => {
+  try {
+    const truckId = parseTruckIdParam(req.params.id);
+    if (!truckId) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+
+    const rawKey = crypto.randomBytes(32).toString('hex');
+
+    const { rows } = await db.query(
+      `UPDATE trucks
+       SET api_key = $2,
+           api_key_last_used_at = NULL
+       WHERE id = $1
+       RETURNING id, api_key_prefix AS prefix, api_key_created_at AS created_at`,
+      [truckId, rawKey]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+
+    await security.recordSecurityEvent({
+      truckId,
+      type: 'hardware_key_generated',
+      severity: 'low',
+      source: 'manager',
+      payload: {
+        user_id: req.user?.id || null,
+        truck_id: truckId,
+      },
+      io: req.io,
+    });
+
+    return res.status(201).json({
+      api_key: rawKey,
+      prefix: rows[0].prefix,
+      created_at: rows[0].created_at,
+    });
+  } catch (error) {
+    console.error('Generate hardware key error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getHardwareKeyStatus = async (req, res) => {
+  try {
+    const truckId = parseTruckIdParam(req.params.id);
+    if (!truckId) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT id,
+              (api_key_hash IS NOT NULL) AS configured,
+              api_key_prefix AS prefix,
+              api_key_created_at AS created_at,
+              api_key_last_used_at AS last_used_at
+       FROM trucks
+       WHERE id = $1`,
+      [truckId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+
+    const row = rows[0];
+    const configured = Boolean(row.configured);
+    return res.json({
+      configured,
+      prefix: configured ? row.prefix : null,
+      created_at: configured ? row.created_at : null,
+      last_used_at: configured ? row.last_used_at : null,
+    });
+  } catch (error) {
+    console.error('Get hardware key status error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.revokeHardwareKey = async (req, res) => {
+  try {
+    const truckId = parseTruckIdParam(req.params.id);
+    if (!truckId) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE trucks
+       SET api_key = NULL,
+           api_key_hash = NULL,
+           api_key_prefix = NULL,
+           api_key_created_at = NULL,
+           api_key_last_used_at = NULL
+       WHERE id = $1
+       RETURNING id`,
+      [truckId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+
+    await security.recordSecurityEvent({
+      truckId,
+      type: 'hardware_key_revoked',
+      severity: 'low',
+      source: 'manager',
+      payload: {
+        user_id: req.user?.id || null,
+        truck_id: truckId,
+      },
+      io: req.io,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Revoke hardware key error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+
