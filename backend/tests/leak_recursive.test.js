@@ -9,7 +9,15 @@ if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
 
 let tokenManager, driverId, truckId, stationId;
 
+const crypto = require('crypto');
 const clean = require('./clean');
+
+const HW_SECRET_PLAIN = 'hw_secret_123';
+const HW_SECRET_HASH = crypto.createHash('sha256').update(HW_SECRET_PLAIN, 'utf8').digest('hex');
+const HW_SECRET_PREFIX = HW_SECRET_PLAIN.slice(0, 8); // 'hw_secre'
+
+let driverPlainPassword = 'DriverPass@123';
+
 beforeAll(async () => {
   await clean();
   await db.query('DELETE FROM driver_trucks');
@@ -26,14 +34,16 @@ beforeAll(async () => {
   const u = await db.query("INSERT INTO users (name, email, password_hash, role) VALUES ('Manager', 'leak@test.com', 'h', 'manager') RETURNING id");
   tokenManager = jwt.sign({ id: u.rows[0].id, email: 'leak@test.com', role: 'manager' }, process.env.JWT_SECRET);
 
-  const d = await db.query("INSERT INTO drivers (name, email, phone, password_hash, face_enrolled, face_template_ref, is_active) VALUES ('Leaky Driver', 'leakd@test.com', '999', 'secret_hash_123', true, 'secret_template_456', true) RETURNING id");
+  const bcrypt = require('bcrypt');
+  const dHash = await bcrypt.hash(driverPlainPassword, 10);
+  const d = await db.query("INSERT INTO drivers (name, email, phone, password_hash, face_enrolled, face_template_ref, is_active) VALUES ('Leaky Driver', 'leakd@test.com', '999', $1, true, 'secret_template_456', true) RETURNING id", [dHash]);
   driverId = d.rows[0].id;
   tokenDriver = jwt.sign({ id: driverId, role: 'driver' }, process.env.JWT_SECRET);
   
   const s = await db.query("INSERT INTO fuel_stations (name, lat, lng) VALUES ('S', -23, -46) RETURNING id");
   stationId = s.rows[0].id;
   
-  const t = await db.query("INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key, fuel_station_id) VALUES ('ABC1', 'M', 100, 50, 'hw_secret_123', $1) RETURNING id", [stationId]);
+  const t = await db.query("INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key, fuel_station_id) VALUES ('ABC1', 'M', 100, 50, $1, $2) RETURNING id", [HW_SECRET_PLAIN, stationId]);
   truckId = t.rows[0].id;
   
   await db.query("INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2)", [driverId, truckId]);
@@ -51,12 +61,23 @@ function checkRecursive(obj) {
   }
   if (typeof obj === 'object') {
     for (const key of Object.keys(obj)) {
-      if ((key.includes('password') && key !== 'temporary_password') || key.includes('face_template_ref') || key.includes('api_key')) {
+      if (
+        (key.includes('password') && key !== 'temporary_password') ||
+        key.includes('face_template_ref') ||
+        key.includes('api_key') ||
+        key === 'prefix'
+      ) {
         throw new Error('LEAK DETECTED (KEY): ' + key);
       }
       const val = obj[key];
       if (typeof val === 'string') {
-        if (val.includes('secret_hash_123') || val.includes('secret_template_456') || val.includes('hw_secret_123')) {
+        if (
+          val.includes('secret_hash_123') ||
+          val.includes('secret_template_456') ||
+          val.includes(HW_SECRET_PLAIN) ||
+          val.includes(HW_SECRET_HASH) ||
+          val.includes(HW_SECRET_PREFIX)
+        ) {
           throw new Error('LEAK DETECTED (VALUE): ' + val);
         }
       }
@@ -77,6 +98,7 @@ function checkRecursiveSession(obj) {
         key.includes('password') ||
         key.includes('face_template_ref') ||
         key.includes('api_key') ||
+        key === 'prefix' ||
         key.includes('metadata') ||
         key.startsWith('facial_') ||
         key.startsWith('ble_') ||
@@ -94,7 +116,9 @@ function checkRecursiveSession(obj) {
         if (
           val.includes('secret_hash_123') ||
           val.includes('secret_template_456') ||
-          val.includes('hw_secret_123') ||
+          val.includes(HW_SECRET_PLAIN) ||
+          val.includes(HW_SECRET_HASH) ||
+          val.includes(HW_SECRET_PREFIX) ||
           val.includes('secret_meta_val') ||
           val.includes('secret_source')
         ) {
@@ -122,7 +146,7 @@ describe('Leak Checks', () => {
   });
 
   it('PUT /api/drivers/:id no leak', async () => {
-    const r = await request(app).put(`/api/drivers/${driverId}`).set('Authorization', 'Bearer ' + tokenManager).send({ name: 'D2_Updated' });
+    const r = await request(app).put(`/api/drivers/${driverId}`).set('Authorization', 'Bearer ' + tokenManager).send({ name: 'D2_Updated', email: 'leakd@test.com', phone: '999' });
     checkRecursive(r.body);
   });
 
@@ -138,20 +162,54 @@ describe('Leak Checks', () => {
 
   it('GET /api/fleet no leak', async () => {
     const r = await request(app).get('/api/fleet').set('Authorization', 'Bearer ' + tokenManager);
+    expect(r.status).toBe(200);
     checkRecursive(r.body);
   });
 
   it('GET /api/fleet/:id no leak', async () => {
     const r = await request(app).get(`/api/fleet/${truckId}`).set('Authorization', 'Bearer ' + tokenManager);
+    expect(r.status).toBe(200);
     checkRecursive(r.body);
+  });
+
+  it('GET /api/fleet/:id/telemetry e POST /api/fleet/:id/telemetry no leak', async () => {
+    const rGet = await request(app).get(`/api/fleet/${truckId}/telemetry`).set('Authorization', 'Bearer ' + tokenManager);
+    expect(rGet.status).toBe(200);
+    checkRecursive(rGet.body);
+
+    const rPost = await request(app)
+      .post(`/api/fleet/${truckId}/telemetry`)
+      .set('x-api-key', HW_SECRET_PLAIN)
+      .send({ fuel_level_liters: 55, lat: -23.55, lng: -46.63, speed_kmh: 40 });
+    expect(rPost.status).toBe(200);
+    checkRecursive(rPost.body);
   });
 
   it('GET /api/fleet/:id/investigation no leak', async () => {
     const r = await request(app).get(`/api/fleet/${truckId}/investigation`).set('Authorization', 'Bearer ' + tokenManager);
+    expect(r.status).toBe(200);
     checkRecursive(r.body);
   });
 
-  it('fleetUpdate e liveEventsUpdate via Socket.IO no leak (nem campos ANP)', async () => {
+  it('GET /api/fleet/dashboard-stats e GET /api/fleet/live-events no leak', async () => {
+    const rStats = await request(app).get('/api/fleet/dashboard-stats').set('Authorization', 'Bearer ' + tokenManager);
+    expect(rStats.status).toBe(200);
+    checkRecursive(rStats.body);
+
+    const rLive = await request(app).get('/api/fleet/live-events').set('Authorization', 'Bearer ' + tokenManager);
+    expect(rLive.status).toBe(200);
+    checkRecursive(rLive.body);
+  });
+
+  it('POST /api/auth/driver/login no leak (nem api_key, hash ou prefixo no vehicle)', async () => {
+    const rLogin = await request(app)
+      .post('/api/auth/driver/login')
+      .send({ email: 'leakd@test.com', password: driverPlainPassword });
+    expect(rLogin.status).toBe(200);
+    checkRecursive(rLogin.body);
+  });
+
+  it('fleetUpdate e liveEventsUpdate via Socket.IO no leak (nem campos ANP, nem api_key/hash/prefix)', async () => {
     const { getFleetSnapshot, getLiveEvents } = require('../src/services/fleetDataProvider');
     const snap = await getFleetSnapshot();
     checkRecursive(snap);
@@ -220,6 +278,7 @@ describe('Leak Checks', () => {
             key.includes('password') ||
             key.includes('face_template_ref') ||
             key.includes('api_key') ||
+            key === 'prefix' ||
             key.includes('metadata') ||
             key.startsWith('facial_') ||
             key.startsWith('ble_') ||
@@ -240,7 +299,13 @@ describe('Leak Checks', () => {
             throw new Error('HISTORY LEAK DETECTED (KEY): ' + key);
           }
           const val = obj[key];
-          if (typeof val === 'string' && val.includes('secret_')) {
+          if (
+            typeof val === 'string' &&
+            (val.includes('secret_') ||
+              val.includes(HW_SECRET_PLAIN) ||
+              val.includes(HW_SECRET_HASH) ||
+              val.includes(HW_SECRET_PREFIX))
+          ) {
             throw new Error('HISTORY LEAK DETECTED (VALUE): ' + val);
           }
           checkRecursiveHistory(val);
@@ -261,5 +326,69 @@ describe('Leak Checks', () => {
         "volume_liters"
       ]);
     }
+
+    const rFuelingList = await request(app)
+      .get('/api/fueling')
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(rFuelingList.status).toBe(200);
+    checkRecursive(rFuelingList.body);
+  });
+
+  it('POST /api/fleet/:id/hardware-key retorna chave uma única vez e nem chave, hash ou prefixo vazam nas demais rotas e sockets', async () => {
+    const rGen = await request(app)
+      .post(`/api/fleet/${truckId}/hardware-key`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(rGen.status).toBe(201);
+    const genPlain = rGen.body.api_key;
+    const genPrefix = rGen.body.prefix;
+    const genHash = crypto.createHash('sha256').update(genPlain, 'utf8').digest('hex');
+    expect(genPlain).toMatch(/^[0-9a-f]{64}$/);
+    expect(genPrefix).toBe(genPlain.slice(0, 8));
+
+    function assertNoGeneratedLeak(obj) {
+      checkRecursive(obj);
+      const raw = JSON.stringify(obj);
+      expect(raw).not.toContain(genPlain);
+      expect(raw).not.toContain(genHash);
+      expect(raw).not.toContain(genPrefix);
+    }
+
+    const rStatus = await request(app)
+      .get(`/api/fleet/${truckId}/hardware-key`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(rStatus.status).toBe(200);
+    expect(JSON.stringify(rStatus.body)).not.toContain(genPlain);
+    expect(JSON.stringify(rStatus.body)).not.toContain(genHash);
+
+    const rFleet = await request(app).get('/api/fleet').set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rFleet.body);
+
+    const rTruck = await request(app).get(`/api/fleet/${truckId}`).set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rTruck.body);
+
+    const rTel = await request(app).get(`/api/fleet/${truckId}/telemetry`).set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rTel.body);
+
+    const rInv = await request(app).get(`/api/fleet/${truckId}/investigation`).set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rInv.body);
+
+    const rStats = await request(app).get('/api/fleet/dashboard-stats').set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rStats.body);
+
+    const rLive = await request(app).get('/api/fleet/live-events').set('Authorization', 'Bearer ' + tokenManager);
+    assertNoGeneratedLeak(rLive.body);
+
+    const rHist = await request(app).get('/api/fueling/history').set('Authorization', 'Bearer ' + tokenDriver);
+    assertNoGeneratedLeak(rHist.body);
+
+    const rLogin = await request(app)
+      .post('/api/auth/driver/login')
+      .send({ email: 'leakd@test.com', password: driverPlainPassword });
+    assertNoGeneratedLeak(rLogin.body);
+
+    const { getFleetSnapshot, getLiveEvents } = require('../src/services/fleetDataProvider');
+    assertNoGeneratedLeak(await getFleetSnapshot());
+    assertNoGeneratedLeak(await getLiveEvents());
   });
 });
+
