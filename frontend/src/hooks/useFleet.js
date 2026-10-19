@@ -24,7 +24,7 @@ export function useFleet() {
       };
     } catch (err) {
       toast.error('Erro ao carregar detalhes do caminhão');
-      return null;
+      throw err;
     }
   }, []);
 

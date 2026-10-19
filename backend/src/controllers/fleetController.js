@@ -385,17 +385,21 @@ exports.generateHardwareKey = async (req, res) => {
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
-    await security.recordSecurityEvent({
-      truckId,
-      type: 'hardware_key_generated',
-      severity: 'low',
-      source: 'manager',
-      payload: {
-        user_id: req.user?.id || null,
-        truck_id: truckId,
-      },
-      io: req.io,
-    });
+    try {
+      await security.recordSecurityEvent({
+        truckId,
+        type: 'hardware_key_generated',
+        severity: 'low',
+        source: 'manager',
+        payload: {
+          user_id: req.user?.id || null,
+          truck_id: truckId,
+        },
+        io: req.io,
+      });
+    } catch (eventErr) {
+      console.error(`Failed to record hardware_key_generated security event for truck #${truckId}:`, eventErr.message || eventErr);
+    }
 
     return res.status(201).json({
       api_key: rawKey,
@@ -403,7 +407,7 @@ exports.generateHardwareKey = async (req, res) => {
       created_at: rows[0].created_at,
     });
   } catch (error) {
-    console.error('Generate hardware key error:', error);
+    console.error('Generate hardware key error:', error.message || error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -467,21 +471,25 @@ exports.revokeHardwareKey = async (req, res) => {
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
-    await security.recordSecurityEvent({
-      truckId,
-      type: 'hardware_key_revoked',
-      severity: 'low',
-      source: 'manager',
-      payload: {
-        user_id: req.user?.id || null,
-        truck_id: truckId,
-      },
-      io: req.io,
-    });
+    try {
+      await security.recordSecurityEvent({
+        truckId,
+        type: 'hardware_key_revoked',
+        severity: 'low',
+        source: 'manager',
+        payload: {
+          user_id: req.user?.id || null,
+          truck_id: truckId,
+        },
+        io: req.io,
+      });
+    } catch (eventErr) {
+      console.error(`Failed to record hardware_key_revoked security event for truck #${truckId}:`, eventErr.message || eventErr);
+    }
 
     return res.json({ success: true });
   } catch (error) {
-    console.error('Revoke hardware key error:', error);
+    console.error('Revoke hardware key error:', error.message || error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

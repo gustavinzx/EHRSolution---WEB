@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import client from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import toast from 'react-hot-toast';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -179,7 +180,26 @@ export default function InvestigationPage() {
       setData(res.data);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao carregar dados de investigação.');
+      const status = err?.response?.status ?? err?.status;
+      if (status === 404) {
+        setError({
+          type: 'not_found',
+          title: 'Caminhão não encontrado',
+          message: 'Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.',
+        });
+      } else if (!err?.response && !err?.status) {
+        setError({
+          type: 'network',
+          title: 'Erro de Conexão',
+          message: 'Não foi possível carregar os dados. Tente novamente mais tarde.',
+        });
+      } else {
+        setError({
+          type: 'other',
+          title: 'Erro ao carregar caminhão',
+          message: 'Não foi possível carregar o caminhão.',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -220,13 +240,44 @@ export default function InvestigationPage() {
   );
 
   if (error) return (
-    <div style={{ padding: '32px', color: '#f87171', textAlign: 'center' }}>
-      <AlertTriangle size={32} style={{ marginBottom: '8px' }} />
-      <p>{error}</p>
-      <button onClick={() => navigate(-1)} style={{ marginTop: '16px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>
-        Voltar
-      </button>
-    </div>
+    <ErrorMessage title={error.title} message={error.message}>
+      {error.type === 'not_found' && (
+        <button
+          type="button"
+          onClick={() => navigate('/fleet')}
+          style={{
+            padding: '10px 18px',
+            borderRadius: '10px',
+            border: '1px solid rgba(47,190,181,0.4)',
+            background: 'rgba(47,190,181,0.12)',
+            color: '#2FBEB5',
+            fontWeight: 700,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Voltar para a Frota
+        </button>
+      )}
+      {error.type === 'other' && (
+        <button
+          type="button"
+          onClick={fetchData}
+          style={{
+            padding: '10px 18px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.08)',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Tentar novamente
+        </button>
+      )}
+    </ErrorMessage>
   );
 
   const { truck, telemetry, fuelingLogs, sessions, alerts } = data;

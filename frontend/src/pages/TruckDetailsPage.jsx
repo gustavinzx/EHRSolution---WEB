@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
@@ -39,14 +39,24 @@ const STATUS_META = {
 };
 
 import useFleetState from '../store/useFleetState';
-
+import client from '../api/client';
 import ErrorMessage from '../components/ErrorMessage';
 
-function HardwareKeyModal({ generatedData, onClose }) {
+function getPanelApiBaseUrl() {
+  const base = String(client?.defaults?.baseURL || '/api').replace(/\/+$/, '');
+  if (/^https?:\/\//i.test(base)) return base;
+  const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  return `${origin}${base.startsWith('/') ? '' : '/'}${base}`;
+}
+
+function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
   const [copied, setCopied] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
   if (!generatedData || !generatedData.api_key) return null;
 
   const rawKey = generatedData.api_key;
+  const apiBaseUrl = getPanelApiBaseUrl();
+  const psCommand = `$h = @{ "x-api-key" = "${rawKey}" }\nInvoke-RestMethod -Uri "${apiBaseUrl}/fueling/sessions/${truckId}/active" -Headers $h`;
 
   return (
     <div
@@ -73,17 +83,29 @@ function HardwareKeyModal({ generatedData, onClose }) {
           border: '1px solid rgba(47,190,181,0.4)',
           borderRadius: '18px',
           width: '100%',
-          maxWidth: '500px',
+          maxWidth: '540px',
           padding: '26px',
           boxShadow: '0 24px 80px rgba(0,0,0,0.75)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '14px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2FBEB5', fontWeight: 700, fontSize: '17px' }}>
           <Key size={20} />
           <span id="hw-key-modal-title">Nova Chave do Hardware Gerada</span>
+        </div>
+
+        <div
+          data-testid="hardware-key-modal-truck-id"
+          style={{
+            fontSize: '13px',
+            color: '#cbd5e1',
+            fontFamily: 'var(--font-mono, monospace)',
+            userSelect: 'text',
+          }}
+        >
+          {`ID do caminhão: ${truckId}${truckPlate ? ` • Placa: ${truckPlate}` : ''}`}
         </div>
 
         <p style={{ margin: 0, fontSize: '14px', color: '#fbbf24', fontWeight: 600 }}>
@@ -101,12 +123,37 @@ function HardwareKeyModal({ generatedData, onClose }) {
             color: '#2FBEB5',
             wordBreak: 'break-all',
             border: '1px solid rgba(47,190,181,0.3)',
+            userSelect: 'text',
           }}
         >
           {rawKey}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
+            Exemplo para testar no PowerShell:
+          </span>
+          <pre
+            data-testid="hardware-key-ps-command"
+            style={{
+              margin: 0,
+              background: 'rgba(0,0,0,0.45)',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '12px',
+              color: '#e2e8f0',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              border: '1px solid rgba(255,255,255,0.12)',
+              userSelect: 'text',
+            }}
+          >
+            {psCommand}
+          </pre>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '4px' }}>
           <button
             type="button"
             onClick={() => {
@@ -135,6 +182,32 @@ function HardwareKeyModal({ generatedData, onClose }) {
 
           <button
             type="button"
+            onClick={() => {
+              if (navigator?.clipboard?.writeText) {
+                navigator.clipboard.writeText(psCommand);
+              }
+              setCopiedCmd(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(47,190,181,0.4)',
+              background: 'rgba(47,190,181,0.14)',
+              color: '#2FBEB5',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            {copiedCmd ? <Check size={15} /> : <Copy size={15} />}
+            {copiedCmd ? 'Comando copiado!' : 'Copiar comando'}
+          </button>
+
+          <button
+            type="button"
             onClick={onClose}
             style={{
               padding: '10px 18px',
@@ -158,6 +231,7 @@ function HardwareKeyModal({ generatedData, onClose }) {
 export default function TruckDetailsPage() {
   const { user } = useAuth();
   const { id } = useParams();
+  const navigate = useNavigate();
   const {
     fetchTruckDetails,
     getHardwareKeyStatus,
@@ -173,40 +247,111 @@ export default function TruckDetailsPage() {
   const [hwKeyStatus, setHwKeyStatus] = useState(null);
   const [hwKeyLoading, setHwKeyLoading] = useState(false);
   const [hwKeyError, setHwKeyError] = useState(null);
+  const [hwKeyRefreshError, setHwKeyRefreshError] = useState(null);
   const [hwKeyBusy, setHwKeyBusy] = useState(false);
   const [generatedKeyModalData, setGeneratedKeyModalData] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null); // 'rotate' | 'revoke' | null
 
+  const hwKeyStatusRef = React.useRef(null);
+  useEffect(() => {
+    hwKeyStatusRef.current = hwKeyStatus;
+  }, [hwKeyStatus]);
+
   const { fleet, truckRoutes, fetchTruckRoute, cancelTruckRoute } = useFleetState();
 
-  const loadHardwareKeyStatus = React.useCallback(async () => {
+  const loadHardwareKeyStatus = React.useCallback(async (isRefresh = false) => {
     if (user?.role === 'auditor' || !getHardwareKeyStatus) return;
-    setHwKeyLoading(true);
-    setHwKeyError(null);
+    const hasExistingStatus = hwKeyStatusRef.current !== null;
+    if (!isRefresh && !hasExistingStatus) {
+      setHwKeyLoading(true);
+      setHwKeyError(null);
+    }
+    setHwKeyRefreshError(null);
     try {
       const statusData = await getHardwareKeyStatus(id);
       setHwKeyStatus(statusData);
+      setHwKeyError(null);
+      setHwKeyRefreshError(null);
     } catch {
-      setHwKeyError('Não foi possível carregar o status da chave.');
+      if (hasExistingStatus) {
+        setHwKeyRefreshError('Não foi possível atualizar o status da chave.');
+      } else {
+        setHwKeyError('Não foi possível carregar o status da chave.');
+      }
     } finally {
       setHwKeyLoading(false);
     }
   }, [id, user?.role, getHardwareKeyStatus]);
 
-  const loadData = () => {
-    fetchTruckDetails(id).then(data => {
-      if (data) setTruckDetails(data);
-      else setLocalError('Não foi possível encontrar o caminhão.');
-      setLoading(false);
-    });
-  };
+  const loadData = React.useCallback(() => {
+    setLoading(true);
+    setLocalError(null);
+    Promise.resolve(fetchTruckDetails(id))
+      .then((data) => {
+        if (data) {
+          setTruckDetails(data);
+          setLocalError(null);
+        } else {
+          setLocalError({
+            type: 'not_found',
+            title: 'Caminhão não encontrado',
+            message: 'Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.',
+          });
+        }
+      })
+      .catch((err) => {
+        const status = err?.response?.status ?? err?.status;
+        if (status === 404) {
+          setLocalError({
+            type: 'not_found',
+            title: 'Caminhão não encontrado',
+            message: 'Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.',
+          });
+        } else if (!err?.response && !err?.status) {
+          setLocalError({
+            type: 'network',
+            title: 'Erro de Conexão',
+            message: 'Não foi possível carregar os dados. Tente novamente mais tarde.',
+          });
+        } else {
+          setLocalError({
+            type: 'other',
+            title: 'Erro ao carregar caminhão',
+            message: 'Não foi possível carregar o caminhão.',
+          });
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id, fetchTruckDetails]);
 
   // Carrega apenas na montagem (para pegar dados detalhados)
   useEffect(() => {
     loadData();
-    loadHardwareKeyStatus();
+    loadHardwareKeyStatus(false);
     // No more polling, live telemetry comes from useFleetState
-  }, [id, fetchTruckDetails, loadHardwareKeyStatus]);
+  }, [id, loadData, loadHardwareKeyStatus]);
+
+  useEffect(() => {
+    if (user?.role === 'auditor' || !getHardwareKeyStatus) return undefined;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadHardwareKeyStatus(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const intervalId = setInterval(() => {
+      loadHardwareKeyStatus(true);
+    }, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(intervalId);
+    };
+  }, [user?.role, getHardwareKeyStatus, loadHardwareKeyStatus]);
 
   const executeGenerateKey = async () => {
     setHwKeyBusy(true);
@@ -253,7 +398,49 @@ export default function TruckDetailsPage() {
   const truck = liveTruck && truckDetails ? { ...truckDetails, ...liveTruck } : truckDetails;
 
   if (loading && !truck) return <LoadingSpinner />;
-  if (localError || error) return <ErrorMessage message={localError || error} />;
+  if (localError) {
+    return (
+      <ErrorMessage title={localError.title} message={localError.message}>
+        {localError.type === 'not_found' && (
+          <button
+            type="button"
+            onClick={() => navigate('/fleet')}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(47,190,181,0.4)',
+              background: 'rgba(47,190,181,0.12)',
+              color: '#2FBEB5',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Voltar para a Frota
+          </button>
+        )}
+        {localError.type === 'other' && (
+          <button
+            type="button"
+            onClick={loadData}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Tentar novamente
+          </button>
+        )}
+      </ErrorMessage>
+    );
+  }
+  if (error) return <ErrorMessage message={error} />;
   const handleCancelRoute = () => {
     toast((t) => (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -529,8 +716,40 @@ export default function TruckDetailsPage() {
           {/* Hardware Key Provisioning Card (hidden for auditor) */}
           {user?.role !== 'auditor' && (
             <div data-testid="hardware-key-card" style={{ ...glass, padding: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600, marginBottom: '12px' }}>
-                <Key size={14} color="#2FBEB5" /> Chave do hardware
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600 }}>
+                  <Key size={14} color="#2FBEB5" /> Chave do hardware
+                </div>
+                <button
+                  type="button"
+                  disabled={hwKeyLoading || hwKeyBusy}
+                  onClick={() => loadHardwareKeyStatus(true)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: '#cbd5e1',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: hwKeyLoading || hwKeyBusy ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Atualizar
+                </button>
+              </div>
+
+              <div
+                data-testid="hardware-key-truck-ident"
+                style={{
+                  fontSize: '12px',
+                  color: '#cbd5e1',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  marginBottom: '12px',
+                  userSelect: 'text',
+                }}
+              >
+                {`ID do caminhão: ${truck.id} • Placa: ${truck.plate}`}
               </div>
 
               {hwKeyLoading ? (
@@ -603,6 +822,15 @@ export default function TruckDetailsPage() {
                       Gerar chave
                     </button>
                   </div>
+                </div>
+              )}
+
+              {hwKeyRefreshError && (
+                <div
+                  data-testid="hardware-key-refresh-error"
+                  style={{ marginTop: '10px', fontSize: '12px', color: '#fbbf24' }}
+                >
+                  {hwKeyRefreshError}
                 </div>
               )}
 
@@ -740,6 +968,8 @@ export default function TruckDetailsPage() {
       />
       <HardwareKeyModal
         generatedData={generatedKeyModalData}
+        truckId={truck.id}
+        truckPlate={truck.plate}
         onClose={() => setGeneratedKeyModalData(null)}
       />
     </div>
