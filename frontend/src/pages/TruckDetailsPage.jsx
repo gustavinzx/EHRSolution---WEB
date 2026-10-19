@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
@@ -158,6 +158,7 @@ function HardwareKeyModal({ generatedData, onClose }) {
 export default function TruckDetailsPage() {
   const { user } = useAuth();
   const { id } = useParams();
+  const navigate = useNavigate();
   const {
     fetchTruckDetails,
     getHardwareKeyStatus,
@@ -193,20 +194,55 @@ export default function TruckDetailsPage() {
     }
   }, [id, user?.role, getHardwareKeyStatus]);
 
-  const loadData = () => {
-    fetchTruckDetails(id).then(data => {
-      if (data) setTruckDetails(data);
-      else setLocalError('Não foi possível encontrar o caminhão.');
-      setLoading(false);
-    });
-  };
+  const loadData = React.useCallback(() => {
+    setLoading(true);
+    setLocalError(null);
+    Promise.resolve(fetchTruckDetails(id))
+      .then((data) => {
+        if (data) {
+          setTruckDetails(data);
+          setLocalError(null);
+        } else {
+          setLocalError({
+            type: 'not_found',
+            title: 'Caminhão não encontrado',
+            message: 'Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.',
+          });
+        }
+      })
+      .catch((err) => {
+        const status = err?.response?.status ?? err?.status;
+        if (status === 404) {
+          setLocalError({
+            type: 'not_found',
+            title: 'Caminhão não encontrado',
+            message: 'Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.',
+          });
+        } else if (!err?.response && !err?.status) {
+          setLocalError({
+            type: 'network',
+            title: 'Erro de Conexão',
+            message: 'Não foi possível carregar os dados. Tente novamente mais tarde.',
+          });
+        } else {
+          setLocalError({
+            type: 'other',
+            title: 'Erro ao carregar caminhão',
+            message: 'Não foi possível carregar o caminhão.',
+          });
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id, fetchTruckDetails]);
 
   // Carrega apenas na montagem (para pegar dados detalhados)
   useEffect(() => {
     loadData();
     loadHardwareKeyStatus();
     // No more polling, live telemetry comes from useFleetState
-  }, [id, fetchTruckDetails, loadHardwareKeyStatus]);
+  }, [id, loadData, loadHardwareKeyStatus]);
 
   const executeGenerateKey = async () => {
     setHwKeyBusy(true);
@@ -253,7 +289,49 @@ export default function TruckDetailsPage() {
   const truck = liveTruck && truckDetails ? { ...truckDetails, ...liveTruck } : truckDetails;
 
   if (loading && !truck) return <LoadingSpinner />;
-  if (localError || error) return <ErrorMessage message={localError || error} />;
+  if (localError) {
+    return (
+      <ErrorMessage title={localError.title} message={localError.message}>
+        {localError.type === 'not_found' && (
+          <button
+            type="button"
+            onClick={() => navigate('/fleet')}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(47,190,181,0.4)',
+              background: 'rgba(47,190,181,0.12)',
+              color: '#2FBEB5',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Voltar para a Frota
+          </button>
+        )}
+        {localError.type === 'other' && (
+          <button
+            type="button"
+            onClick={loadData}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Tentar novamente
+          </button>
+        )}
+      </ErrorMessage>
+    );
+  }
+  if (error) return <ErrorMessage message={error} />;
   const handleCancelRoute = () => {
     toast((t) => (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
