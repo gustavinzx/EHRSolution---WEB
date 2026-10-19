@@ -46,7 +46,29 @@ Content-Type: application/json
 1. **Geração e exibição única:** ao clicar em **Gerar chave**, o servidor gera 32 bytes aleatórios (`crypto.randomBytes(32)`) em hexadecimal (64 caracteres) e devolve a chave **uma única vez** na resposta `201`. O painel exibe a chave em uma janela modal com botão **Copiar** e o aviso *"Guarde agora; ela não será exibida de novo"*. Ao fechar a janela, a chave em texto puro é descartada da memória do navegador.
 2. **Armazenamento em hash (SHA-256):** o texto puro **nunca é persistido** no banco de dados. Um *trigger* no PostgreSQL (`trucks_hash_api_key_trg`, `BEFORE INSERT OR UPDATE OF api_key ON trucks`) calcula `api_key_hash = encode(sha256(convert_to(NEW.api_key, 'UTF8')), 'hex')`, grava os 8 primeiros caracteres em `api_key_prefix`, preenche `api_key_created_at = NOW()` e zera `NEW.api_key = NULL`. Na autenticação da placa, o backend calcula o SHA-256 (UTF-8, hex) do cabeçalho `x-api-key` e consulta `WHERE api_key_hash = $1`.
 3. **Último uso (`api_key_last_used_at`):** atualizado automaticamente na autenticação da placa no máximo **1 vez por minuto** por caminhão (`WHERE api_key_last_used_at IS NULL OR api_key_last_used_at < NOW() - INTERVAL '1 minute'`). Eventual falha nessa atualização é isolada e nunca derruba a autenticação.
-4. **Rotação (Trocar chave) e Revogação (Revogar):** exigem confirmação no painel (*"A chave atual para de funcionar imediatamente e a placa precisará ser reconfigurada."*). Ao trocar ou revogar, a chave anterior passa a responder `401 {"error":"Invalid Hardware API Key"}` imediatamente. Cada geração ou revogação grava um evento em `security_events` (`hardware_key_generated` ou `hardware_key_revoked`, severidade `low`, sem alerta em `fleet_alerts` e sem a chave no `payload`).
+4. **Rotação (Trocar chave) e Revogação (Revogar):** exigem confirmação no painel (*"A chave atual para de funcionar imediatamente e a placa precisará ser reconfigurada."*). Ao trocar ou revogar, a chave anterior passa a responder `401 {"error":"Invalid Hardware API Key"}` imediatamente. Cada geração ou revogação grava um evento em `security_events` (`hardware_key_generated` ou `hardware_key_revoked`, severidade `low`, sem alerta em `fleet_alerts` e sem a chave no `payload`) em modo de **melhor esforço** (`try/catch`): uma eventual falha ao gravar o evento de auditoria é registrada no log do servidor (sem a chave) e nunca altera a resposta de sucesso (`201` ou `200`).
+5. **Identificação do caminhão e comando pronto:** o cartão exibe sempre `ID do caminhão: <id> • Placa: <placa>` e conta com botão **Atualizar** (além de recarga automática a cada 30 s e ao voltar para a aba). A janela da chave recém-gerada exibe também o ID do caminhão e o comando PowerShell pronto para copiar com o `<id>` e a `<chave>` corretos.
+
+### Verificação prévia de chaves duplicadas antes da Migration 016 (bancos legados)
+
+A migration `016_hardware_key_hash.sql` converte chaves legadas em texto puro para `api_key_hash` e cria o índice único parcial `idx_trucks_api_key_hash_unique` (`ON trucks (api_key_hash) WHERE api_key_hash IS NOT NULL`). Caso um banco antigo possua dois caminhões com a mesma `api_key` em texto puro, o PostgreSQL interrompe a criação do índice com o erro:
+
+```text
+ERROR: could not create unique index "idx_trucks_api_key_hash_unique"
+DETAIL: Key (api_key_hash)=(<hash-sha256>) is duplicated. (SQLSTATE 23505)
+```
+
+Antes de aplicar a migration `016` em um banco legado, execute a verificação prévia abaixo para identificar e limpar eventuais chaves duplicadas:
+
+```sql
+SELECT api_key, count(*)
+FROM trucks
+WHERE api_key IS NOT NULL
+GROUP BY api_key
+HAVING count(*) > 1;
+```
+
+Se houver linhas retornadas, limpe (`UPDATE trucks SET api_key = NULL WHERE ...`) ou diferencie as chaves repetidas antes de rodar as migrations, e depois gere chaves individuais pelo painel.
 
 ### Rotas do painel para gestão da chave (`authMiddleware` + `requireRole('admin', 'manager')`)
 
@@ -60,7 +82,7 @@ Content-Type: application/json
       "created_at": "2026-10-18T12:00:00.000Z"
     }
     ```
-  - **Efeito colateral:** substitui qualquer chave anterior na hora, zera `api_key_last_used_at` e registra `hardware_key_generated` (`severity: "low"`, com `user_id` e `truck_id`, sem a chave).
+  - **Efeito colateral:** substitui qualquer chave anterior na hora, zera `api_key_last_used_at` e registra `hardware_key_generated` (`severity: "low"`, com `user_id` e `truck_id`, sem a chave, em modo melhor esforço).
   - **Erros:** `400 {"error":"id inválido"}`; `401 {"error":"Authorization token missing or invalid"}`; `403 {"error":"forbidden_role"}` (auditor) ou `403 {"error":"Acesso restrito ao gestor"}` (motorista); `404 {"error":"Caminhão não encontrado"}`.
 
 - **`GET /api/fleet/:id/hardware-key`** — Consulta o status da chave do caminhão `:id` (nunca retorna a chave nem o hash).
@@ -88,7 +110,7 @@ Content-Type: application/json
 - **`DELETE /api/fleet/:id/hardware-key`** — Revoga a chave ativa do caminhão `:id`.
   - **Cabeçalho:** `Authorization: Bearer <token-jwt-admin-ou-manager>`
   - **Resposta 200:** `{ "success": true }`
-  - **Efeito colateral:** limpa `api_key_hash`, `api_key_prefix`, `api_key_created_at` e `api_key_last_used_at`, e registra `hardware_key_revoked` (`severity: "low"`, sem alerta).
+  - **Efeito colateral:** limpa `api_key_hash`, `api_key_prefix`, `api_key_created_at` e `api_key_last_used_at`, e registra `hardware_key_revoked` (`severity: "low"`, sem alerta, em modo melhor esforço).
   - **Erros:** `400 {"error":"id inválido"}`; `401`; `403`; `404 {"error":"Caminhão não encontrado"}`.
 
 **Chave de desenvolvimento (somente dev):** o seed cria o caminhão `EHR-0001` com a chave `DEV_API_KEY_001` (convertida automaticamente em hash pelo trigger no banco). Nunca usar em produção.
