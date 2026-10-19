@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { app } = require('../src/index');
 const db = require('../src/config/db');
 const authHardware = require('../src/middleware/authHardware');
+const security = require('../src/services/securityService');
 const clean = require('./clean');
 
 if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
@@ -432,4 +433,51 @@ describe('Hardware Key Provisioning, Trigger, Backfill & Auth (Bloco A-D, F1)', 
       expect(res.body).toEqual({ error: 'Caminhão não encontrado' });
     }
   });
+
+  it('Falha em recordSecurityEvent (best-effort) não derruba POST 201 nem DELETE 200 da chave do hardware', async () => {
+    const spySec = jest.spyOn(security, 'recordSecurityEvent').mockRejectedValue(
+      new Error('Simulated security_events table failure')
+    );
+    const spyErr = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const rGen = await request(app)
+        .post(`/api/fleet/${truckId}/hardware-key`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      expect(rGen.status).toBe(201);
+      expect(rGen.body.api_key).toMatch(/^[0-9a-f]{64}$/);
+      expect(rGen.body.prefix).toBe(rGen.body.api_key.slice(0, 8));
+      expect(rGen.body.created_at).toBeTruthy();
+
+      const generatedKey = rGen.body.api_key;
+
+      // Garantir que o log de erro nunca contém a chave gerada
+      const errLogs = spyErr.mock.calls.map(args => args.join(' ')).join('\n');
+      expect(errLogs).not.toContain(generatedKey);
+
+      // A chave gerada funciona nas rotas de hardware
+      const rActive = await request(app)
+        .get(`/api/fueling/sessions/${truckId}/active`)
+        .set('x-api-key', generatedKey);
+      expect(rActive.status).toBe(200);
+
+      // DELETE ainda responde 200 { success: true } mesmo com recordSecurityEvent falhando
+      const rRevoke = await request(app)
+        .delete(`/api/fleet/${truckId}/hardware-key`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      expect(rRevoke.status).toBe(200);
+      expect(rRevoke.body).toEqual({ success: true });
+
+      // E a chave antiga passa a responder 401
+      const rAfterRevoke = await request(app)
+        .get(`/api/fueling/sessions/${truckId}/active`)
+        .set('x-api-key', generatedKey);
+      expect(rAfterRevoke.status).toBe(401);
+      expect(rAfterRevoke.body).toEqual({ error: 'Invalid Hardware API Key' });
+    } finally {
+      spySec.mockRestore();
+      spyErr.mockRestore();
+    }
+  });
 });
+

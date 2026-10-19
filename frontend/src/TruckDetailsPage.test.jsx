@@ -52,23 +52,25 @@ const sampleTruck = {
   recent_dump_logs: [],
 };
 
-function renderPage() {
+function renderPage(initialEntry = '/fleet/7') {
   return render(
-    <MemoryRouter initialEntries={['/fleet/7']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/fleet/:id" element={<TruckDetailsPage />} />
+        <Route path="/fleet" element={<div data-testid="fleet-list-page">Lista da Frota</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
-describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => {
+describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, B, D1)', () => {
   let mockFetchTruckDetails;
   let mockGetHardwareKeyStatus;
   let mockGenerateHardwareKey;
   let mockRevokeHardwareKey;
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
     vi.clearAllMocks();
     localStorage.clear();
@@ -105,7 +107,60 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     });
   });
 
-  it('exibe estado de carregamento do status da chave', async () => {
+  it('quando a API devolve 404 mostra "Caminhão não encontrado", mensagem orientativa e botão "Voltar para a Frota"', async () => {
+    mockFetchTruckDetails.mockRejectedValue({ response: { status: 404, data: { error: 'Truck not found' } } });
+
+    renderPage('/fleet/999');
+
+    await waitFor(() => {
+      expect(screen.getByText('Caminhão não encontrado')).toBeTruthy();
+    });
+
+    expect(
+      screen.getByText('Nenhum caminhão com esse ID. Volte para a Frota e escolha um da lista.')
+    ).toBeTruthy();
+    expect(screen.queryByText('Erro de Conexão')).toBeNull();
+
+    const backBtn = screen.getByRole('button', { name: 'Voltar para a Frota' });
+    fireEvent.click(backBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('fleet-list-page')).toBeTruthy();
+    });
+  });
+
+  it('erro de rede (sem resposta do servidor) mostra "Erro de Conexão"', async () => {
+    mockFetchTruckDetails.mockRejectedValue(new Error('Network Error'));
+
+    renderPage('/fleet/7');
+
+    await waitFor(() => {
+      expect(screen.getByText('Erro de Conexão')).toBeTruthy();
+    });
+    expect(screen.queryByText('Caminhão não encontrado')).toBeNull();
+  });
+
+  it('outro status de erro (ex.: 500) mostra "Não foi possível carregar o caminhão." com botão "Tentar novamente"', async () => {
+    mockFetchTruckDetails
+      .mockRejectedValueOnce({ response: { status: 500 } })
+      .mockResolvedValueOnce(sampleTruck);
+
+    renderPage('/fleet/7');
+
+    await waitFor(() => {
+      expect(screen.getByText('Não foi possível carregar o caminhão.')).toBeTruthy();
+    });
+
+    const retryBtn = screen.getByRole('button', { name: 'Tentar novamente' });
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => {
+      expect(mockFetchTruckDetails).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('EHR-0007')).toBeTruthy();
+    });
+  });
+
+  it('exibe estado de carregamento do status da chave e mostra ID e placa no cartão', async () => {
     let resolveStatus;
     mockGetHardwareKeyStatus.mockReturnValue(
       new Promise((resolve) => {
@@ -118,6 +173,10 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     await waitFor(() => {
       expect(screen.getByText('Carregando status da chave...')).toBeTruthy();
     });
+
+    expect(screen.getByTestId('hardware-key-truck-ident').textContent).toBe(
+      'ID do caminhão: 7 • Placa: EHR-0007'
+    );
 
     resolveStatus({
       configured: false,
@@ -141,7 +200,7 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     });
   });
 
-  it('exibe estado sem chave configurada e gera chave exibindo modal único, apagando ao fechar', async () => {
+  it('exibe ID e comando PowerShell com chave e ID certos na janela, e apaga chave e comando ao fechar', async () => {
     const newSecretKey = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
     mockGenerateHardwareKey.mockResolvedValue({
       api_key: newSecretKey,
@@ -155,6 +214,10 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
       expect(screen.getByText('Nenhuma chave configurada')).toBeTruthy();
     });
 
+    expect(screen.getByTestId('hardware-key-truck-ident').textContent).toBe(
+      'ID do caminhão: 7 • Placa: EHR-0007'
+    );
+
     const genBtn = screen.getByRole('button', { name: 'Gerar chave' });
     fireEvent.click(genBtn);
 
@@ -164,8 +227,15 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     });
 
     expect(screen.getByText('Guarde agora; ela não será exibida de novo')).toBeTruthy();
+    expect(screen.getByTestId('hardware-key-modal-truck-id').textContent).toContain('ID do caminhão: 7');
     expect(screen.getByTestId('hardware-key-secret-value').textContent).toBe(newSecretKey);
+
+    const psCommandEl = screen.getByTestId('hardware-key-ps-command');
+    expect(psCommandEl.textContent).toContain(`$h = @{ "x-api-key" = "${newSecretKey}" }`);
+    expect(psCommandEl.textContent).toContain('/api/fueling/sessions/7/active" -Headers $h');
+
     expect(screen.getByRole('button', { name: 'Copiar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copiar comando' })).toBeTruthy();
 
     // Não salvou no localStorage
     expect(JSON.stringify(localStorage)).not.toContain(newSecretKey);
@@ -175,13 +245,15 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     expect(activeStatus.textContent).toContain('Chave ativa: a1b2c3d4…');
     expect(activeStatus.textContent).toContain('último uso nunca');
 
-    // Ao fechar a janela, a chave em texto puro desaparece completamente do DOM
+    // Ao fechar a janela, tanto a chave quanto o comando PowerShell desaparecem completamente do DOM
     const closeBtn = screen.getByRole('button', { name: 'Fechar' });
     fireEvent.click(closeBtn);
 
     await waitFor(() => {
       expect(screen.queryByTestId('hardware-key-modal')).toBeNull();
+      expect(screen.queryByTestId('hardware-key-ps-command')).toBeNull();
       expect(screen.queryByText(newSecretKey)).toBeNull();
+      expect(document.body.textContent).not.toContain('/fueling/sessions/7/active');
     });
   });
 
@@ -253,6 +325,86 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     });
   });
 
+  it('botão "Atualizar" e evento visibilitychange refazem a consulta; falha na recarga mostra erro discreto sem apagar estado atual', async () => {
+    const createdIso = '2026-10-17T10:30:00.000Z';
+    const updatedUsedIso = '2026-10-18T15:00:00.000Z';
+
+    mockGetHardwareKeyStatus
+      .mockResolvedValueOnce({
+        configured: true,
+        prefix: '11223344',
+        created_at: createdIso,
+        last_used_at: null,
+      })
+      .mockResolvedValueOnce({
+        configured: true,
+        prefix: '11223344',
+        created_at: createdIso,
+        last_used_at: updatedUsedIso,
+      })
+      .mockRejectedValueOnce(new Error('Refresh failed'));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hardware-key-active-status').textContent).toContain('último uso nunca');
+    });
+    expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(1);
+
+    // Clicar em "Atualizar" refaz a consulta e atualiza o último uso
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }));
+
+    await waitFor(() => {
+      expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('hardware-key-active-status').textContent).toContain(
+        new Date(updatedUsedIso).toLocaleString('pt-BR')
+      );
+    });
+
+    // Disparar visibilitychange (aba visível) refaz a consulta; falha mostra erro discreto sem apagar o estado atual
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+    fireEvent(document, new Event('visibilitychange'));
+
+    await waitFor(() => {
+      expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(3);
+      expect(screen.getByTestId('hardware-key-refresh-error').textContent).toBe(
+        'Não foi possível atualizar o status da chave.'
+      );
+    });
+
+    // Estado atual continua visível no cartão
+    expect(screen.getByTestId('hardware-key-active-status').textContent).toContain('Chave ativa: 11223344…');
+  });
+
+  it('intervalo de 30s atualiza o status e é limpo ao desmontar (fake timers)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+
+    const { unmount } = renderPage();
+
+    await waitFor(() => {
+      expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(1);
+    });
+
+    await vi.advanceTimersByTimeAsync(30000);
+
+    await waitFor(() => {
+      expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(2);
+    });
+
+    unmount();
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(mockGetHardwareKeyStatus).toHaveBeenCalledTimes(2);
+
+    clearIntervalSpy.mockRestore();
+  });
+
   it('oculta o cartão Chave do hardware para o papel auditor e não consulta a rota de status', async () => {
     useAuth.mockReturnValue({
       user: { id: 9, name: 'Auditor Teste', role: 'auditor' },
@@ -269,3 +421,4 @@ describe('TruckDetailsPage — Cartão Chave do hardware (Bloco E & F4)', () => 
     expect(mockGetHardwareKeyStatus).not.toHaveBeenCalled();
   });
 });
+
