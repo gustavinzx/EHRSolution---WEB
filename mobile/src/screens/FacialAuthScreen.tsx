@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Button } from '../components/Button';
@@ -17,6 +17,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
   const [retryBlocked, setRetryBlocked] = useState(false);
+  const [capturedPreviewUri, setCapturedPreviewUri] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const isCapturingRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -95,6 +96,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
     isCapturingRef.current = true;
     if (isMountedRef.current) {
+      setCapturedPreviewUri(null);
       dispatch({ type: 'FACIAL_VERIFY_START' });
     }
 
@@ -116,6 +118,10 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
         return;
       }
 
+      if (photo.uri) {
+        setCapturedPreviewUri(photo.uri);
+      }
+
       let base64ToSend = '';
       if (photo.uri) {
         const tManipStart = Date.now();
@@ -132,16 +138,23 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
           console.log(`[FACIAL TIMING] Redimensionamento: ${Date.now() - tManipStart}ms`);
         }
         if (!isMountedRef.current) return;
+        if (manipulated.uri) {
+          setCapturedPreviewUri(manipulated.uri);
+        }
         base64ToSend = manipulated.base64 || '';
       } else {
         base64ToSend = photo.base64 || '';
       }
 
       base64ToSend = base64ToSend.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+      if (!photo.uri && base64ToSend) {
+        setCapturedPreviewUri(`data:image/jpeg;base64,${base64ToSend}`);
+      }
 
       const decodedBytes = (base64ToSend.length * 3) / 4;
       if (decodedBytes > 2 * 1024 * 1024) {
         if (isMountedRef.current) {
+          setCapturedPreviewUri(null);
           dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'Imagem muito grande. Tente capturar novamente.' });
         }
         return;
@@ -161,6 +174,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
       if (res.verified) {
         dispatch({ type: 'FACIAL_VERIFY_SUCCESS' });
       } else {
+        setCapturedPreviewUri(null);
         const attemptsLeft = res.attempts_left;
         if (attemptsLeft === 0) {
           await apiClient.reportFacialFailure(sessionId).catch(() => {});
@@ -189,6 +203,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     } catch (error: any) {
       if (!isMountedRef.current) return;
+      setCapturedPreviewUri(null);
 
       if (error instanceof TimeoutError || error?.name === 'TimeoutError') {
         dispatch({ type: 'FACIAL_VERIFY_ERROR', error: 'A câmera demorou para responder. Tente novamente.' });
@@ -262,6 +277,15 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
               ref={cameraRef}
               onCameraReady={() => setCameraReady(true)}
             />
+
+            {capturedPreviewUri ? (
+              <Image
+                testID="captured-photo-preview"
+                source={{ uri: capturedPreviewUri }}
+                style={styles.capturedPreview}
+                resizeMode="cover"
+              />
+            ) : null}
 
             {/* Corner Brackets */}
             <View style={[styles.corner, styles.cornerTL]} />
@@ -385,6 +409,15 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   camera: {
+    width: '100%',
+    height: '100%',
+  },
+  capturedPreview: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: '100%',
     height: '100%',
   },

@@ -101,6 +101,10 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
 
     useFleetState.mockReturnValue({
       fleet: [],
+      trucks: [],
+      loading: false,
+      error: null,
+      fetchFleet: vi.fn(),
       truckRoutes: {},
       fetchTruckRoute: vi.fn(),
       cancelTruckRoute: vi.fn(),
@@ -420,5 +424,38 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
     expect(screen.queryByText('Chave do hardware')).toBeNull();
     expect(mockGetHardwareKeyStatus).not.toHaveBeenCalled();
   });
+
+  it('useFleet.fetchTruckDetails não dispara toast.error quando a API responde 404, mas dispara em erro 500', async () => {
+    const actualHookModule = await vi.importActual('./hooks/useFleet');
+    const clientModule = await import('./api/client');
+    const toastModule = await import('react-hot-toast');
+
+    const getSpy = vi.spyOn(clientModule.default, 'get');
+    const toastErrorSpy = vi.spyOn(toastModule.default, 'error').mockImplementation(() => {});
+
+    let hookApi;
+    function HookHarness() {
+      hookApi = actualHookModule.useFleet();
+      return null;
+    }
+
+    render(<HookHarness />);
+
+    getSpy.mockRejectedValueOnce({ response: { status: 404, data: { error: 'Truck not found' } } });
+    await expect(hookApi.fetchTruckDetails('999')).rejects.toEqual({
+      response: { status: 404, data: { error: 'Truck not found' } },
+    });
+    expect(toastErrorSpy).not.toHaveBeenCalled();
+
+    getSpy.mockRejectedValueOnce({ response: { status: 500, data: { error: 'Internal server error' } } });
+    await expect(hookApi.fetchTruckDetails('7')).rejects.toEqual({
+      response: { status: 500, data: { error: 'Internal server error' } },
+    });
+    expect(toastErrorSpy).toHaveBeenCalledWith('Erro ao carregar detalhes do caminhão');
+
+    getSpy.mockRestore();
+    toastErrorSpy.mockRestore();
+  });
 });
+
 

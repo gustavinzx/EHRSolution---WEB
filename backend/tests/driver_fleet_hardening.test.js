@@ -349,6 +349,53 @@ describe('BLOCO D3 — verifyFace e enrollFace Preservation', () => {
     const { rows: rRows3 } = await db.query("SELECT face_photo FROM drivers WHERE id = $1", [dId]);
     expect(rRows3[0].face_photo).toContain(photo3);
   });
+
+  it('Substitui o placeholder 1x1 do simulador pela primeira foto real do app e preserva nas seguintes', async () => {
+    const simulatorPlaceholder = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+    const realSelfie1 = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from('MATCH_REAL_SELFIE_ONE')]).toString('base64');
+    const realSelfie2 = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from('MATCH_REAL_SELFIE_TWO')]).toString('base64');
+
+    const drvRes = await db.query(
+      "INSERT INTO drivers (name, is_active, face_enrolled, face_template_ref, face_photo) VALUES ('Driver Placeholder Test', true, true, 'mock_template_ph', $1) RETURNING id",
+      [simulatorPlaceholder]
+    );
+    const dId = drvRes.rows[0].id;
+
+    const trkRes = await db.query(
+      "INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key, fuel_station_id, lat, lng) VALUES ('PHL1A01', 'Test', 200, 100, 'key_phl', $1, -23.55, -46.63) RETURNING id",
+      [stationId]
+    );
+    const tId = trkRes.rows[0].id;
+
+    const sess1 = await db.query(
+      "INSERT INTO fueling_sessions (driver_id, truck_id, station_id, status, requested_at) VALUES ($1, $2, $3, 'requested', NOW()) RETURNING id",
+      [dId, tId, stationId]
+    );
+    const tokenDriver = jwt.sign({ id: dId, role: 'driver', truck_id: tId }, process.env.JWT_SECRET);
+
+    const r1 = await request(app)
+      .post(`/api/fueling/sessions/${sess1.rows[0].id}/verify-face`)
+      .set('Authorization', 'Bearer ' + tokenDriver)
+      .send({ image_base64: realSelfie1, lat: -23.55, lng: -46.63 });
+    expect(r1.status).toBe(200);
+    expect(r1.body.verified).toBe(true);
+
+    const { rows: after1 } = await db.query("SELECT face_photo FROM drivers WHERE id = $1", [dId]);
+    expect(after1[0].face_photo).toBe(`data:image/jpeg;base64,${realSelfie1}`);
+
+    const sess2 = await db.query(
+      "INSERT INTO fueling_sessions (driver_id, truck_id, station_id, status, requested_at) VALUES ($1, $2, $3, 'requested', NOW()) RETURNING id",
+      [dId, tId, stationId]
+    );
+    const r2 = await request(app)
+      .post(`/api/fueling/sessions/${sess2.rows[0].id}/verify-face`)
+      .set('Authorization', 'Bearer ' + tokenDriver)
+      .send({ image_base64: realSelfie2, lat: -23.55, lng: -46.63 });
+    expect(r2.status).toBe(200);
+
+    const { rows: after2 } = await db.query("SELECT face_photo FROM drivers WHERE id = $1", [dId]);
+    expect(after2[0].face_photo).toBe(`data:image/jpeg;base64,${realSelfie1}`);
+  });
 });
 
 describe('BLOCO D4 — Face Photo Leak Checks', () => {

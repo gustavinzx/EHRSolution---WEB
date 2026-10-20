@@ -23,7 +23,9 @@ export function useFleet() {
         unloading_events: unloadingRes.data
       };
     } catch (err) {
-      toast.error('Erro ao carregar detalhes do caminhão');
+      if (err?.response?.status !== 404) {
+        toast.error('Erro ao carregar detalhes do caminhão');
+      }
       throw err;
     }
   }, []);

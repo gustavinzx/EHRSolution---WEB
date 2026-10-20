@@ -853,7 +853,11 @@ exports.verifyFace = async (req, res) => {
 
     if (isSuccess) {
       const formattedPhoto = image_base64.startsWith('data:') ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
-      await client.query("UPDATE drivers SET face_photo = $1 WHERE id = $2 AND face_photo IS NULL", [formattedPhoto, req.actor.id]);
+      const simulatorPlaceholder = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+      await client.query(
+        "UPDATE drivers SET face_photo = $1 WHERE id = $2 AND (face_photo IS NULL OR face_photo = $3)",
+        [formattedPhoto, req.actor.id, simulatorPlaceholder]
+      );
       await client.query("UPDATE fueling_sessions SET facial_verified_at=NOW(), facial_attempt_id=$1 WHERE id=$2", [attemptIns[0].id, id]);
       await client.query("COMMIT");
       clientReleased = true;

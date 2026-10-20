@@ -326,7 +326,7 @@ export default function DriversPage() {
                         boxShadow: avatarGlow,
                       }}
                     >
-                      {d.face_photo ? (
+                      {d.face_photo && d.face_photo !== 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=' ? (
                         <img
                           src={d.face_photo}
                           alt={d.name}
@@ -341,7 +341,11 @@ export default function DriversPage() {
                       <span
                         data-testid={`driver-initials-${d.id}`}
                         style={{
-                          display: d.face_photo ? 'none' : 'flex',
+                          display:
+                            d.face_photo &&
+                            d.face_photo !== 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='
+                              ? 'none'
+                              : 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           width: '100%',
