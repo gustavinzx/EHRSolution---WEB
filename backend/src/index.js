@@ -21,6 +21,12 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
+if (process.env.TRUST_PROXY !== undefined && process.env.TRUST_PROXY !== '') {
+  const rawTp = String(process.env.TRUST_PROXY).trim();
+  const parsedTp = rawTp === 'true' ? true : rawTp === 'false' ? false : /^\d+$/.test(rawTp) ? Number(rawTp) : rawTp;
+  app.set('trust proxy', parsedTp);
+}
+
 // SECURITY NOTE 2.4: Em produção defina CORS_ORIGINS (lista separada por vírgula). Sem ela, libera tudo (dev / app mobile).
 const allowedOrigin = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : '*';
 
@@ -41,7 +47,7 @@ app.use(express.json({ limit: '100kb' }));
 app.use(compression());
 
 // FIX 2.2: General rate limiter for all protected API routes (150 req/min per IP).
-// More permissive than the login limiter (10/15min), but prevents accidental DoS.
+// Hardware requests carrying x-api-key use per-device and brute-force rate limiting in authHardware.
 // SECURITY NOTE 2.3: JWT is stored in localStorage, which is readable by any JS on the page (XSS risk).
 // Migrating to httpOnly cookies would eliminate this risk but requires significant refactor.
 // Acceptable for an academic/demo project — document and revisit before any public deployment.
@@ -50,6 +56,7 @@ const generalLimiter = rateLimit({
   max: 150,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => Boolean(req.headers['x-api-key']),
   message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' }
 });
 

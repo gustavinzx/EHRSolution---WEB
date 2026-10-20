@@ -479,5 +479,60 @@ describe('Hardware Key Provisioning, Trigger, Backfill & Auth (Bloco A-D, F1)', 
       spyErr.mockRestore();
     }
   });
+
+  it('Limita tentativas inválidas de x-api-key por IP (429) e aplica limite independente por dispositivo', async () => {
+    const prevMaxFail = process.env.HARDWARE_AUTH_MAX_FAILURES;
+    const prevMaxPerMin = process.env.HARDWARE_RATE_LIMIT_PER_MIN;
+    authHardware.resetRateLimits();
+
+    try {
+      process.env.HARDWARE_AUTH_MAX_FAILURES = '3';
+      process.env.HARDWARE_RATE_LIMIT_PER_MIN = '2';
+
+      // Cria segundo caminhão e chaves válidas para truckId e otherTruckId
+      const t2Res = await db.query(
+        "INSERT INTO trucks (plate, model, capacity_liters, current_level_liters) VALUES ('HWK-0002', 'Scania R500', 500, 250) RETURNING id"
+      );
+      const otherTruckId = t2Res.rows[0].id;
+
+      const rKey1 = await request(app)
+        .post(`/api/fleet/${truckId}/hardware-key`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      const key1 = rKey1.body.api_key;
+
+      const rKey2 = await request(app)
+        .post(`/api/fleet/${otherTruckId}/hardware-key`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      const key2 = rKey2.body.api_key;
+
+      // 1) Limite por dispositivo: truckId faz 2 requisições (200) e a 3a bate 429, enquanto otherTruckId no mesmo IP continua respondendo 200
+      const d1 = await request(app).get(`/api/fueling/sessions/${truckId}/active`).set('x-api-key', key1);
+      const d2 = await request(app).get(`/api/fueling/sessions/${truckId}/active`).set('x-api-key', key1);
+      const d3 = await request(app).get(`/api/fueling/sessions/${truckId}/active`).set('x-api-key', key1);
+      expect(d1.status).toBe(200);
+      expect(d2.status).toBe(200);
+      expect(d3.status).toBe(429);
+      expect(d3.body).toEqual({ error: 'Hardware device rate limit exceeded. Try again in a moment.' });
+
+      const otherOk = await request(app).get(`/api/fueling/sessions/${otherTruckId}/active`).set('x-api-key', key2);
+      expect(otherOk.status).toBe(200);
+
+      // 2) Limite de força bruta por IP: 3 falhas respondem 401 e a 4a tentativa bloqueia o IP com 429
+      for (let i = 0; i < 3; i++) {
+        const failRes = await request(app).get(`/api/fueling/sessions/${truckId}/active`).set('x-api-key', 'wrong_key_' + i);
+        expect(failRes.status).toBe(401);
+      }
+      const blockedRes = await request(app).get(`/api/fueling/sessions/${truckId}/active`).set('x-api-key', 'wrong_key_4');
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.body).toEqual({ error: 'Too many invalid hardware authentication attempts. Try again later.' });
+    } finally {
+      if (prevMaxFail === undefined) delete process.env.HARDWARE_AUTH_MAX_FAILURES;
+      else process.env.HARDWARE_AUTH_MAX_FAILURES = prevMaxFail;
+      if (prevMaxPerMin === undefined) delete process.env.HARDWARE_RATE_LIMIT_PER_MIN;
+      else process.env.HARDWARE_RATE_LIMIT_PER_MIN = prevMaxPerMin;
+      authHardware.resetRateLimits();
+    }
+  });
 });
+
 

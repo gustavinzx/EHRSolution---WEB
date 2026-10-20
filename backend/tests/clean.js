@@ -1,9 +1,12 @@
 const db = require('../src/config/db');
+const authHardware = require('../src/middleware/authHardware');
 
 module.exports = async () => {
   if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
     throw new Error(`ABORT: clean.js was about to wipe database '${process.env.DB_NAME}', which does not end with '_test'`);
   }
+
+  authHardware.resetRateLimits();
   
   await db.query('DELETE FROM driver_trucks');
   await db.query('DELETE FROM fueling_logs');
@@ -17,3 +20,4 @@ module.exports = async () => {
   await db.query('DELETE FROM drivers');
   await db.query('DELETE FROM users');
 };
+
