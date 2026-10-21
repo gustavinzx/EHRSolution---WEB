@@ -20,6 +20,7 @@ import { apiClient } from '../services/api/apiClient';
 import { getBleLock } from '../services/bluetooth/bleLock';
 import { getCancelErrorMessage } from '../utils/cancelError';
 import { HistoryItem, HistorySummary } from '../types/history';
+import { WalletResponse } from '../types/wallet';
 
 const formatReleaseMethod = (method: string): string => {
   switch (method) {
@@ -69,7 +70,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { driver, vehicle, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'perfil'>('inicio');
+  const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'carteira' | 'perfil'>('inicio');
 
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
@@ -80,6 +81,36 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyInlineError, setHistoryInlineError] = useState<string | null>(null);
+
+  const [walletData, setWalletData] = useState<WalletResponse | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletRefreshing, setWalletRefreshing] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const loadWallet = useCallback(async (isRefresh: boolean = false) => {
+    if (isRefresh) {
+      setWalletRefreshing(true);
+    } else {
+      setWalletLoading(true);
+    }
+    setWalletError(null);
+    try {
+      const res = await apiClient.getWallet();
+      if (isMountedRef.current) {
+        setWalletData(res);
+      }
+    } catch (err: any) {
+      if (isMountedRef.current) {
+        setWalletError(err.message || 'Não foi possível carregar os dados da carteira.');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setWalletLoading(false);
+        setWalletRefreshing(false);
+      }
+    }
+  }, []);
+
 
   const latestRequestIdRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -159,12 +190,17 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     useCallback(() => {
       if (activeTab === 'historico') {
         loadHistory(1);
+      } else if (activeTab === 'carteira') {
+        loadWallet();
       }
-    }, [activeTab, loadHistory])
+    }, [activeTab, loadHistory, loadWallet])
   );
 
-  const handleTabPress = (tab: 'inicio' | 'historico' | 'perfil') => {
+  const handleTabPress = (tab: 'inicio' | 'historico' | 'carteira' | 'perfil') => {
     setActiveTab(tab);
+    if (tab === 'carteira' && !walletData && !walletLoading) {
+      loadWallet();
+    }
   };
 
   const driverFirstName = driver?.name?.split(' ')[0] || 'Motorista';
@@ -289,31 +325,20 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Unificado em Dark Mode */}
+      {/* Next-Gen IoT Top Brand Bar */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerDot} />
-          <View>
-            {activeTab === 'inicio' ? (
-              <>
-                <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
-                <Text style={styles.greetingSub}>Tudo pronto para abastecer.</Text>
-              </>
-            ) : activeTab === 'historico' ? (
-              <>
-                <Text style={styles.greetingTitle}>Histórico</Text>
-                <Text style={styles.greetingSub}>Registros de abastecimento da frota.</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.greetingTitle}>Meu Perfil</Text>
-                <Text style={styles.greetingSub}>Dados cadastrais e validação facial.</Text>
-              </>
-            )}
+        <View style={styles.brandRow}>
+          <View style={styles.brandIconBadge}>
+            <Text style={styles.brandSpeedBars}>≡</Text>
+          </View>
+          <Text style={styles.brandEhr}>EHR</Text>
+          <Text style={styles.brandSolutions}>SOLUTIONS</Text>
+          <View style={styles.brandDivider} />
+          <View style={styles.driverRoleBadge}>
+            <Text style={styles.driverRoleText}>MOTORISTA</Text>
           </View>
         </View>
 
-        {/* Botão de Sair no Header (Sem duplicação de engrenagens) */}
         <TouchableOpacity
           style={styles.headerLogoutBtn}
           onPress={signOut}
@@ -330,10 +355,10 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         refreshControl={
           activeTab === 'historico' ? (
             <RefreshControl
-              refreshing={historyRefreshing}
+              refreshing={activeTab === 'historico' ? historyRefreshing : activeTab === 'carteira' ? walletRefreshing : false}
               onRefresh={() => loadHistory(1, true)}
-              tintColor="#00C4D0"
-              colors={['#00C4D0']}
+              tintColor="#00E5FF"
+              colors={['#00E5FF']}
             />
           ) : undefined
         }
@@ -341,10 +366,32 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* ================= ABA 1: INÍCIO (ABASTECIMENTO) ================= */}
         {activeTab === 'inicio' && (
           <View>
-            {/* Card "Seu veículo" em Dark Mode (Clean truck specs, SEM foto de carro) */}
+            {/* Driver Greeting Banner (Screen 1 Mockup) */}
+            <View style={styles.greetingCard}>
+              <View style={styles.greetingAvatarBox}>
+                <Text style={styles.greetingAvatarText}>
+                  {(driver?.name || 'M')
+                    .split(' ')
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()}
+                </Text>
+                <View style={styles.onlineStatusDot} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.greetingTitle}>Olá, {driverFirstName}!</Text>
+                <Text style={styles.greetingSub}>Bora pra mais uma viagem? Tudo pronto.</Text>
+              </View>
+            </View>
+
+            {/* Card "SEU CAMINHÃO" em Dark Glassmorphism */}
             <View style={styles.vehicleCard}>
               <View style={styles.vehicleCardHeader}>
-                <Text style={styles.vehicleCardTitle}>Seu veículo</Text>
+                <View>
+                  <Text style={styles.vehicleSectionTag}>SEU CAMINHÃO</Text>
+                  <Text style={styles.vehicleCardTitle}>Seu veículo</Text>
+                </View>
                 <View style={styles.monitoredBadge}>
                   <View style={styles.monitoredDot} />
                   <Text style={styles.monitoredText}>Monitorado</Text>
@@ -353,7 +400,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
               {vehicle ? (
                 <>
-                  {/* Vehicle Identity Row (Clean truck badge, model & plate) */}
+                  {/* Vehicle Identity Row */}
                   <View style={styles.vehicleIdentityRow}>
                     <View style={styles.truckIconBadge}>
                       <Text style={styles.truckIconSymbol}>🚛</Text>
@@ -361,21 +408,34 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.vehicleInfoCol}>
                       <Text style={styles.vehicleModelText}>{vehicle.model}</Text>
                       <View style={styles.plateBadge}>
+                        <View style={styles.plateMercosulTopBar} />
                         <Text style={styles.plateText}>{vehicle.plate}</Text>
                       </View>
                     </View>
                   </View>
 
-                  {/* Metrics Section: Capacidade */}
-                  <View style={styles.metricsContainer}>
-                    <View style={styles.metricItem}>
-                      <View style={styles.metricLabelRow}>
-                        <Text style={styles.metricIcon}>💧</Text>
-                        <Text style={styles.metricLabel}>Capacidade</Text>
+                  {/* Side-by-Side IoT Telemetry Cards (Capacidade + Trava Eletrônica) */}
+                  <View style={styles.iotGridRow}>
+                    {/* Card Left: Capacidade Homologada */}
+                    <View style={styles.iotModuleCard}>
+                      <Text style={styles.iotModuleHeader}>TANQUE HOMOLOGADO</Text>
+                      <View style={styles.iotGaugeCircle}>
+                        <Text style={styles.iotGaugeSymbol}>⛽</Text>
                       </View>
+                      <Text style={styles.metricLabel}>Capacidade</Text>
                       <Text style={styles.metricValue}>
                         {vehicle.capacity ? `${vehicle.capacity} L` : '—'}
                       </Text>
+                    </View>
+
+                    {/* Card Right: Trava Eletrônica */}
+                    <View style={[styles.iotModuleCard, styles.iotLockCard]}>
+                      <Text style={styles.iotModuleHeader}>TRAVA ELETRÔNICA</Text>
+                      <View style={styles.iotLockCircle}>
+                        <Text style={styles.iotLockSymbol}>🔒</Text>
+                      </View>
+                      <Text style={styles.iotLockTitle}>Tanque Travado</Text>
+                      <Text style={styles.iotLockSub}>Biometria exigida</Text>
                     </View>
                   </View>
                 </>
@@ -384,7 +444,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
 
-            {/* Seção de Ações de Abastecimento (Cyan Pill Destacado) */}
+            {/* Seção de Ações de Abastecimento (Glowing Cyan CTA) */}
             <View style={styles.actionSection}>
               <Button
                 testID="main-action-btn"
@@ -409,7 +469,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Procedimento de Abastecimento / Guia Rápido */}
             <View style={styles.guideCard}>
-              <Text style={styles.guideTitle}>Procedimento de Liberação</Text>
+              <Text style={styles.guideTitle}>Procedimento de Liberação IoT</Text>
 
               <View style={styles.guideStepRow}>
                 <View style={styles.guideStepNumberBox}>
@@ -425,11 +485,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.guideStepText}>Toque em Iniciar e realize a validação facial.</Text>
               </View>
 
-              <View style={styles.guideStepRow}>
+              <View style={[styles.guideStepRow, { marginBottom: 0 }]}>
                 <View style={styles.guideStepNumberBox}>
                   <Text style={styles.guideStepNumber}>3</Text>
                 </View>
-                <Text style={styles.guideStepText}>A bomba é liberada instantaneamente pelo hardware.</Text>
+                <Text style={styles.guideStepText}>A trava eletrônica é liberada instantaneamente pelo hardware.</Text>
               </View>
             </View>
           </View>
@@ -438,14 +498,17 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* ================= ABA 2: HISTÓRICO ================= */}
         {activeTab === 'historico' && (
           <View style={styles.historyContainer}>
-            {/* Loading initial state */}
+            <View style={styles.sectionHeaderCard}>
+              <Text style={styles.greetingTitle}>Histórico</Text>
+              <Text style={styles.greetingSub}>Registros de abastecimento da frota.</Text>
+            </View>
+
             {historyLoading && historyItems.length === 0 ? (
               <View style={styles.historyLoadingBox} testID="history-loading-indicator">
-                <ActivityIndicator size="large" color="#00C4D0" />
+                <ActivityIndicator size="large" color="#00E5FF" />
                 <Text style={styles.historyLoadingText}>Carregando histórico...</Text>
               </View>
             ) : historyError && historyItems.length === 0 ? (
-              /* Error state */
               <View style={styles.historyErrorBox} testID="history-error-card">
                 <Text style={styles.historyErrorIcon}>⚠️</Text>
                 <Text style={styles.historyErrorText}>{historyError}</Text>
@@ -458,7 +521,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             ) : historyItems.length === 0 ? (
-              /* Empty state */
               <View style={styles.emptyHistoryCard} testID="history-empty-card">
                 <View style={styles.emptyHistoryIconBox}>
                   <Text style={styles.emptyHistoryIcon}>⏱️</Text>
@@ -468,9 +530,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
             ) : (
-              /* List of items */
               <View>
-                {/* Summary Badge at Top */}
                 <View style={styles.historySummaryCard} testID="history-summary-card">
                   <View style={styles.historySummaryIconBox}>
                     <Text style={styles.historySummaryIcon}>📊</Text>
@@ -483,7 +543,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Items */}
                 {historyItems.map((item) => (
                   <View key={item.id} style={styles.historyItemCard} testID={`history-item-${item.id}`}>
                     <View style={styles.historyItemHeader}>
@@ -539,7 +598,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 ))}
 
-                {/* Inline Error below list */}
                 {historyInlineError && (
                   <View style={styles.historyInlineErrorBox} testID="history-inline-error">
                     <TouchableOpacity
@@ -558,7 +616,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 )}
 
-                {/* Load More Button */}
                 {historyItems.length < historyTotal && (
                   <TouchableOpacity
                     style={styles.loadMoreBtn}
@@ -567,7 +624,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                     testID="history-load-more-btn"
                   >
                     {historyLoadingMore ? (
-                      <ActivityIndicator size="small" color="#00C4D0" />
+                      <ActivityIndicator size="small" color="#00E5FF" />
                     ) : (
                       <Text style={styles.loadMoreBtnText}>Carregar mais</Text>
                     )}
@@ -578,10 +635,182 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        
+        {/* ================= ABA CARTEIRA (SICOOB OPEN BANKING) ================= */}
+        {activeTab === 'carteira' && (
+          <View style={styles.walletContainer}>
+            {/* Cartão Corporativo Virtual Sicoob */}
+            <View style={styles.virtualCard}>
+              <View style={styles.virtualCardHeader}>
+                <View style={styles.sicoobBadge}>
+                  <Text style={styles.sicoobBadgeText}>SICOOB</Text>
+                </View>
+                <Text style={styles.virtualCardType}>CARTÃO FROTA PJ</Text>
+              </View>
+
+              <View style={styles.virtualCardChipRow}>
+                <View style={styles.cardChip}>
+                  <View style={styles.cardChipInner} />
+                </View>
+                <Text style={styles.virtualCardContactless}>📶</Text>
+              </View>
+
+              <Text style={styles.virtualCardNumber}>•••• •••• •••• 4321</Text>
+
+              <View style={styles.virtualCardFooter}>
+                <View>
+                  <Text style={styles.virtualCardLabel}>TITULAR</Text>
+                  <Text style={styles.virtualCardDriver}>{driver?.name || 'MOTORISTA'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.virtualCardLabel}>COOPERATIVA</Text>
+                  <Text style={styles.virtualCardBank}>Credifrotas DF (756)</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Status Open Banking */}
+            <View style={styles.openFinanceBadge}>
+              <View style={styles.openFinanceDot} />
+              <Text style={styles.openFinanceText}>
+                Open Finance Brasil • Conexão Ativa mTLS
+              </Text>
+            </View>
+
+            {walletLoading && !walletData ? (
+              <View style={styles.walletLoadingCard}>
+                <ActivityIndicator size="large" color="#00D4FF" />
+                <Text style={styles.walletLoadingText}>Consultando saldo e extrato Sicoob...</Text>
+              </View>
+            ) : walletError ? (
+              <View style={styles.walletErrorCard}>
+                <Text style={styles.walletErrorText}>{walletError}</Text>
+                <TouchableOpacity
+                  style={styles.retryWalletBtn}
+                  onPress={() => loadWallet(false)}
+                >
+                  <Text style={styles.retryWalletBtnText}>Tentar Novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {/* Métricas Financeiras */}
+                <View style={styles.walletMetricsCard}>
+                  <Text style={styles.walletMetricsHeaderLabel}>SALDO DISPONÍVEL P/ COMBUSTÍVEL</Text>
+                  <Text style={styles.walletBalanceAmount}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.balanceAvailable || 0)}
+                  </Text>
+
+                  {/* Barra de Consumo do Limite */}
+                  <View style={styles.walletProgressTrack}>
+                    <View
+                      style={[
+                        styles.walletProgressFill,
+                        {
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              ((walletData?.wallet?.totalSpentMonth || 0) /
+                                (walletData?.wallet?.monthlyCreditLimit || 5000)) *
+                                100
+                            )
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.walletLimitRow}>
+                    <Text style={styles.walletLimitText}>
+                      Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.totalSpentMonth || 0)}
+                    </Text>
+                    <Text style={styles.walletLimitText}>
+                      Limite: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.monthlyCreditLimit || 5000)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.walletSubMetricsGrid}>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Total Abastecido</Text>
+                      <Text style={styles.subMetricValue}>
+                        {walletData?.wallet?.totalLitersMonth != null ? walletData.wallet.totalLitersMonth.toFixed(1) : '0'} L
+                      </Text>
+                    </View>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Preço ANP Ref.</Text>
+                      <Text style={styles.subMetricValue}>
+                        R$ {walletData?.wallet?.averagePricePerLiter?.toFixed(2) || '6,05'}/L
+                      </Text>
+                    </View>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Operações</Text>
+                      <Text style={styles.subMetricValue}>
+                        {walletData?.wallet?.fuelingCount || 0}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Extrato / Lançamentos */}
+                <View style={styles.walletTransactionsSection}>
+                  <Text style={styles.cardSectionTitle}>Extrato de Abastecimentos (Sicoob)</Text>
+
+                  {(!walletData?.transactions || walletData.transactions.length === 0) ? (
+                    <View style={styles.walletEmptyCard}>
+                      <Text style={styles.walletEmptyIcon}>🧾</Text>
+                      <Text style={styles.walletEmptyTitle}>Nenhum lançamento no período</Text>
+                      <Text style={styles.walletEmptySub}>
+                        Seus abastecimentos liberados pelo aplicativo aparecerão aqui após a compensação no Sicoob.
+                      </Text>
+                    </View>
+                  ) : (
+                    walletData.transactions.map((tx) => (
+                      <View key={tx.id} style={styles.transactionCard}>
+                        <View style={styles.transactionRowTop}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.transactionStation}>{tx.stationName}</Text>
+                            <Text style={styles.transactionDate}>
+                              {formatDateTime(tx.timestamp)} • Placa {tx.truckPlate}
+                            </Text>
+                          </View>
+                          <Text style={styles.transactionAmount}>
+                            - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.totalAmount)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.transactionDivider} />
+
+                        <View style={styles.transactionRowBottom}>
+                          <Text style={styles.transactionDetail}>
+                            {tx.liters.toFixed(2)} L × R$ {tx.pricePerLiter.toFixed(2)}
+                          </Text>
+                          <View style={styles.transactionStatusBadge}>
+                            <Text style={styles.transactionStatusText}>
+                              ✓ Compensado ({tx.authProtocol})
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                {/* Info sobre a API Sicoob */}
+                <View style={styles.sicoobInfoBox}>
+                  <Text style={styles.sicoobInfoTitle}>Integrado via Sicoob Open Banking</Text>
+                  <Text style={styles.sicoobInfoText}>
+                    Esta carteira sincroniza diretamente com a conta cooperativa {walletData?.bank?.accountNumber || '10987-6'} da frota.
+                    Saiba mais no Portal dos Desenvolvedores Sicoob (developers.sicoob.com.br/portal/apis).
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {/* ================= ABA 3: PERFIL ================= */}
         {activeTab === 'perfil' && (
           <View>
-            {/* Header Perfil com Avatar Centralizado e Borda Verde Biométrica */}
             <View style={styles.profileHeaderCard}>
               <View style={styles.profileAvatar}>
                 <Text style={styles.profileAvatarText}>
@@ -596,13 +825,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.profileName}>{driver?.name || 'Não informado'}</Text>
               <Text style={styles.profileEmail}>{driver?.email || 'Não informado'}</Text>
 
-              {/* Borda / Badge Indicativa de Biometria Facial Cadastrada */}
               <View style={styles.biometricBadge}>
                 <Text style={styles.biometricBadgeText}>✓ Biometria Facial Cadastrada</Text>
               </View>
             </View>
 
-            {/* Informações da Conta */}
             <View style={styles.profileDetailsCard}>
               <Text style={styles.cardSectionTitle}>Dados Cadastrais</Text>
 
@@ -637,7 +864,6 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Botão Sair da Conta: Reduzida proeminência visual (contorno/fundo sutil vermelho) */}
             <View style={{ marginTop: 16 }}>
               <TouchableOpacity
                 onPress={signOut}
@@ -651,7 +877,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Docked Bottom Tab Bar (Ícones preenchidos em ciano na rota ativa, inativas em cinza) */}
+      {/* Docked Bottom Tab Bar */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={styles.tabItem}
@@ -681,6 +907,21 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           {activeTab === 'historico' && <View style={styles.activeDot} />}
         </TouchableOpacity>
 
+        
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => handleTabPress('carteira')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'carteira' ? styles.tabIconActive : styles.tabIconInactive]}>
+            💳
+          </Text>
+          <Text style={[styles.tabLabel, activeTab === 'carteira' ? styles.tabLabelActive : styles.tabLabelInactive]}>
+            Carteira
+          </Text>
+          {activeTab === 'carteira' && <View style={styles.activeDot} />}
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => handleTabPress('perfil')}
@@ -702,51 +943,77 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070D18',
+    backgroundColor: '#050A14',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 54 : 44,
-    paddingHorizontal: 22,
-    paddingBottom: 16,
-    backgroundColor: '#070D18',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    backgroundColor: '#060C18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: 'rgba(0, 229, 255, 0.14)',
   },
-  headerLeft: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
   },
-  headerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#00C4D0',
-    shadowColor: '#00C4D0',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 3,
+  brandIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
   },
-  greetingTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+  brandSpeedBars: {
+    color: '#00E5FF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  brandEhr: {
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    fontSize: 17,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    letterSpacing: 0.6,
   },
-  greetingSub: {
-    fontSize: 13,
-    color: '#8899A6',
-    marginTop: 2,
-    fontWeight: '500',
+  brandSolutions: {
+    color: '#00E5FF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  brandDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    marginHorizontal: 4,
+  },
+  driverRoleBadge: {
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.28)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  driverRoleText: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   headerLogoutBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    borderRadius: 10,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.35)',
@@ -759,33 +1026,91 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
-    paddingBottom: 90,
+    paddingBottom: 92,
   },
-
-  // Seu Veículo Card Dark Mode
-  vehicleCard: {
-    backgroundColor: '#0F1A2C',
-    borderRadius: 22,
-    padding: 20,
+  greetingCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 14,
+  },
+  greetingAvatarBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#071020',
+    borderWidth: 2,
+    borderColor: '#00E5FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  greetingAvatarText: {
+    color: '#00E5FF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  onlineStatusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#0B1628',
+  },
+  sectionHeaderCard: {
+    marginBottom: 14,
+  },
+  greetingTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  greetingSub: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  vehicleCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.22)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 14,
-    elevation: 4,
-    marginBottom: 18,
+    elevation: 5,
+    marginBottom: 16,
   },
   vehicleCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  vehicleSectionTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00E5FF',
+    letterSpacing: 1.2,
+    marginBottom: 2,
   },
   vehicleCardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -795,7 +1120,7 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
@@ -805,11 +1130,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 2,
   },
   monitoredText: {
     fontSize: 11,
@@ -820,20 +1140,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 18,
+    backgroundColor: '#071020',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 14,
   },
   truckIconBadge: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    backgroundColor: 'rgba(0, 229, 255, 0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.3)',
+    borderColor: 'rgba(0, 229, 255, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   truckIconSymbol: {
-    fontSize: 24,
+    fontSize: 26,
   },
   vehicleInfoCol: {
     flex: 1,
@@ -844,67 +1169,102 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   plateBadge: {
-    marginTop: 4,
+    marginTop: 6,
     alignSelf: 'flex-start',
-    backgroundColor: '#070E1A',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    backgroundColor: '#0F1E36',
+    borderRadius: 7,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  plateText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 0.8,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  metricsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    marginBottom: 12,
-  },
-  metricItem: {
-    flex: 1,
-  },
-  metricLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  metricIcon: {
-    fontSize: 12,
-  },
-  metricLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8899A6',
-  },
-  metricValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  progressTrack: {
-    width: '100%',
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 4,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
     overflow: 'hidden',
   },
-  progressBar: {
-    height: '100%',
-    borderRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 2,
+  plateMercosulTopBar: {
+    height: 4,
+    backgroundColor: '#1D4ED8',
+    width: '100%',
+  },
+  plateText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 1.2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  iotGridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iotModuleCard: {
+    flex: 1,
+    backgroundColor: '#071020',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    alignItems: 'center',
+  },
+  iotLockCard: {
+    borderColor: 'rgba(239, 68, 68, 0.28)',
+    backgroundColor: 'rgba(239, 68, 68, 0.04)',
+  },
+  iotModuleHeader: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  iotGaugeCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
+    borderColor: '#00E5FF',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  iotGaugeSymbol: {
+    fontSize: 22,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  metricValue: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  iotLockCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  iotLockSymbol: {
+    fontSize: 22,
+  },
+  iotLockTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F87171',
+  },
+  iotLockSub: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '600',
   },
   noVehicleText: {
     fontSize: 14,
@@ -912,76 +1272,65 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 16,
   },
-
-  // Actions
   actionSection: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   startBtn: {
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#00C4D0',
-    borderColor: '#00B4C0',
-    shadowColor: '#00C4D0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 5,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#00D4FF',
+    borderColor: '#00E5FF',
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 6,
   },
   bleBtn: {
     height: 50,
-    borderRadius: 25,
+    borderRadius: 16,
     marginTop: 8,
   },
-
-  // Guide Card Dark Mode
   guideCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: 'rgba(0, 229, 255, 0.14)',
   },
   guideTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   guideStepRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   guideStepNumberBox: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.35)',
+    borderColor: 'rgba(0, 229, 255, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   guideStepNumber: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#00C4D0',
+    color: '#00E5FF',
   },
   guideStepText: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#94A3B8',
     flex: 1,
     lineHeight: 18,
   },
-
-  // Histórico
   historyContainer: {
     paddingBottom: 20,
   },
@@ -997,11 +1346,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   historyErrorBox: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
     padding: 28,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
@@ -1021,21 +1370,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.35)',
+    borderColor: 'rgba(0, 229, 255, 0.35)',
   },
   retryBtnText: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontSize: 13,
     fontWeight: '700',
   },
   emptyHistoryCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
     padding: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(0, 229, 255, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
@@ -1044,7 +1393,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(0, 196, 208, 0.1)',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1059,28 +1408,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   historySummaryCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
+    borderColor: 'rgba(0, 229, 255, 0.25)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 2,
   },
   historySummaryIconBox: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.3)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1104,17 +1448,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   historyItemCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(0, 229, 255, 0.14)',
     marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
   },
   historyItemHeader: {
     flexDirection: 'row',
@@ -1127,9 +1466,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   historyMethodBadge: {
-    backgroundColor: 'rgba(0, 196, 208, 0.12)',
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.3)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -1137,7 +1476,7 @@ const styles = StyleSheet.create({
   historyMethodText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#00C4D0',
+    color: '#00E5FF',
   },
   historyItemDivider: {
     height: 1,
@@ -1174,12 +1513,12 @@ const styles = StyleSheet.create({
   historyFieldValueHighlight: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#00C4D0',
+    color: '#00E5FF',
   },
   loadMoreBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(0, 229, 255, 0.25)',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -1188,7 +1527,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loadMoreBtnText: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1226,37 +1565,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-
-  // Perfil Dark Mode
   profileHeaderCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 22,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.2)',
+    borderColor: 'rgba(0, 229, 255, 0.22)',
     marginBottom: 16,
   },
   profileAvatar: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#070E1A',
+    backgroundColor: '#071020',
     borderWidth: 3,
-    borderColor: '#10B981', // Borda indicativa verde de Biometria Facial Cadastrada
+    borderColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 4,
   },
   profileAvatarText: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#00C4D0',
+    color: '#00E5FF',
   },
   profileName: {
     fontSize: 18,
@@ -1283,11 +1615,11 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   profileDetailsCard: {
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(0, 229, 255, 0.14)',
   },
   cardSectionTitle: {
     fontSize: 15,
@@ -1314,8 +1646,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
-
-  // Botão Sair da Conta Sutil
   subtleLogoutBtn: {
     height: 48,
     borderRadius: 14,
@@ -1330,26 +1660,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-
-  // Docked Bottom Tab Bar em Dark Mode
   tabBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: Platform.OS === 'ios' ? 76 : 64,
-    backgroundColor: '#0B1322',
+    backgroundColor: '#070E1C',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: 'rgba(0, 229, 255, 0.14)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingBottom: Platform.OS === 'ios' ? 16 : 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
   },
   tabItem: {
     alignItems: 'center',
@@ -1372,7 +1695,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabLabelActive: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontWeight: '800',
   },
   tabLabelInactive: {
@@ -1385,6 +1708,334 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#00C4D0',
+    backgroundColor: '#00E5FF',
   },
+
+  walletContainer: {
+    width: '100%',
+  },
+  virtualCard: {
+    backgroundColor: '#072522',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#00D4FF',
+    marginBottom: 14,
+    shadowColor: '#00D4FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  virtualCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sicoobBadge: {
+    backgroundColor: '#005542',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#7DB61C',
+  },
+  sicoobBadgeText: {
+    color: '#7DB61C',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 1.5,
+  },
+  virtualCardType: {
+    color: '#8899A6',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  virtualCardChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  cardChip: {
+    width: 36,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardChipInner: {
+    width: 22,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.3)',
+  },
+  virtualCardContactless: {
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  virtualCardNumber: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  virtualCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  virtualCardLabel: {
+    fontSize: 9,
+    color: '#8899A6',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  virtualCardDriver: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  virtualCardBank: {
+    fontSize: 12,
+    color: '#00D4FF',
+    fontWeight: '600',
+  },
+  openFinanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.25)',
+    marginBottom: 16,
+  },
+  openFinanceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  openFinanceText: {
+    fontSize: 11,
+    color: '#00D4FF',
+    fontWeight: '600',
+  },
+  walletLoadingCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.2)',
+  },
+  walletLoadingText: {
+    fontSize: 13,
+    color: '#94A3B8',
+  },
+  walletErrorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  walletErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryWalletBtn: {
+    backgroundColor: '#00D4FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  retryWalletBtnText: {
+    color: '#050A14',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  walletMetricsCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.25)',
+    marginBottom: 16,
+  },
+  walletMetricsHeaderLabel: {
+    fontSize: 11,
+    color: '#8899A6',
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  walletBalanceAmount: {
+    fontSize: 28,
+    color: '#22C55E',
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  walletProgressTrack: {
+    height: 8,
+    backgroundColor: '#050A14',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  walletProgressFill: {
+    height: '100%',
+    backgroundColor: '#00D4FF',
+    borderRadius: 4,
+  },
+  walletLimitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  walletLimitText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  walletSubMetricsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  walletSubMetricBox: {
+    flex: 1,
+    backgroundColor: '#060B13',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  subMetricLabel: {
+    fontSize: 10,
+    color: '#8899A6',
+    marginBottom: 4,
+  },
+  subMetricValue: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  walletTransactionsSection: {
+    marginBottom: 16,
+  },
+  walletEmptyCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  walletEmptyIcon: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
+  walletEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  walletEmptySub: {
+    color: '#64748B',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  transactionCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.15)',
+    marginBottom: 10,
+  },
+  transactionRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  transactionStation: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  transactionDate: {
+    color: '#64748B',
+    fontSize: 11,
+  },
+  transactionAmount: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  transactionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: 10,
+  },
+  transactionRowBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionDetail: {
+    color: '#94A3B8',
+    fontSize: 12,
+  },
+  transactionStatusBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  transactionStatusText: {
+    color: '#22C55E',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sicoobInfoBox: {
+    backgroundColor: 'rgba(0, 85, 66, 0.15)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 182, 28, 0.3)',
+    marginBottom: 20,
+  },
+  sicoobInfoTitle: {
+    color: '#7DB61C',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  sicoobInfoText: {
+    color: '#8899A6',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+
 });

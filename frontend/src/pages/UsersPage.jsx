@@ -1,9 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { ShieldCheck, Plus, Check, X, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Plus, Check, X, ShieldAlert, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const glass = {
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
+  borderRadius: '16px',
+};
+
+const inputStyle = {
+  padding: '11px 14px',
+  background: 'rgba(6, 11, 19, 0.7)',
+  border: '1px solid rgba(0, 212, 255, 0.2)',
+  borderRadius: '10px',
+  color: '#fff',
+  fontSize: '13px',
+  outline: 'none',
+  width: '100%',
+  fontFamily: 'Inter, sans-serif',
+};
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -71,53 +91,113 @@ export default function UsersPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '24px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ShieldCheck color="#2FBEB5" /> Gestão de Usuários
-        </h1>
-        <button onClick={() => setShowModal(true)} style={btnStyle}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+      {/* Header */}
+      <div style={{
+        ...glass,
+        padding: '26px 32px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+        border: '1px solid rgba(0, 212, 255, 0.22)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+            border: '1px solid rgba(0, 212, 255, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)',
+          }}>
+            <UserCheck size={26} color="#00D4FF" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
+              Gestão de Usuários
+            </h1>
+            <p style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}>
+              Controle de acesso, papéis (RBAC) e credenciais administrativas da plataforma.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            border: 'none',
+            background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
+            color: '#FFFFFF',
+            fontWeight: 700,
+            fontSize: '13px',
+            cursor: 'pointer',
+            boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+        >
           <Plus size={16} /> Novo Usuário
         </button>
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ ...glass, overflow: 'hidden', background: 'rgba(11, 22, 40, 0.75)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: 'rgba(0,0,0,0.2)', color: '#94a3b8' }}>
-              <th style={{ padding: '12px 16px' }}>Nome</th>
-              <th style={{ padding: '12px 16px' }}>E-mail</th>
-              <th style={{ padding: '12px 16px' }}>Papel (Role)</th>
-              <th style={{ padding: '12px 16px' }}>Status</th>
-              <th style={{ padding: '12px 16px', textAlign: 'right' }}>Ações</th>
+            <tr style={{ background: 'rgba(6, 11, 19, 0.6)', borderBottom: '1px solid rgba(0, 212, 255, 0.12)' }}>
+              <th style={{ padding: '16px 20px', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', fontSize: '11px' }}>Nome</th>
+              <th style={{ padding: '16px 20px', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', fontSize: '11px' }}>E-mail</th>
+              <th style={{ padding: '16px 20px', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', fontSize: '11px' }}>Papel (Role)</th>
+              <th style={{ padding: '16px 20px', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', fontSize: '11px' }}>Status</th>
+              <th style={{ padding: '16px 20px', textAlign: 'right', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', fontSize: '11px' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '12px 16px', color: '#fff' }}>{u.name} {u.id === user.id ? '(Você)' : ''}</td>
-                <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{u.email}</td>
-                <td style={{ padding: '12px 16px' }}>
+              <tr
+                key={u.id}
+                style={{ borderTop: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0, 212, 255, 0.04)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ padding: '14px 20px', color: '#fff', fontWeight: 600 }}>{u.name} {u.id === user.id ? <span style={{ color: '#00D4FF', fontSize: '11px', fontWeight: 800 }}>(Você)</span> : ''}</td>
+                <td style={{ padding: '14px 20px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>{u.email}</td>
+                <td style={{ padding: '14px 20px' }}>
                   <select 
                     value={u.role} 
                     onChange={e => handleChangeRole(u.id, e.target.value)}
-                    style={{ background: 'rgba(0,0,0,0.2)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px' }}
+                    style={{ background: 'rgba(6, 11, 19, 0.7)', color: '#00D4FF', border: '1px solid rgba(0, 212, 255, 0.25)', padding: '6px 10px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', outline: 'none' }}
                   >
                     <option value="admin">Admin</option>
                     <option value="manager">Gestor</option>
                     <option value="auditor">Auditor</option>
                   </select>
                 </td>
-                <td style={{ padding: '12px 16px' }}>
+                <td style={{ padding: '14px 20px' }}>
                   {u.is_active ? 
-                    <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}><Check size={14}/> Ativo</span> : 
-                    <span style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}><X size={14}/> Inativo</span>
+                    <span style={{ color: '#00F5A0', display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(0, 245, 160, 0.12)', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(0, 245, 160, 0.3)', fontWeight: 700, fontSize: '11px' }}><Check size={13}/> Ativo</span> : 
+                    <span style={{ color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(248, 113, 113, 0.12)', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.3)', fontWeight: 700, fontSize: '11px' }}><X size={13}/> Inativo</span>
                   }
                 </td>
-                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                   <button 
                     onClick={() => handleToggleActive(u.id, u.is_active)}
-                    style={{ background: u.is_active ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', color: u.is_active ? '#f87171' : '#34d399', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}
+                    style={{
+                      background: u.is_active ? 'rgba(248,113,113,0.12)' : 'rgba(0,245,160,0.12)',
+                      color: u.is_active ? '#f87171' : '#00F5A0',
+                      border: u.is_active ? '1px solid rgba(248,113,113,0.35)' : '1px solid rgba(0,245,160,0.35)',
+                      padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
+                    }}
                   >
                     {u.is_active ? 'Desativar' : 'Ativar'}
                   </button>
@@ -129,21 +209,21 @@ export default function UsersPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#111d27', padding: '24px', borderRadius: '12px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h3 style={{ margin: '0 0 20px', color: '#fff' }}>Novo Usuário</h3>
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input required placeholder="Nome" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} style={inputStyle} />
-              <input required type="email" placeholder="E-mail" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} style={inputStyle} />
-              <input required type="password" minLength={8} placeholder="Senha (mín 8 carac.)" value={formData.password} onChange={e=>setFormData({...formData, password: e.target.value})} style={inputStyle} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: 'rgba(11, 22, 40, 0.98)', padding: '28px', borderRadius: '20px', width: '100%', maxWidth: '440px', border: '1px solid rgba(0, 212, 255, 0.35)', boxShadow: '0 24px 80px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 212, 255, 0.2)' }}>
+            <h3 style={{ margin: '0 0 20px', color: '#fff', fontSize: '18px', fontWeight: 800 }}>Novo Usuário Administrativo</h3>
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <input required placeholder="Nome completo" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} style={inputStyle} />
+              <input required type="email" placeholder="E-mail corporativo" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} style={inputStyle} />
+              <input required type="password" minLength={8} placeholder="Senha segura (mín 8 carac.)" value={formData.password} onChange={e=>setFormData({...formData, password: e.target.value})} style={inputStyle} />
               <select value={formData.role} onChange={e=>setFormData({...formData, role: e.target.value})} style={inputStyle}>
-                <option value="manager">Gestor</option>
-                <option value="auditor">Auditor</option>
-                <option value="admin">Admin</option>
+                <option value="manager" style={{ background: '#0B1628' }}>Gestor de Frota</option>
+                <option value="auditor" style={{ background: '#0B1628' }}>Auditor (Somente Leitura)</option>
+                <option value="admin" style={{ background: '#0B1628' }}>Administrador Total</option>
               </select>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, padding: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
-                <button type="submit" style={{ flex: 1, padding: '10px', background: '#2FBEB5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Salvar</button>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+                <button type="submit" style={{ flex: 1, padding: '11px', background: 'linear-gradient(135deg, #00D4FF, #0072FF)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 800, boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)' }}>Salvar</button>
               </div>
             </form>
           </div>
@@ -152,6 +232,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-const btnStyle = { background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600 };
-const inputStyle = { padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' };

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Lock, Truck, Mail, Phone, User, PlusCircle, CheckSquare, Square, ShieldCheck, Key, Copy, Check } from 'lucide-react';
 
-export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = [] }) {
+const EMPTY_TRUCKS = [];
+
+export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = EMPTY_TRUCKS }) {
   const [temporaryPassword, setTemporaryPassword] = useState(null);
   const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
@@ -17,38 +19,60 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
     autoEnrollFace: false,
   });
 
+  const prevIsOpenRef = useRef(false);
+  const prevDriverIdRef = useRef(null);
+
   useEffect(() => {
-    if (!isOpen) return;
-    setTemporaryPassword(null);
-    setCopied(false);
-    if (driver) {
-      const assignedTruckId = driver.assigned_trucks && driver.assigned_trucks.length > 0
-        ? String(driver.assigned_trucks[0].id)
-        : '';
-      setFormData({
-        name: driver.name || '',
-        phone: driver.phone || '',
-        email: driver.email || '',
-        password: '',
-        truckMode: assignedTruckId ? 'existing' : 'none',
-        truck_id: assignedTruckId,
-        newTruckPlate: '',
-        newTruckModel: '',
-        newTruckCapacity: '500',
-        autoEnrollFace: false,
-      });
-    } else {
-      setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        password: '',
-        truckMode: trucks.length > 0 ? 'existing' : 'new',
-        truck_id: trucks.length > 0 ? String(trucks[0].id) : '',
-        newTruckPlate: '',
-        newTruckModel: '',
-        newTruckCapacity: '500',
-        autoEnrollFace: false,
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      prevDriverIdRef.current = null;
+      return;
+    }
+
+    const justOpened = !prevIsOpenRef.current;
+    const driverChanged = (driver?.id ?? null) !== prevDriverIdRef.current;
+
+    if (justOpened || driverChanged) {
+      prevIsOpenRef.current = true;
+      prevDriverIdRef.current = driver?.id ?? '__new__';
+      setTemporaryPassword(null);
+      setCopied(false);
+      if (driver) {
+        const assignedTruckId = driver.assigned_trucks && driver.assigned_trucks.length > 0
+          ? String(driver.assigned_trucks[0].id)
+          : '';
+        setFormData({
+          name: driver.name || '',
+          phone: driver.phone || '',
+          email: driver.email || '',
+          password: '',
+          truckMode: assignedTruckId ? 'existing' : 'none',
+          truck_id: assignedTruckId,
+          newTruckPlate: '',
+          newTruckModel: '',
+          newTruckCapacity: '500',
+          autoEnrollFace: false,
+        });
+      } else {
+        setFormData({
+          name: '',
+          phone: '',
+          email: '',
+          password: '',
+          truckMode: trucks.length > 0 ? 'existing' : 'new',
+          truck_id: trucks.length > 0 ? String(trucks[0].id) : '',
+          newTruckPlate: '',
+          newTruckModel: '',
+          newTruckCapacity: '500',
+          autoEnrollFace: false,
+        });
+      }
+    } else if (!driver && trucks.length > 0) {
+      setFormData(prev => {
+        if (prev.truckMode === 'existing' && !prev.truck_id) {
+          return { ...prev, truck_id: String(trucks[0].id) };
+        }
+        return prev;
       });
     }
   }, [isOpen, driver, trucks]);
@@ -245,7 +269,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
               required
               placeholder="Ex: João Silva"
               value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              onChange={e => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, name: val }));
+              }}
               style={inputStyle}
               onFocus={focus}
               onBlur={blur}
@@ -263,7 +290,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                 type="text"
                 placeholder="(11) 99999-9999"
                 value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, phone: val }));
+                }}
                 style={inputStyle}
                 onFocus={focus}
                 onBlur={blur}
@@ -280,7 +310,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                 required
                 placeholder="motorista@empresa.com"
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, email: val }));
+                }}
                 style={inputStyle}
                 onFocus={focus}
                 onBlur={blur}
@@ -298,7 +331,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
               type="text"
               placeholder={driver ? 'Deixar em branco para manter a atual' : 'Mínimo de 8 caracteres (ou gerada automaticamente)'}
               value={formData.password}
-              onChange={e => setFormData({ ...formData, password: e.target.value })}
+              onChange={e => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, password: val }));
+              }}
               style={inputStyle}
               onFocus={focus}
               onBlur={blur}
@@ -334,7 +370,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             }}>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, truckMode: 'existing' })}
+                onClick={() => setFormData(prev => ({ ...prev, truckMode: 'existing' }))}
                 style={{
                   flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                   fontSize: '12px', fontWeight: 600, cursor: 'pointer',
@@ -346,7 +382,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, truckMode: 'new' })}
+                onClick={() => setFormData(prev => ({ ...prev, truckMode: 'new' }))}
                 style={{
                   flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                   fontSize: '12px', fontWeight: 600, cursor: 'pointer',
@@ -359,7 +395,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, truckMode: 'none', truck_id: '' })}
+                onClick={() => setFormData(prev => ({ ...prev, truckMode: 'none', truck_id: '' }))}
                 style={{
                   flex: 0.7, padding: '7px 10px', borderRadius: '8px', border: 'none',
                   fontSize: '12px', fontWeight: 600, cursor: 'pointer',
@@ -376,7 +412,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                 <select
                   id="driver-truck"
                   value={formData.truck_id}
-                  onChange={e => setFormData({ ...formData, truck_id: e.target.value })}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData(prev => ({ ...prev, truck_id: val }));
+                  }}
                   style={{
                     ...inputStyle,
                     background: '#111D27',
@@ -413,7 +452,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                     type="text"
                     placeholder="Placa (ex: BRA2E19)"
                     value={formData.newTruckPlate}
-                    onChange={e => setFormData({ ...formData, newTruckPlate: e.target.value.toUpperCase() })}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase();
+                      setFormData(prev => ({ ...prev, newTruckPlate: val }));
+                    }}
                     style={inputStyle}
                     onFocus={focus}
                     onBlur={blur}
@@ -422,7 +464,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                     type="text"
                     placeholder="Modelo (ex: Volvo FH 540)"
                     value={formData.newTruckModel}
-                    onChange={e => setFormData({ ...formData, newTruckModel: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, newTruckModel: val }));
+                    }}
                     style={inputStyle}
                     onFocus={focus}
                     onBlur={blur}
@@ -433,7 +478,10 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                     type="number"
                     placeholder="Capacidade em litros (ex: 500)"
                     value={formData.newTruckCapacity}
-                    onChange={e => setFormData({ ...formData, newTruckCapacity: e.target.value })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, newTruckCapacity: val }));
+                    }}
                     style={inputStyle}
                     onFocus={focus}
                     onBlur={blur}
@@ -453,7 +501,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             alignItems: 'flex-start',
             gap: '12px',
             cursor: 'pointer'
-          }} onClick={() => setFormData({ ...formData, autoEnrollFace: !formData.autoEnrollFace })}>
+          }} onClick={() => setFormData(prev => ({ ...prev, autoEnrollFace: !prev.autoEnrollFace }))}>
             <div style={{ marginTop: '2px', color: '#2FBEB5' }}>
               {formData.autoEnrollFace ? <CheckSquare size={18} /> : <Square size={18} color="#64748b" />}
             </div>

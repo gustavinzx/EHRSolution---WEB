@@ -204,7 +204,9 @@ function FloatingMapControls({ mapType, setMapType }) {
   );
 }
 
-export default function MapView({ trucks = [] }) {
+const EMPTY_TRUCKS = [];
+
+export default function MapView({ trucks = EMPTY_TRUCKS }) {
   const navigate = useNavigate();
   const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
   const [mapType, setMapType] = React.useState('satellite');

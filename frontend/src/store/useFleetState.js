@@ -5,6 +5,7 @@ import { normalizeRoute } from '../utils/routeGeometry';
 import toast from 'react-hot-toast';
 
 const routeRequests = new Map();
+const fetchedTruckRoutes = new Set();
 let socket = null;
 
 const useFleetState = create((set, get) => ({
@@ -30,7 +31,7 @@ const useFleetState = create((set, get) => ({
     socket = io(url, { auth: { token } });
 
     socket.on('connect', () => {
-      set({ isConnected: true });
+      set({ isConnected: true, error: null });
     });
 
     socket.on('disconnect', () => {
@@ -51,17 +52,20 @@ const useFleetState = create((set, get) => ({
         }
         return truck;
       });
-      const currentRoutes = get().truckRoutes;
       const previousPhases = get().truckPhases || {};
       const newPhases = {};
       fleetData.forEach(truck => {
         newPhases[truck.id] = truck.route_phase;
         const phaseChanged = previousPhases[truck.id] && previousPhases[truck.id] !== truck.route_phase;
-        if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
+        if (phaseChanged) {
+          fetchedTruckRoutes.delete(String(truck.id));
+        }
+        const notYetFetched = !fetchedTruckRoutes.has(String(truck.id));
+        if ((notYetFetched && truck.route_index !== undefined) || phaseChanged) {
           get().fetchTruckRoute(truck.id, { force: Boolean(phaseChanged) });
         }
       });
-      set({ fleet: fleetData, loading: false, truckPhases: newPhases });
+      set({ fleet: fleetData, loading: false, truckPhases: newPhases, isConnected: true });
     });
 
     socket.on('liveEventsUpdate', (data) => {
@@ -98,13 +102,16 @@ const useFleetState = create((set, get) => ({
         return truck;
       });
       
-      const currentRoutes = get().truckRoutes;
       const newPhases = {};
       
       fleetData.forEach(truck => {
         newPhases[truck.id] = truck.route_phase;
         const phaseChanged = get().truckPhases[truck.id] && get().truckPhases[truck.id] !== truck.route_phase;
-        if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
+        if (phaseChanged) {
+          fetchedTruckRoutes.delete(String(truck.id));
+        }
+        const notYetFetched = !fetchedTruckRoutes.has(String(truck.id));
+        if ((notYetFetched && truck.route_index !== undefined) || phaseChanged) {
           get().fetchTruckRoute(truck.id, { force: Boolean(phaseChanged) });
         }
       });
@@ -112,7 +119,8 @@ const useFleetState = create((set, get) => ({
       set({ fleet: fleetData, loading: false, error: null, truckPhases: newPhases, isConnected: true });
     } catch (error) {
       console.error(error);
-      set({ error: error.message, loading: false, isConnected: false });
+      const isSocketActive = Boolean(socket?.connected);
+      set({ error: error.message, loading: false, isConnected: isSocketActive });
     }
   },
 
@@ -206,16 +214,16 @@ const useFleetState = create((set, get) => ({
     const token = localStorage.getItem('token');
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-    // 1. Optimistic update — reflect cancellation in UI immediately
-    set(state => ({
-      fleet: state.fleet.map(t =>
-        t.id === truckId
-          ? { ...t, sim_state: 'driving', route_phase: 'returning_to_base', speed_kmh: 0 }
-          : t
-      ),
       // Invalidate cached route so the new return route is fetched fresh
-      truckRoutes: { ...state.truckRoutes, [String(truckId)]: null },
-    }));
+      fetchedTruckRoutes.delete(String(truckId));
+      set(state => ({
+        fleet: state.fleet.map(t =>
+          t.id === truckId
+            ? { ...t, sim_state: 'driving', route_phase: 'returning_to_base', speed_kmh: 0 }
+            : t
+        ),
+        truckRoutes: { ...state.truckRoutes, [String(truckId)]: null },
+      }));
 
     try {
       const res = await fetch(`${API_URL}/fleet/${truckId}/cancel-route`, {

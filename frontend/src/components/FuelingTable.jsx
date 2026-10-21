@@ -3,24 +3,24 @@ import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import client from '../api/client';
 
 const METHOD_BADGE = {
-  facial:           { label: 'Facial',           bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
-  ble_fallback:     { label: 'BLE Fallback',     bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)' },
-  manager_override: { label: 'Override Gestor',  bg: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'rgba(248,113,113,0.3)' },
+  facial:           { label: 'Facial',           bg: 'rgba(0, 212, 255, 0.12)', color: '#00D4FF', border: 'rgba(0, 212, 255, 0.3)' },
+  ble_fallback:     { label: 'BLE Fallback',     bg: 'rgba(251, 191, 36, 0.12)', color: '#fbbf24', border: 'rgba(251, 191, 36, 0.3)' },
+  manager_override: { label: 'Override Gestor',  bg: 'rgba(248, 113, 113, 0.12)', color: '#f87171', border: 'rgba(248, 113, 113, 0.3)' },
 };
 
 const DATA_SOURCE_BADGE = {
-  hardware:   { label: 'Hardware',       bg: 'rgba(52,211,153,0.15)', color: '#34d399', border: 'rgba(52,211,153,0.3)' },
-  manager:    { label: 'Gestor',         bg: 'rgba(56,189,248,0.15)', color: '#38BDF8', border: 'rgba(56,189,248,0.3)' },
-  simulated:  { label: 'Simulado',       bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', border: 'rgba(148,163,184,0.3)' },
-  unverified: { label: 'Não Verificado', bg: 'rgba(248,113,113,0.15)', color: '#f87171', border: 'rgba(248,113,113,0.3)' },
-  legacy:     { label: 'Legado',         bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', border: 'rgba(148,163,184,0.3)' },
+  hardware:   { label: 'Hardware IoT',   bg: 'rgba(0, 245, 160, 0.12)', color: '#00F5A0', border: 'rgba(0, 245, 160, 0.35)' },
+  manager:    { label: 'Gestor',         bg: 'rgba(0, 212, 255, 0.12)', color: '#00D4FF', border: 'rgba(0, 212, 255, 0.3)' },
+  simulated:  { label: 'Simulado',       bg: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)' },
+  unverified: { label: 'Não Verificado', bg: 'rgba(248, 113, 113, 0.12)', color: '#f87171', border: 'rgba(248, 113, 113, 0.3)' },
+  legacy:     { label: 'Legado',         bg: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)' },
 };
 
 export function renderAnpMatchCell(log) {
   const sm = log?.station_match;
   if (!sm || !sm.status) {
     return (
-      <span title="log legado sem aferição ANP" style={{ fontSize: '12px', color: '#94a3b8' }}>
+      <span title="log legado sem aferição ANP" style={{ fontSize: '12px', color: '#8899A6' }}>
         {log?.station_name || '—'}
       </span>
     );
@@ -40,8 +40,9 @@ export function renderAnpMatchCell(log) {
         <span style={{
           display: 'inline-block', alignSelf: 'flex-start',
           fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
-          background: 'rgba(52,211,153,0.15)', color: '#34d399',
-          border: '1px solid rgba(52,211,153,0.3)', whiteSpace: 'nowrap'
+          background: 'rgba(0, 245, 160, 0.12)', color: '#00F5A0',
+          border: '1px solid rgba(0, 245, 160, 0.3)', whiteSpace: 'nowrap',
+          fontWeight: 700,
         }}>
           {`ANP regular · a ${distM} m`}
         </span>
@@ -63,7 +64,8 @@ export function renderAnpMatchCell(log) {
           display: 'inline-block', alignSelf: 'flex-start',
           fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
           background: 'rgba(248,113,113,0.15)', color: '#f87171',
-          border: '1px solid rgba(248,113,113,0.3)', whiteSpace: 'nowrap'
+          border: '1px solid rgba(248,113,113,0.3)', whiteSpace: 'nowrap',
+          fontWeight: 700,
         }}>
           Não reconhecido
         </span>
@@ -80,7 +82,8 @@ export function renderAnpMatchCell(log) {
         display: 'inline-block', alignSelf: 'flex-start',
         fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
         background: 'rgba(148,163,184,0.15)', color: '#94a3b8',
-        border: '1px solid rgba(148,163,184,0.3)', whiteSpace: 'nowrap'
+        border: '1px solid rgba(148,163,184,0.3)', whiteSpace: 'nowrap',
+        fontWeight: 600,
       }}>
         Sem posição
       </span>
@@ -91,7 +94,9 @@ export function renderAnpMatchCell(log) {
   );
 }
 
-export default function FuelingTable({ logs = [] }) {
+const EMPTY_LOGS = [];
+
+export default function FuelingTable({ logs = EMPTY_LOGS }) {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
@@ -99,21 +104,22 @@ export default function FuelingTable({ logs = [] }) {
   }, []);
 
   if (!logs.length) return (
-    <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
-      <div style={{ fontSize: '36px', marginBottom: '12px' }}>⛽</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '15px' }}>Nenhum abastecimento encontrado</div>
+    <div style={{ padding: '60px', textAlign: 'center', color: '#8899A6' }}>
+      <div style={{ fontSize: '40px', marginBottom: '14px', opacity: 0.8 }}>⛽</div>
+      <div style={{ fontSize: '16px', fontWeight: 700, color: '#E2E8F0' }}>Nenhum abastecimento encontrado</div>
+      <div style={{ fontSize: '13px', marginTop: '6px', color: '#64748B' }}>Ajuste os filtros de busca para visualizar os registros.</div>
     </div>
   );
 
-  const formatVal = (v) => v != null ? parseFloat(v).toFixed(1) : <span title="sem medição">—</span>;
+  const formatVal = (v) => v != null ? parseFloat(v).toFixed(1) : <span title="sem medição" style={{ color: '#64748B' }}>—</span>;
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
         <thead>
-          <tr>
+          <tr style={{ background: 'rgba(6, 11, 19, 0.6)', borderBottom: '1px solid rgba(0, 212, 255, 0.12)' }}>
             {['#', 'Data / Hora', 'Motorista', 'Caminhão', 'Posto (ANP)', 'Bomba (L)', 'Tanque (L)', 'Divergência (L / %)', 'Origem', 'Liberação'].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{h}</th>
+              <th key={h} style={{ padding: '14px 16px', fontSize: '11px', color: '#8899A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -139,39 +145,50 @@ export default function FuelingTable({ logs = [] }) {
             }
 
             return (
-              <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: divColor ? `${divColor}11` : 'transparent' }}>
-                <td style={{ padding: '12px 16px', color: '#94a3b8', fontFamily: 'monospace', fontSize: '12px' }}>#{log.id}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+              <tr
+                key={log.id}
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  background: divColor ? `${divColor}0a` : 'transparent',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (!divColor) e.currentTarget.style.background = 'rgba(0, 212, 255, 0.04)'; }}
+                onMouseLeave={e => { if (!divColor) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <td style={{ padding: '12px 16px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px' }}>#{log.id}</td>
+                <td style={{ padding: '12px 16px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
                   {new Date(log.timestamp).toLocaleString('pt-BR')}
                 </td>
-                <td style={{ padding: '12px 16px', fontWeight: 500, fontSize: '13px', color: '#fff' }}>
+                <td style={{ padding: '12px 16px', fontWeight: 600, fontSize: '13px', color: '#fff' }}>
                   {log.driver_name || `ID ${log.driver_id}`}
                 </td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '12px', background: 'rgba(47,190,181,0.1)', color: '#2FBEB5', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(47,190,181,0.2)' }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', fontWeight: 700, background: 'rgba(0, 212, 255, 0.1)', color: '#00D4FF', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(0, 212, 255, 0.25)' }}>
                     {log.plate || `ID ${log.truck_id}`}
                   </span>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   {renderAnpMatchCell(log)}
                 </td>
-                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: '#fff' }}>
+                <td style={{ padding: '12px 16px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', color: '#fff' }}>
                   {formatVal(log.pump_liters)}
                 </td>
-                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: '#fff' }}>
+                <td style={{ padding: '12px 16px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', color: '#fff' }}>
                   {formatVal(log.tank_liters_delta)}
                 </td>
-                <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '13px', color: divColor || '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {DivIcon && <DivIcon size={14} />}
-                  {divText}
+                <td style={{ padding: '12px 16px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', color: divColor || '#e2e8f0', fontWeight: divColor ? 700 : 500 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {DivIcon && <DivIcon size={14} color={divColor} />}
+                    <span>{divText}</span>
+                  </div>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: dsBadge.bg, color: dsBadge.color, border: `1px solid ${dsBadge.border}` }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: dsBadge.bg, color: dsBadge.color, border: `1px solid ${dsBadge.border}` }}>
                     {dsBadge.label}
                   </span>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: mBadge.bg, color: mBadge.color, border: `1px solid ${mBadge.border}` }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: mBadge.bg, color: mBadge.color, border: `1px solid ${mBadge.border}` }}>
                     {mBadge.label}
                   </span>
                 </td>

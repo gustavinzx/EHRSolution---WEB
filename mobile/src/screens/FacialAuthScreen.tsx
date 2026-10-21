@@ -248,27 +248,27 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
+      {/* Top Header (Screen 2 Mockup) */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backBtn}
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.popToTop()}
         >
           <Text style={styles.backArrow}>‹</Text>
-          <Text style={styles.headerTitle}>Validação Facial</Text>
+          <View>
+            <Text style={styles.headerTitle}>Validação Facial</Text>
+            <Text style={styles.headerSub}>Reconhecimento Biométrico IoT</Text>
+          </View>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.cancelHeaderBtn}
-          onPress={handleCancelPress}
-        >
-          <Text style={styles.cancelHeaderText}>Cancelar</Text>
-        </TouchableOpacity>
+        <View style={styles.biometricStepBadge}>
+          <Text style={styles.biometricStepText}>ETAPA 1/2</Text>
+        </View>
       </View>
 
       {/* Main Content */}
       <View style={styles.content}>
-        {/* Camera Viewfinder */}
+        {/* Camera Viewfinder with Neon Cyan Corner Brackets */}
         <View style={styles.viewfinderCard}>
           <View style={styles.cameraFrame}>
             <CameraView 
@@ -287,7 +287,7 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             ) : null}
 
-            {/* Corner Brackets */}
+            {/* Neon Cyan Corner Brackets */}
             <View style={[styles.corner, styles.cornerTL]} />
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
@@ -303,9 +303,18 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
 
-        <Text style={styles.instructionText}>
-          Posicione seu rosto dentro do quadro
-        </Text>
+        {/* Status Card below Viewfinder (matches Screen 2 Mockup) */}
+        <View style={styles.statusCard}>
+          <Text style={styles.instructionText}>
+            Posicione seu rosto dentro do quadro
+          </Text>
+          <View style={styles.scanProgressTrack}>
+            <View style={[
+              styles.scanProgressBar,
+              { width: state.status === 'VERIFYING' ? '85%' : '45%' }
+            ]} />
+          </View>
+        </View>
 
         {state.error ? (
           <View style={styles.errorCard}>
@@ -313,24 +322,35 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         ) : null}
 
-        {/* Buttons */}
-        <View style={styles.btnSection}>
-          <Button
-            testID="capture-btn"
-            title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "Capturar Foto"}
-            variant="primary"
-            onPress={handleCapture}
-            disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
-            style={styles.captureBtn}
-          />
+        {/* LGPD Compliance Card (matches Screen 2 Mockup) */}
+        <View style={styles.lgpdCard}>
+          <Text style={styles.lgpdIcon}>🛡️</Text>
+          <Text style={styles.lgpdText}>
+            Em conformidade com a LGPD • Seus dados biométricos estão protegidos.
+          </Text>
+        </View>
 
+        {/* Side-by-Side Bottom Action Row (Cancelar + Capturar Foto) */}
+        <View style={styles.btnRow}>
           <TouchableOpacity 
             testID="cancel-btn"
             onPress={handleCancelPress} 
-            style={styles.cancelLink}
+            style={styles.cancelBtnBox}
+            activeOpacity={0.8}
           >
-            <Text style={styles.cancelLinkText}>Cancelar</Text>
+            <Text style={styles.cancelLinkText}>✕  Cancelar</Text>
           </TouchableOpacity>
+
+          <View style={styles.captureBtnWrapper}>
+            <Button
+              testID="capture-btn"
+              title={state.status === 'VERIFYING' ? "VERIFICANDO..." : "Capturar Foto"}
+              variant="primary"
+              onPress={handleCapture}
+              disabled={!cameraReady || state.status === 'VERIFYING' || retryBlocked}
+              style={styles.captureBtn}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -340,67 +360,73 @@ export const FacialAuthScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070D18',
+    backgroundColor: '#050A14',
   },
   header: {
-    paddingTop: 54,
+    paddingTop: 52,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#070D18',
+    paddingBottom: 14,
+    backgroundColor: '#060C18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(0, 229, 255, 0.14)',
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   backArrow: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '300',
-    color: '#FFFFFF',
-    lineHeight: 28,
+    color: '#00E5FF',
+    lineHeight: 30,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  cancelHeaderBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  cancelHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
+  headerSub: {
+    fontSize: 11,
     color: '#94A3B8',
+    fontWeight: '600',
+  },
+  biometricStepBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.35)',
+  },
+  biometricStepText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00E5FF',
+    letterSpacing: 0.8,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
     alignItems: 'center',
   },
   viewfinderCard: {
-    width: 280,
-    height: 320,
+    width: 268,
+    height: 296,
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 229, 255, 0.35)',
+    shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
     elevation: 6,
   },
   cameraFrame: {
@@ -423,96 +449,155 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderColor: '#00C4D0',
+    width: 30,
+    height: 30,
+    borderColor: '#00E5FF',
   },
   cornerTL: {
     top: 14,
     left: 14,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 8,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderTopLeftRadius: 10,
   },
   cornerTR: {
     top: 14,
     right: 14,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 8,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderTopRightRadius: 10,
   },
   cornerBL: {
     bottom: 14,
     left: 14,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 8,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderBottomLeftRadius: 10,
   },
   cornerBR: {
     bottom: 14,
     right: 14,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 8,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderBottomRightRadius: 10,
   },
   overlay: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(7, 13, 24, 0.75)',
+    backgroundColor: 'rgba(5, 10, 20, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   verifyingBadge: {
-    backgroundColor: '#0F1A2C',
-    borderColor: '#00C4D0',
+    backgroundColor: '#0B1628',
+    borderColor: '#00E5FF',
     borderWidth: 1.5,
     borderRadius: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
   },
   overlayText: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  statusCard: {
+    width: '100%',
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    marginTop: 14,
+    alignItems: 'center',
   },
   instructionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#94A3B8',
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#E2E8F0',
     textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  scanProgressTrack: {
+    width: '100%',
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  scanProgressBar: {
+    height: '100%',
+    backgroundColor: '#00E5FF',
+    borderRadius: 3,
   },
   errorCard: {
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
     borderWidth: 1,
     borderRadius: 12,
     padding: 10,
-    marginVertical: 8,
+    marginTop: 10,
     width: '100%',
   },
   errorText: {
     color: '#EF4444',
     fontSize: 13,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  btnSection: {
+  lgpdCard: {
     width: '100%',
-    marginTop: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+  },
+  lgpdIcon: {
+    fontSize: 16,
+  },
+  lgpdText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#94A3B8',
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  btnRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+  },
+  cancelBtnBox: {
+    flex: 0.9,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelLinkText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  captureBtnWrapper: {
+    flex: 1.3,
   },
   captureBtn: {
     width: '100%',
-  },
-  cancelLink: {
-    marginTop: 12,
-    padding: 8,
-  },
-  cancelLinkText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '600',
+    height: 52,
+    borderRadius: 16,
+    marginVertical: 0,
   },
 });

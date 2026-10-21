@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Map, Info } from 'lucide-react';
 import client from '../api/client';
 import toast from 'react-hot-toast';
@@ -9,6 +9,14 @@ export default function RouteModal({ isOpen, onClose, truckId, onConfigured }) {
   const [destination, setDestination] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setOrigin(null);
+      setDestination(null);
+      setShowInfo(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

@@ -626,4 +626,64 @@ describe('apiClient', () => {
       expect(onUnauthorizedMock).toHaveBeenCalledWith('Seu acesso foi desativado. Procure o gestor.');
     });
   });
+
+  describe('getWallet', () => {
+    it('successfully fetches wallet metrics and sicoob transactions', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      const mockWalletData = {
+        bank: {
+          institution: 'Banco Cooperativo Sicoob S.A.',
+          code: '756',
+          cooperative: 'Sicoob Credifrotas DF (4321)',
+          accountNumber: '10987-6',
+          corporateName: 'EHR Logística & Transportes S.A.',
+          status: 'connected',
+          protocol: 'Open Finance Brasil / OAuth2 mTLS',
+          developerPortalUrl: 'https://developers.sicoob.com.br/portal/apis',
+          lastSync: '2026-10-21T18:00:00Z',
+        },
+        wallet: {
+          monthlyCreditLimit: 5000,
+          balanceAvailable: 3450.5,
+          totalSpentMonth: 1549.5,
+          totalLitersMonth: 256.12,
+          averagePricePerLiter: 6.05,
+          fuelType: 'Diesel S10',
+          fuelingCount: 3,
+        },
+        transactions: [
+          {
+            id: 101,
+            timestamp: '2026-10-21T12:00:00Z',
+            stationName: 'Posto Shell Recanto das Emas',
+            brand: 'Shell',
+            truckPlate: 'BRA2E19',
+            liters: 100,
+            pricePerLiter: 6.05,
+            totalAmount: 605.0,
+            paymentMethod: 'Cartão Frota Sicoob Visa PJ',
+            status: 'liquidated',
+            authProtocol: 'SCB-000101',
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockWalletData),
+      });
+
+      const res = await apiClient.getWallet();
+      expect(res).toEqual(mockWalletData);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/wallet`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer driver_token',
+          }),
+        })
+      );
+    });
+  });
 });

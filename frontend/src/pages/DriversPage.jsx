@@ -18,11 +18,14 @@ import {
   Mail,
   CheckCircle2,
   XCircle,
+  ScanFace,
 } from 'lucide-react';
 
 const glass = {
-  background: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
   borderRadius: '16px',
 };
 
@@ -50,7 +53,7 @@ export default function DriversPage() {
   } = useDrivers();
   const { trucks } = useFleet();
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('ALL'); // ALL, ACTIVE, BIO, NO_BIO
+  const [filterType, setFilterType] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [assigning, setAssigning] = useState({});
@@ -114,32 +117,34 @@ export default function DriversPage() {
   const totalAssigned = drivers.filter(d => (d.assigned_trucks || []).length > 0).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
       {/* ── Page Header ── */}
       <div style={{
         ...glass,
-        padding: '24px 32px',
+        padding: '26px 32px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 100%)',
-        border: '1px solid rgba(0, 196, 208, 0.2)',
+        background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+        border: '1px solid rgba(0, 212, 255, 0.22)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{
             width: '52px',
             height: '52px',
             borderRadius: '14px',
-            background: 'rgba(0, 196, 208, 0.1)',
-            border: '1px solid rgba(0, 196, 208, 0.3)',
+            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+            border: '1px solid rgba(0, 212, 255, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)',
           }}>
-            <Users size={26} color="#00C4D0" />
+            <Users size={26} color="#00D4FF" />
           </div>
           <div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
               Gestão de Motoristas
             </h1>
             <p style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}>
@@ -159,16 +164,19 @@ export default function DriversPage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '11px 20px',
+                padding: '10px 18px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                 color: '#FFFFFF',
                 fontWeight: 700,
                 fontSize: '13px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(0, 196, 208, 0.3)',
+                boxShadow: '0 0 20px rgba(0, 212, 255, 0.35)',
+                transition: 'all 0.2s',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
               <UserPlus size={16} /> Cadastrar Motorista
             </button>
@@ -179,23 +187,32 @@ export default function DriversPage() {
       {/* ── Summary KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         {[
-          { label: 'Total de Motoristas', val: drivers.length, sub: 'cadastros no sistema', color: '#00C4D0' },
-          { label: 'Motoristas Ativos', val: activeCount, sub: 'com permissão de acesso', color: '#10B981' },
-          { label: 'Biometria Facial Ativa', val: bioCount, sub: 'reconhecimento liberado', color: '#38BDF8' },
-          { label: 'Caminhões Vinculados', val: totalAssigned, sub: 'motoristas com veículo', color: '#F59E0B' },
+          { label: 'Total de Motoristas', val: drivers.length, sub: 'cadastros ativos', color: '#00D4FF', icon: Users, bg: 'rgba(0, 212, 255, 0.08)' },
+          { label: 'Motoristas Ativos', val: activeCount, sub: 'com permissão de acesso', color: '#00F5A0', icon: CheckCircle2, bg: 'rgba(0, 245, 160, 0.08)' },
+          { label: 'Biometria Facial Ativa', val: bioCount, sub: 'reconhecimento liberado', color: '#38BDF8', icon: ScanFace, bg: 'rgba(56, 189, 248, 0.08)' },
+          { label: 'Caminhões Vinculados', val: totalAssigned, sub: 'motoristas escalados', color: '#F59E0B', icon: Truck, bg: 'rgba(245, 158, 11, 0.08)' },
         ].map(kpi => (
           <div key={kpi.label} style={{
             ...glass,
-            padding: '16px 20px',
+            padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px',
-            background: 'rgba(11, 20, 32, 0.65)',
-          }}>
-            <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
-              {kpi.label}
-            </span>
-            <div style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px' }}>
+            gap: '6px',
+            background: kpi.bg,
+            border: `1px solid ${kpi.color}33`,
+            boxShadow: `0 4px 20px ${kpi.color}15`,
+            transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
+                {kpi.label}
+              </span>
+              <kpi.icon size={16} color={kpi.color} />
+            </div>
+            <div style={{ fontSize: '28px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: "'IBM Plex Mono', monospace" }}>
               {kpi.val}
             </div>
             <span style={{ fontSize: '11px', color: kpi.color, fontWeight: 600 }}>
@@ -214,25 +231,26 @@ export default function DriversPage() {
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '12px',
-        background: 'rgba(11, 20, 32, 0.65)',
+        background: 'rgba(11, 22, 40, 0.75)',
       }}>
         {/* Search */}
         <div style={{ position: 'relative', width: '340px' }}>
           <Search size={15} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748B' }} />
           <input
             type="text"
-            placeholder="Buscar motorista por nome, e-mail ou telefone..."
+            placeholder="Buscar por nome, e-mail ou telefone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
               width: '100%',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(6, 11, 19, 0.7)',
+              border: '1px solid rgba(0, 212, 255, 0.2)',
               borderRadius: '10px',
               padding: '9px 14px 9px 38px',
               color: '#FFFFFF',
               fontSize: '13px',
               outline: 'none',
+              fontFamily: 'Inter, sans-serif',
             }}
           />
         </div>
@@ -254,9 +272,11 @@ export default function DriversPage() {
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                border: filterType === f.id ? '1px solid rgba(0, 196, 208, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: filterType === f.id ? 'rgba(0, 196, 208, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                color: filterType === f.id ? '#00C4D0' : '#8899A6',
+                border: filterType === f.id ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: filterType === f.id ? 'rgba(0, 212, 255, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                color: filterType === f.id ? '#00D4FF' : '#8899A6',
+                boxShadow: filterType === f.id ? '0 0 12px rgba(0, 212, 255, 0.2)' : 'none',
+                transition: 'all 0.2s',
               }}
             >
               {f.label}
@@ -272,51 +292,54 @@ export default function DriversPage() {
           padding: '80px 20px',
           textAlign: 'center',
           color: '#64748B',
-          background: 'rgba(11, 20, 32, 0.65)',
+          background: 'rgba(11, 22, 40, 0.75)',
         }}>
           <Users size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
           <div style={{ fontSize: '18px', fontWeight: 700, color: '#E2E8F0' }}>Nenhum motorista encontrado</div>
           <div style={{ marginTop: '8px', fontSize: '13px' }}>Tente alterar os termos de busca ou cadastre um novo motorista.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
           {filtered.map(d => {
             const assignedList = d.assigned_trucks || [];
             const avatarBorder = !d.is_active
               ? '2px solid #EF4444'
               : d.face_enrolled
-              ? '2px solid #10B981'
+              ? '2px solid #00F5A0'
               : '2px solid #F59E0B';
             const avatarGlow = !d.is_active
-              ? '0 0 8px rgba(239, 68, 68, 0.35)'
+              ? '0 0 10px rgba(239, 68, 68, 0.35)'
               : d.face_enrolled
-              ? '0 0 8px rgba(16, 185, 129, 0.35)'
-              : '0 0 6px rgba(245, 158, 11, 0.25)';
+              ? '0 0 12px rgba(0, 245, 160, 0.35)'
+              : '0 0 8px rgba(245, 158, 11, 0.25)';
 
             return (
               <div
                 key={d.id}
                 style={{
                   ...glass,
-                  padding: '16px 18px',
+                  padding: '20px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
-                  background: 'rgba(11, 20, 32, 0.8)',
+                  gap: '14px',
+                  background: 'rgba(11, 22, 40, 0.82)',
                   position: 'relative',
                   opacity: d.is_active ? 1 : 0.65,
+                  transition: 'border-color 0.2s, transform 0.2s',
                 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.14)'; e.currentTarget.style.transform = 'translateY(0)'; }}
               >
                 {/* Header: Avatar, Name & Edit Button */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                     <div
                       data-testid={`driver-avatar-${d.id}`}
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '12px',
-                        backgroundColor: '#1E293B',
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '14px',
+                        backgroundColor: '#070D18',
                         border: avatarBorder,
                         overflow: 'hidden',
                         display: 'flex',
@@ -350,10 +373,10 @@ export default function DriversPage() {
                           justifyContent: 'center',
                           width: '100%',
                           height: '100%',
-                          fontSize: '14px',
+                          fontSize: '15px',
                           fontWeight: 800,
-                          color: '#00C4D0',
-                          fontFamily: 'monospace',
+                          color: '#00D4FF',
+                          fontFamily: "'IBM Plex Mono', monospace",
                         }}
                       >
                         {getInitials(d.name)}
@@ -370,7 +393,7 @@ export default function DriversPage() {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#8899A6', marginTop: '1px' }}>
+                      <div style={{ fontSize: '12px', color: '#8899A6', marginTop: '2px' }}>
                         {d.email || 'Sem e-mail cadastrado'}
                       </div>
                     </div>
@@ -384,19 +407,20 @@ export default function DriversPage() {
                       }}
                       title="Editar motorista"
                       style={{
-                        width: '26px',
-                        height: '26px',
+                        width: '28px',
+                        height: '28px',
                         background: 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         color: '#64748B',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        transition: 'all 0.2s',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#FFFFFF'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#64748B'}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#00D4FF'; e.currentTarget.style.borderColor = '#00D4FF'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
                     >
                       <Edit2 size={13} />
                     </button>
@@ -407,22 +431,22 @@ export default function DriversPage() {
                 <div style={{
                   padding: '12px 14px',
                   borderRadius: '12px',
-                  background: d.face_enrolled ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-                  border: d.face_enrolled ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)',
+                  background: d.face_enrolled ? 'rgba(0, 245, 160, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                  border: d.face_enrolled ? '1px solid rgba(0, 245, 160, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {d.face_enrolled ? (
-                      <ShieldCheck size={16} color="#10B981" />
+                      <ShieldCheck size={16} color="#00F5A0" />
                     ) : (
                       <ShieldAlert size={16} color="#F59E0B" />
                     )}
                     <span style={{
                       fontSize: '12px',
                       fontWeight: 700,
-                      color: d.face_enrolled ? '#10B981' : '#F59E0B',
+                      color: d.face_enrolled ? '#00F5A0' : '#F59E0B',
                     }}>
                       {d.face_enrolled ? 'Biometria Ativa' : 'Sem Biometria'}
                     </span>
@@ -447,14 +471,15 @@ export default function DriversPage() {
                       <button
                         onClick={() => setEnrollDriverTarget(d)}
                         style={{
-                          background: '#00C4D0',
+                          background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                           border: 'none',
-                          borderRadius: '6px',
+                          borderRadius: '8px',
                           color: '#FFFFFF',
                           fontSize: '11px',
-                          fontWeight: 700,
-                          padding: '5px 12px',
+                          fontWeight: 800,
+                          padding: '6px 14px',
                           cursor: 'pointer',
+                          boxShadow: '0 0 12px rgba(0, 212, 255, 0.35)',
                         }}
                       >
                         Cadastrar
@@ -478,14 +503,15 @@ export default function DriversPage() {
                             fontWeight: 800,
                             padding: '4px 10px',
                             borderRadius: '8px',
-                            background: 'rgba(0, 196, 208, 0.1)',
-                            border: '1px solid rgba(0, 196, 208, 0.3)',
-                            color: '#00C4D0',
+                            background: 'rgba(0, 212, 255, 0.1)',
+                            border: '1px solid rgba(0, 212, 255, 0.35)',
+                            color: '#00D4FF',
                             letterSpacing: '0.5px',
+                            fontFamily: "'IBM Plex Mono', monospace",
                           }}
                         >
                           {t.plate && <span>{t.plate}</span>}
-                          {t.model && <span style={{ opacity: 0.7, marginLeft: '4px' }}>• {t.model}</span>}
+                          {t.model && <span style={{ opacity: 0.7, marginLeft: '4px', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>• {t.model}</span>}
                         </span>
                       ))
                     ) : (
@@ -503,8 +529,8 @@ export default function DriversPage() {
                         onChange={e => setAssigning({ ...assigning, [d.id]: e.target.value })}
                         style={{
                           flex: 1,
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          background: 'rgba(6, 11, 19, 0.7)',
+                          border: '1px solid rgba(0, 212, 255, 0.15)',
                           color: '#FFFFFF',
                           padding: '7px 10px',
                           borderRadius: '8px',
@@ -528,7 +554,7 @@ export default function DriversPage() {
                           padding: '7px 14px',
                           borderRadius: '8px',
                           border: 'none',
-                          background: assigning[d.id] ? '#00C4D0' : 'rgba(255, 255, 255, 0.05)',
+                          background: assigning[d.id] ? 'linear-gradient(135deg, #00D4FF, #0072FF)' : 'rgba(255, 255, 255, 0.05)',
                           color: assigning[d.id] ? '#FFFFFF' : '#64748B',
                           fontWeight: 700,
                           fontSize: '12px',
@@ -547,10 +573,10 @@ export default function DriversPage() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   paddingTop: '12px',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderTop: '1px solid rgba(0, 212, 255, 0.08)',
                   marginTop: 'auto',
                 }}>
-                  <div style={{ fontSize: '12px', color: '#8899A6' }}>
+                  <div style={{ fontSize: '12px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>
                     Tel: {d.phone || '—'}
                   </div>
 
@@ -559,14 +585,14 @@ export default function DriversPage() {
                       type="button"
                       onClick={() => handleToggleActive(d)}
                       style={{
-                        background: d.is_active ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                        border: d.is_active ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
-                        color: d.is_active ? '#EF4444' : '#10B981',
+                        background: d.is_active ? 'rgba(239, 68, 68, 0.12)' : 'rgba(0, 245, 160, 0.12)',
+                        border: d.is_active ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(0, 245, 160, 0.35)',
+                        color: d.is_active ? '#EF4444' : '#00F5A0',
                         borderRadius: '8px',
                         fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        padding: '5px 12px',
+                        padding: '6px 12px',
                         transition: 'all 0.2s ease',
                       }}
                     >
@@ -589,6 +615,7 @@ export default function DriversPage() {
         }}
         onSave={handleSave}
         driver={editingDriver}
+        trucks={trucks}
       />
 
       <EnrollmentModal

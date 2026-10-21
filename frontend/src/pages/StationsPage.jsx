@@ -24,19 +24,22 @@ import {
 import toast from 'react-hot-toast';
 
 const glass = {
-  background: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
   borderRadius: '16px',
 };
 
 const inputStyle = {
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.09)',
+  background: 'rgba(6, 11, 19, 0.7)',
+  border: '1px solid rgba(0, 212, 255, 0.2)',
   color: '#FFFFFF',
   padding: '10px 14px',
   borderRadius: '10px',
   fontSize: '13px',
   outline: 'none',
+  fontFamily: 'inherit',
 };
 
 const ALL_UFS = [
@@ -75,9 +78,9 @@ export function getAnpStationBadge(station) {
   }
   return {
     label: 'Regular',
-    color: '#34d399',
-    bg: 'rgba(52,211,153,0.14)',
-    border: 'rgba(52,211,153,0.35)',
+    color: '#00F5A0',
+    bg: 'rgba(0, 245, 160, 0.14)',
+    border: 'rgba(0, 245, 160, 0.35)',
   };
 }
 
@@ -88,7 +91,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, AUTHORIZED, BLOCKED
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedStationId, setSelectedStationId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -281,38 +284,40 @@ export default function StationsPage({ initialTab = 'authorized' }) {
   if (loading && activeTab === 'authorized') return <LoadingSpinner />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
       {/* ── Page Header & Tabs ── */}
       <div
         style={{
           ...glass,
-          padding: '24px 32px',
+          padding: '26px 32px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '16px',
-          background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 100%)',
-          border: '1px solid rgba(0, 196, 208, 0.2)',
+          background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+          border: '1px solid rgba(0, 212, 255, 0.22)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div
             style={{
               width: '52px',
               height: '52px',
               borderRadius: '14px',
-              background: 'rgba(0, 196, 208, 0.1)',
-              border: '1px solid rgba(0, 196, 208, 0.3)',
+              background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+              border: '1px solid rgba(0, 212, 255, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)',
             }}
           >
-            <MapPin size={26} color="#00C4D0" />
+            <MapPin size={26} color="#00D4FF" />
           </div>
           <div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
               Postos de Combustível
             </h1>
             {activeTab === 'authorized' ? (
@@ -335,8 +340,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
             role="tablist"
             style={{
               display: 'flex',
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(6, 11, 19, 0.7)',
+              border: '1px solid rgba(0, 212, 255, 0.2)',
               borderRadius: '12px',
               padding: '4px',
             }}
@@ -353,8 +358,10 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                background: activeTab === 'authorized' ? 'rgba(0, 196, 208, 0.15)' : 'transparent',
-                color: activeTab === 'authorized' ? '#00C4D0' : '#8899A6',
+                background: activeTab === 'authorized' ? 'linear-gradient(135deg, #00D4FF, #0072FF)' : 'transparent',
+                color: activeTab === 'authorized' ? '#FFFFFF' : '#8899A6',
+                boxShadow: activeTab === 'authorized' ? '0 0 14px rgba(0, 212, 255, 0.35)' : 'none',
+                transition: 'all 0.2s',
               }}
             >
               Rede Autorizada
@@ -374,8 +381,10 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: activeTab === 'anp' ? 'rgba(0, 196, 208, 0.15)' : 'transparent',
-                color: activeTab === 'anp' ? '#00C4D0' : '#8899A6',
+                background: activeTab === 'anp' ? 'linear-gradient(135deg, #00D4FF, #0072FF)' : 'transparent',
+                color: activeTab === 'anp' ? '#FFFFFF' : '#8899A6',
+                boxShadow: activeTab === 'anp' ? '0 0 14px rgba(0, 212, 255, 0.35)' : 'none',
+                transition: 'all 0.2s',
               }}
             >
               <Database size={14} /> ANP (Brasil)
@@ -395,13 +404,16 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 padding: '10px 18px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                 color: '#FFFFFF',
                 fontWeight: 700,
                 fontSize: '13px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(0, 196, 208, 0.3)',
+                boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
+                transition: 'all 0.2s',
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
               <Plus size={16} /> Novo Posto
             </button>
@@ -416,41 +428,50 @@ export default function StationsPage({ initialTab = 'authorized' }) {
             label: 'Rede Cadastrada',
             val: stations.length,
             sub: 'postos na base de dados',
-            color: '#00C4D0',
+            color: '#00D4FF',
             icon: MapPin,
+            bg: 'rgba(0, 212, 255, 0.08)',
           },
           {
             label: 'Postos Autorizados',
             val: authorizedCount,
             sub: 'destrava liberada para frota',
-            color: '#10B981',
+            color: '#00F5A0',
             icon: ShieldCheck,
+            bg: 'rgba(0, 245, 160, 0.08)',
           },
           {
             label: 'Postos Bloqueados',
             val: blockedCount,
             sub: 'abastecimento vedado',
-            color: blockedCount > 0 ? '#EF4444' : '#10B981',
+            color: blockedCount > 0 ? '#EF4444' : '#00F5A0',
             icon: MapPinOff,
+            bg: blockedCount > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(0, 245, 160, 0.08)',
           },
           {
             label: 'Geolocalização Ativa',
             val: withGpsCount,
-            sub: 'com perímetro de cerca virtual',
+            sub: 'com perímetro virtual',
             color: '#38BDF8',
             icon: Navigation,
+            bg: 'rgba(56, 189, 248, 0.08)',
           },
         ].map(kpi => (
           <div
             key={kpi.label}
             style={{
               ...glass,
-              padding: '16px 20px',
+              padding: '18px 20px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
-              background: 'rgba(11, 20, 32, 0.65)',
+              gap: '6px',
+              background: kpi.bg,
+              border: `1px solid ${kpi.color}33`,
+              boxShadow: `0 4px 20px ${kpi.color}15`,
+              transition: 'transform 0.2s',
             }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
@@ -458,7 +479,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               </span>
               <kpi.icon size={16} color={kpi.color} />
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono, monospace)' }}>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: "'IBM Plex Mono', monospace" }}>
               {kpi.val}
             </div>
             <span style={{ fontSize: '11px', color: kpi.color, fontWeight: 600 }}>
@@ -469,7 +490,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          ABA 1: REDE AUTORIZADA (Balanced 50/50 Split View with Leaflet Map)
+          ABA 1: REDE AUTORIZADA (Balanced Split View with Leaflet Map)
       ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'authorized' && (
         <div style={{ display: 'grid', gridTemplateColumns: '460px 1fr', gap: '20px', alignItems: 'stretch', minHeight: '600px' }}>
@@ -478,7 +499,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
             style={{
               ...glass,
               padding: '20px',
-              background: 'rgba(11, 20, 32, 0.75)',
+              background: 'rgba(11, 22, 40, 0.82)',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
@@ -525,9 +546,11 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     fontSize: '12px',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    border: statusFilter === f.id ? '1px solid rgba(0, 196, 208, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: statusFilter === f.id ? 'rgba(0, 196, 208, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                    color: statusFilter === f.id ? '#00C4D0' : '#8899A6',
+                    border: statusFilter === f.id ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: statusFilter === f.id ? 'rgba(0, 212, 255, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                    color: statusFilter === f.id ? '#00D4FF' : '#8899A6',
+                    boxShadow: statusFilter === f.id ? '0 0 10px rgba(0, 212, 255, 0.2)' : 'none',
+                    transition: 'all 0.2s',
                   }}
                 >
                   {f.label}
@@ -552,8 +575,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                       style={{
                         padding: '16px',
                         borderRadius: '12px',
-                        background: isSelected ? 'rgba(0, 196, 208, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                        border: isSelected ? '1.5px solid rgba(0, 196, 208, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
+                        background: isSelected ? 'rgba(0, 212, 255, 0.1)' : 'rgba(6, 11, 19, 0.5)',
+                        border: isSelected ? '1.5px solid #00D4FF' : '1px solid rgba(0, 212, 255, 0.1)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '10px',
@@ -568,12 +591,12 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                               width: '38px',
                               height: '38px',
                               borderRadius: '10px',
-                              background: s.is_authorized ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                              border: s.is_authorized ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                              background: s.is_authorized ? 'rgba(0, 245, 160, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                              border: s.is_authorized ? '1px solid rgba(0, 245, 160, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              color: s.is_authorized ? '#10B981' : '#EF4444',
+                              color: s.is_authorized ? '#00F5A0' : '#EF4444',
                               flexShrink: 0,
                             }}
                           >
@@ -597,7 +620,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                           style={{
                             background: 'transparent',
                             border: 'none',
-                            color: s.is_authorized ? '#10B981' : '#EF4444',
+                            color: s.is_authorized ? '#00F5A0' : '#EF4444',
                             cursor: 'pointer',
                             padding: '4px',
                           }}
@@ -611,14 +634,14 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', color: '#8899A6' }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', color: '#8899A6' }}>
                           GPS: {s.lat}, {s.lng}
                         </span>
                         <span
                           style={{
                             fontSize: '11px',
                             fontWeight: 700,
-                            color: '#00C4D0',
+                            color: '#00D4FF',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
@@ -635,7 +658,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
           </div>
 
           {/* Right Column: Interactive Map */}
-          <div style={{ ...glass, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...glass, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
             <AuthorizedStationsMap
               stations={filtered}
               selectedStationId={selectedStationId}
@@ -651,8 +674,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 position: 'fixed',
                 inset: 0,
                 zIndex: 999,
-                background: 'rgba(0, 0, 0, 0.75)',
-                backdropFilter: 'blur(8px)',
+                background: 'rgba(3, 7, 18, 0.85)',
+                backdropFilter: 'blur(10px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -662,12 +685,13 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               <form
                 onSubmit={handleSave}
                 style={{
-                  background: 'rgba(11, 20, 36, 0.98)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(11, 22, 40, 0.98)',
+                  border: '1px solid rgba(0, 212, 255, 0.35)',
                   borderRadius: '20px',
                   width: '100%',
                   maxWidth: '440px',
-                  padding: '24px',
+                  padding: '26px',
+                  boxShadow: '0 24px 80px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 212, 255, 0.2)',
                 }}
               >
                 <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', marginBottom: '20px' }}>
@@ -732,10 +756,11 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                       padding: '11px',
                       borderRadius: '10px',
                       border: 'none',
-                      background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                      background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                       color: '#FFFFFF',
                       fontWeight: 700,
                       cursor: 'pointer',
+                      boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
                     }}
                   >
                     Salvar Posto
@@ -761,7 +786,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               gridTemplateColumns: '130px 1fr 1fr 1.4fr',
               gap: '12px',
               alignItems: 'center',
-              background: 'rgba(11, 20, 32, 0.75)',
+              background: 'rgba(11, 22, 40, 0.75)',
             }}
           >
             <select
@@ -769,8 +794,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               value={anpFilters.uf}
               onChange={e => handleFilterChange('uf', e.target.value)}
               style={{
-                background: '#111D27',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(6, 11, 19, 0.7)',
+                border: '1px solid rgba(0, 212, 255, 0.2)',
                 color: '#fff',
                 padding: '10px 12px',
                 borderRadius: '10px',
@@ -841,10 +866,10 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '12px',
-                background: 'rgba(11, 20, 32, 0.75)',
+                background: 'rgba(11, 22, 40, 0.75)',
               }}
             >
-              <Database size={36} color="#00C4D0" />
+              <Database size={36} color="#00D4FF" />
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
                 Catálogo ANP ainda não sincronizado
               </div>
@@ -865,24 +890,24 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               />
 
               {/* Tabela Paginada */}
-              <div style={{ ...glass, overflow: 'hidden', background: 'rgba(11, 20, 32, 0.75)' }}>
+              <div style={{ ...glass, overflow: 'hidden', background: 'rgba(11, 22, 40, 0.75)' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
-                      <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                      <tr style={{ background: 'rgba(6, 11, 19, 0.6)', borderBottom: '1px solid rgba(0, 212, 255, 0.12)' }}>
+                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#8899A6', textTransform: 'uppercase' }}>
                           Razão Social
                         </th>
-                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#8899A6', textTransform: 'uppercase' }}>
                           CNPJ
                         </th>
-                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#8899A6', textTransform: 'uppercase' }}>
                           UF / Município
                         </th>
-                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#8899A6', textTransform: 'uppercase' }}>
                           Bandeira
                         </th>
-                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '13px 16px', fontSize: '11px', fontWeight: 700, color: '#8899A6', textTransform: 'uppercase' }}>
                           Situação
                         </th>
                       </tr>
@@ -902,10 +927,12 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                               key={st.cnpj}
                               onClick={() => handleOpenAnpDetails(st)}
                               style={{
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                borderBottom: '1px solid rgba(255,255,255,0.04)',
                                 cursor: 'pointer',
                                 transition: 'background 0.15s',
                               }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0, 212, 255, 0.04)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
                               <td style={{ padding: '13px 16px', fontSize: '13px', fontWeight: 600, color: '#fff' }}>
                                 {st.razao_social}
@@ -913,7 +940,7 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                                   {st.endereco || '—'} {st.bairro ? `• ${st.bairro}` : ''}
                                 </div>
                               </td>
-                              <td style={{ padding: '13px 16px', fontSize: '12px', color: '#cbd5e1', fontFamily: 'var(--font-mono, monospace)' }}>
+                              <td style={{ padding: '13px 16px', fontSize: '12px', color: '#cbd5e1', fontFamily: "'IBM Plex Mono', monospace" }}>
                                 {formatCnpj(st.cnpj)}
                               </td>
                               <td style={{ padding: '13px 16px', fontSize: '13px', color: '#e2e8f0' }}>
@@ -955,17 +982,17 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                 <div
                   style={{
                     padding: '12px 16px',
-                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    borderTop: '1px solid rgba(0, 212, 255, 0.1)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     fontSize: '12px',
-                    color: '#94a3b8',
+                    color: '#8899A6',
                   }}
                 >
                   <span>
-                    Total: <strong>{anpTotal}</strong> registros • Página <strong>{anpPage}</strong> de{' '}
-                    <strong>{totalPages}</strong>
+                    Total: <strong style={{ color: '#fff' }}>{anpTotal}</strong> registros • Página <strong style={{ color: '#fff' }}>{anpPage}</strong> de{' '}
+                    <strong style={{ color: '#fff' }}>{totalPages}</strong>
                   </span>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
@@ -978,9 +1005,9 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                         gap: '4px',
                         padding: '6px 12px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.04)',
-                        color: anpPage <= 1 ? '#475569' : '#fff',
+                        border: '1px solid rgba(0, 212, 255, 0.2)',
+                        background: 'rgba(6, 11, 19, 0.6)',
+                        color: anpPage <= 1 ? '#475569' : '#00D4FF',
                         cursor: anpPage <= 1 ? 'not-allowed' : 'pointer',
                       }}
                     >
@@ -996,9 +1023,9 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                         gap: '4px',
                         padding: '6px 12px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.04)',
-                        color: anpPage >= totalPages ? '#475569' : '#fff',
+                        border: '1px solid rgba(0, 212, 255, 0.2)',
+                        background: 'rgba(6, 11, 19, 0.6)',
+                        color: anpPage >= totalPages ? '#475569' : '#00D4FF',
                         cursor: anpPage >= totalPages ? 'not-allowed' : 'pointer',
                       }}
                     >
@@ -1021,8 +1048,8 @@ export default function StationsPage({ initialTab = 'authorized' }) {
             position: 'fixed',
             inset: 0,
             zIndex: 1100,
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(3, 7, 18, 0.75)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             justifyContent: 'flex-end',
           }}
@@ -1033,18 +1060,19 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               width: '100%',
               maxWidth: '460px',
               height: '100%',
-              background: '#0b1424',
-              borderLeft: '1px solid rgba(255,255,255,0.1)',
-              padding: '24px',
+              background: '#0B1628',
+              borderLeft: '1px solid rgba(0, 212, 255, 0.25)',
+              padding: '26px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
               gap: '18px',
+              boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.8)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#00C4D0', fontWeight: 700, textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '11px', color: '#00D4FF', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   Detalhes do Posto ANP
                 </div>
                 <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', margin: '4px 0 0' }}>
@@ -1098,10 +1126,10 @@ export default function StationsPage({ initialTab = 'authorized' }) {
 
             <div
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(6, 11, 19, 0.6)',
+                border: '1px solid rgba(0, 212, 255, 0.15)',
                 borderRadius: '12px',
-                padding: '14px',
+                padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
@@ -1110,37 +1138,37 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               }}
             >
               <div>
-                <strong style={{ color: '#94a3b8' }}>CNPJ:</strong> {formatCnpj(selectedAnpStation.cnpj)} (
+                <strong style={{ color: '#8899A6' }}>CNPJ:</strong> {formatCnpj(selectedAnpStation.cnpj)} (
                 {selectedAnpStation.cnpj})
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Bandeira:</strong> {selectedAnpStation.bandeira || '—'}
+                <strong style={{ color: '#8899A6' }}>Bandeira:</strong> {selectedAnpStation.bandeira || '—'}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Endereço:</strong> {selectedAnpStation.endereco || '—'}
+                <strong style={{ color: '#8899A6' }}>Endereço:</strong> {selectedAnpStation.endereco || '—'}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Bairro / CEP:</strong> {selectedAnpStation.bairro || '—'} • CEP:{' '}
+                <strong style={{ color: '#8899A6' }}>Bairro / CEP:</strong> {selectedAnpStation.bairro || '—'} • CEP:{' '}
                 {selectedAnpStation.cep || '—'}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Município / UF:</strong> {selectedAnpStation.municipio || '—'} /{' '}
+                <strong style={{ color: '#8899A6' }}>Município / UF:</strong> {selectedAnpStation.municipio || '—'} /{' '}
                 {selectedAnpStation.uf}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Coordenadas:</strong>{' '}
+                <strong style={{ color: '#8899A6' }}>Coordenadas:</strong>{' '}
                 {selectedAnpStation.lat !== null && selectedAnpStation.lng !== null
                   ? `${selectedAnpStation.lat}, ${selectedAnpStation.lng}`
                   : 'Sem coordenadas'}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Acurácia Estimada:</strong>{' '}
+                <strong style={{ color: '#8899A6' }}>Acurácia Estimada:</strong>{' '}
                 {selectedAnpStation.acuracia_metros !== null && selectedAnpStation.acuracia_metros !== undefined
                   ? `${selectedAnpStation.acuracia_metros} m`
                   : '—'}
               </div>
               <div>
-                <strong style={{ color: '#94a3b8' }}>Situação SIGAF:</strong>{' '}
+                <strong style={{ color: '#8899A6' }}>Situação SIGAF:</strong>{' '}
                 {selectedAnpStation.interdicted
                   ? selectedAnpStation.situacao_sigaf || 'Interditado'
                   : selectedAnpStation.situacao_sigaf || 'Regular'}
@@ -1151,16 +1179,17 @@ export default function StationsPage({ initialTab = 'authorized' }) {
               <h3
                 style={{
                   fontSize: '13px',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   color: '#fff',
                   textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   marginBottom: '10px',
                 }}
               >
-                <Fuel size={15} color="#00C4D0" /> Produtos, Tancagem e Bicos
+                <Fuel size={15} color="#00D4FF" /> Produtos, Tancagem e Bicos
               </h3>
               {Array.isArray(selectedAnpStation.produtos) && selectedAnpStation.produtos.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1168,18 +1197,18 @@ export default function StationsPage({ initialTab = 'authorized' }) {
                     <div
                       key={idx}
                       style={{
-                        background: 'rgba(0, 196, 208, 0.06)',
-                        border: '1px solid rgba(0, 196, 208, 0.2)',
+                        background: 'rgba(0, 212, 255, 0.06)',
+                        border: '1px solid rgba(0, 212, 255, 0.2)',
                         borderRadius: '10px',
                         padding: '10px 12px',
                         fontSize: '12px',
                         color: '#e2e8f0',
                       }}
                     >
-                      <div style={{ fontWeight: 700, color: '#00C4D0' }}>{prod.produto}</div>
-                      <div style={{ color: '#94a3b8', marginTop: '4px' }}>
-                        Tancagem: <strong>{prod.tancagem}</strong> {prod.unidMedidaTancagem || 'm³'} • Bicos:{' '}
-                        <strong>{prod.qtdeBicos}</strong>
+                      <div style={{ fontWeight: 700, color: '#00D4FF' }}>{prod.produto}</div>
+                      <div style={{ color: '#8899A6', marginTop: '4px' }}>
+                        Tancagem: <strong style={{ color: '#fff' }}>{prod.tancagem}</strong> {prod.unidMedidaTancagem || 'm³'} • Bicos:{' '}
+                        <strong style={{ color: '#fff' }}>{prod.qtdeBicos}</strong>
                       </div>
                     </div>
                   ))}

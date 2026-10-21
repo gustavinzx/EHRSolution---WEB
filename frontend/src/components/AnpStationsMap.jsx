@@ -30,8 +30,10 @@ function BoundsWatcher({ onBoundsChange }) {
   return null;
 }
 
+const EMPTY_STATIONS = [];
+
 export default function AnpStationsMap({
-  stations = [],
+  stations = EMPTY_STATIONS,
   truncated = false,
   loading = false,
   onBoundsChange,

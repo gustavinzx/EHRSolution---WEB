@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Alert, Animated, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, Animated, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { Button } from '../components/Button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -181,7 +181,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               clearInterval(pollInterval);
             }
           }
-        } catch (e: any) {
+        } catch {
           if (!active) return;
           consecutiveFailures.current += 1;
           if (consecutiveFailures.current >= 3) {
@@ -310,7 +310,10 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.popToTop()}
         >
           <Text style={styles.backArrow}>‹</Text>
-          <Text style={styles.headerTitle}>Operação</Text>
+          <View>
+            <Text style={styles.headerTitle}>Operação IoT</Text>
+            <Text style={styles.headerSub}>Controle de Abastecimento</Text>
+          </View>
         </TouchableOpacity>
 
         {canCancel && (
@@ -327,7 +330,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           </View>
         )}
 
-        {/* STATE: WAITING HARDWARE OU AUTHORIZING (Screen 4 da referência) */}
+        {/* STATE: WAITING HARDWARE OU AUTHORIZING */}
         {(state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE') && (
           <View style={styles.centerSection}>
             <FuelingAnimation />
@@ -363,7 +366,6 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               </View>
             </View>
 
-            {/* Cancel Danger Pill Button */}
             <Button
               testID="cancel-btn"
               title="Cancelar abastecimento"
@@ -374,9 +376,14 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           </View>
         )}
 
-        {/* STATE: FUELING (Screen 5 da referência) */}
+        {/* STATE: FUELING (Screen 3 of Mockup — preserving exact Fueling State Honesty tests) */}
         {state.status === 'FUELING' && (
           <View style={styles.centerSection}>
+            <View style={styles.unlockedPillBadge}>
+              <View style={styles.unlockedDot} />
+              <Text style={styles.unlockedPillText}>TRAVA ELETRÔNICA DESTRAVADA</Text>
+            </View>
+
             <FuelingAnimation />
 
             <Text style={styles.mainTitle}>Abastecendo...</Text>
@@ -384,7 +391,7 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               Trava liberada e fluxo de combustível ativo. Aguarde a conclusão no bocal.
             </Text>
 
-            {/* Summary Metric Cards */}
+            {/* Summary Metric Cards (Veículo & Capacidade with honest fallback) */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
                 <Text style={styles.statIcon}>🚛</Text>
@@ -410,10 +417,10 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           </View>
         )}
 
-        {/* STATE: DONE (Screen 6 da referência) */}
+        {/* STATE: DONE (Screen 4 of Mockup — Receipt + Auto-Locked Status) */}
         {state.status === 'DONE' && (
           <View style={styles.centerSection}>
-            {/* Success Check Badge */}
+            {/* Glowing Emerald Success Check Badge */}
             <View style={styles.successBadge}>
               <Text style={styles.successCheck}>✓</Text>
             </View>
@@ -421,9 +428,15 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
             <Text style={styles.mainTitle}>Abastecimento concluído</Text>
             <Text style={styles.subTitle}>Operação finalizada com sucesso!</Text>
 
+            <View style={styles.autoLockedBadge}>
+              <Text style={styles.autoLockedText}>🔒 Trava Eletrônica Trancada Automaticamente</Text>
+            </View>
+
             {/* Receipt Summary Card */}
             {sessionDetail?.result && (
               <View style={styles.receiptCard} testID="result-card">
+                <Text style={styles.receiptCardHeaderTitle}>COMPROVANTE DE OPERAÇÃO IoT</Text>
+
                 <View style={styles.receiptRow}>
                   <View style={styles.receiptLabelRow}>
                     <Text style={styles.receiptIcon}>📄</Text>
@@ -469,7 +482,6 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
               </View>
             )}
 
-            {/* Actions matching Screen 6 */}
             <Button
               title="Voltar ao Início"
               variant="primary"
@@ -547,94 +559,123 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070D18',
+    backgroundColor: '#050A14',
   },
   header: {
-    paddingTop: 54,
+    paddingTop: 52,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#070D18',
+    paddingBottom: 14,
+    backgroundColor: '#060C18',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(0, 229, 255, 0.14)',
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   backArrow: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '300',
-    color: '#FFFFFF',
-    lineHeight: 28,
+    color: '#00E5FF',
+    lineHeight: 30,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  headerSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   cancelHeaderBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   cancelHeaderText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#F87171',
   },
   scroll: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 22,
+    paddingTop: 22,
     paddingBottom: 40,
   },
   centerSection: {
     alignItems: 'center',
     width: '100%',
   },
+  unlockedPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 6,
+  },
+  unlockedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  unlockedPillText: {
+    color: '#10B981',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
   animCenter: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 140,
-    height: 140,
-    marginVertical: 16,
+    width: 146,
+    height: 146,
+    marginVertical: 14,
   },
   animGlow: {
     position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    backgroundColor: 'rgba(0, 229, 255, 0.16)',
   },
   animCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: '#0F1A2C',
+    width: 114,
+    height: 114,
+    borderRadius: 57,
+    backgroundColor: '#0B1628',
     borderWidth: 4,
-    borderColor: 'rgba(0, 196, 208, 0.3)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#00C4D0',
+    shadowColor: '#00E5FF',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 4,
+    elevation: 5,
   },
   rotatingRing: {
     position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 114,
+    height: 114,
+    borderRadius: 57,
     borderWidth: 4,
-    borderColor: '#00C4D0',
+    borderColor: '#00E5FF',
     borderTopColor: 'transparent',
     borderRightColor: 'transparent',
   },
@@ -646,34 +687,29 @@ const styles = StyleSheet.create({
     fontSize: 34,
   },
   mainTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   subTitle: {
     fontSize: 13,
     color: '#94A3B8',
     textAlign: 'center',
     marginTop: 6,
-    marginBottom: 20,
-    paddingHorizontal: 16,
-    lineHeight: 18,
+    marginBottom: 18,
+    paddingHorizontal: 14,
+    lineHeight: 19,
   },
   stepperCard: {
     width: '100%',
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
     marginVertical: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 2,
   },
   stepRow: {
     flexDirection: 'row',
@@ -696,12 +732,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   stepActive: {
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    backgroundColor: 'rgba(0, 229, 255, 0.16)',
     borderWidth: 1.5,
-    borderColor: '#00C4D0',
+    borderColor: '#00E5FF',
   },
   stepSpin: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontWeight: '800',
     fontSize: 14,
   },
@@ -716,7 +752,7 @@ const styles = StyleSheet.create({
   stepLine: {
     width: 2,
     height: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
     marginLeft: 13,
     marginVertical: 4,
   },
@@ -728,61 +764,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stepTextActive: {
-    color: '#00C4D0',
+    color: '#00E5FF',
     fontWeight: '700',
   },
   stepTextPending: {
     color: '#64748B',
     fontWeight: '500',
   },
-  fuelVolumeText: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#00C4D0',
-    textAlign: 'center',
-    marginTop: 6,
-    letterSpacing: -0.5,
-  },
-  fuelTimeText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 16,
-  },
-  fuelProgressTrack: {
-    width: '100%',
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  fuelProgressBar: {
-    width: '65%',
-    height: '100%',
-    backgroundColor: '#00C4D0',
-    borderRadius: 4,
-  },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   statBox: {
     flex: 1,
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
   },
   statIcon: {
     fontSize: 22,
@@ -798,120 +800,129 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   fuelingNoticeCard: {
-    backgroundColor: 'rgba(0, 196, 208, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 196, 208, 0.25)',
-    borderRadius: 14,
-    padding: 14,
     width: '100%',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    marginBottom: 16,
   },
   fuelingNoticeText: {
-    fontSize: 12,
-    color: '#00C4D0',
-    fontWeight: '600',
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
   successBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0, 196, 208, 0.15)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
     borderWidth: 3,
-    borderColor: '#00C4D0',
+    borderColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 16,
+    marginVertical: 14,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 4,
   },
   successCheck: {
-    fontSize: 36,
-    color: '#00C4D0',
+    fontSize: 38,
     fontWeight: '900',
+    color: '#10B981',
+  },
+  autoLockedBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 14,
+  },
+  autoLockedText: {
+    color: '#10B981',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   receiptCard: {
     width: '100%',
-    backgroundColor: '#0F1A2C',
+    backgroundColor: '#0B1628',
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: 'rgba(0, 229, 255, 0.22)',
+    marginBottom: 20,
+  },
+  receiptCardHeaderTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00E5FF',
+    letterSpacing: 1.2,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   receiptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   receiptLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   receiptIcon: {
-    fontSize: 14,
-  },
-  receiptLabel: {
-    fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '600',
+    fontSize: 18,
   },
   receiptValue: {
     fontSize: 14,
-    color: '#FFFFFF',
     fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
   },
   receiptPendingText: {
     fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#F59E0B',
+    flex: 1,
   },
   receiptDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 4,
   },
   cancelActionBtn: {
     width: '100%',
-    height: 52,
-    borderRadius: 26,
-    marginTop: 8,
-    backgroundColor: '#EF4444',
-    borderColor: '#DC2626',
+    marginTop: 12,
   },
   doneBtn: {
     width: '100%',
-    height: 52,
-    borderRadius: 26,
-    marginTop: 8,
-    backgroundColor: '#00C4D0',
-    borderColor: '#00B4C0',
+    marginTop: 6,
   },
   historyBtn: {
     width: '100%',
-    height: 50,
-    borderRadius: 25,
-    marginTop: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    marginTop: 10,
   },
   networkBanner: {
-    backgroundColor: '#F59E0B',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 16,
     width: '100%',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'center',
   },
   networkBannerText: {
-    color: '#FFFFFF',
-    textAlign: 'center',
-    fontSize: 12,
+    color: '#F59E0B',
     fontWeight: '700',
+    fontSize: 13,
   },
 });

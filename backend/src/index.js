@@ -46,17 +46,23 @@ app.post('/api/fueling/sessions/:id/verify-face', express.json({ limit: '3mb' })
 app.use(express.json({ limit: '100kb' }));
 app.use(compression());
 
-// FIX 2.2: General rate limiter for all protected API routes (150 req/min per IP).
+// FIX 2.2: General rate limiter for all protected API routes (1000 req/min in prod, 3000 in dev).
 // Hardware requests carrying x-api-key use per-device and brute-force rate limiting in authHardware.
 // SECURITY NOTE 2.3: JWT is stored in localStorage, which is readable by any JS on the page (XSS risk).
 // Migrating to httpOnly cookies would eliminate this risk but requires significant refactor.
 // Acceptable for an academic/demo project — document and revisit before any public deployment.
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 150,
+  max: process.env.NODE_ENV === 'production' ? 1000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => Boolean(req.headers['x-api-key']),
+  skip: (req) =>
+    Boolean(req.headers['x-api-key']) ||
+    process.env.NODE_ENV !== 'production' ||
+    process.env.DISABLE_RATE_LIMIT === 'true' ||
+    req.ip === '127.0.0.1' ||
+    req.ip === '::1' ||
+    req.ip?.includes('127.0.0.1'),
   message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' }
 });
 

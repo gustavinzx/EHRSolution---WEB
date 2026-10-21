@@ -899,4 +899,79 @@ describe('DashboardScreen', () => {
       expect(queryByTestId('history-error-card')).toBeNull();
     });
   });
+
+  describe('Carteira Tab (Sicoob Open Banking)', () => {
+    it('switches to Carteira tab and displays Sicoob card, balance, and transaction', async () => {
+
+      (apiClient.getWallet as jest.Mock).mockResolvedValue({
+        bank: {
+          institution: 'Banco Cooperativo Sicoob S.A.',
+          code: '756',
+          cooperative: 'Sicoob Credifrotas DF (4321)',
+          accountNumber: '10987-6',
+          corporateName: 'EHR Logística & Transportes S.A.',
+          status: 'connected',
+          protocol: 'Open Finance Brasil / OAuth2 mTLS',
+          developerPortalUrl: 'https://developers.sicoob.com.br/portal/apis',
+          lastSync: '2026-10-21T18:00:00Z',
+        },
+        wallet: {
+          monthlyCreditLimit: 5000,
+          balanceAvailable: 3450.5,
+          totalSpentMonth: 1549.5,
+          totalLitersMonth: 256.12,
+          averagePricePerLiter: 6.05,
+          fuelType: 'Diesel S10',
+          fuelingCount: 1,
+        },
+        transactions: [
+          {
+            id: 101,
+            timestamp: '2026-10-21T12:00:00Z',
+            stationName: 'Posto Shell Recanto das Emas',
+            brand: 'Shell',
+            truckPlate: 'BRA2E19',
+            liters: 100,
+            pricePerLiter: 6.05,
+            totalAmount: 605.0,
+            paymentMethod: 'Cartão Frota Sicoob Visa PJ',
+            status: 'liquidated',
+            authProtocol: 'SCB-000101',
+          },
+        ],
+      });
+
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { id: 1, name: 'João Silva', email: 'motorista1@ehr.com', phone: '11999999999' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH 540', capacity: 500 },
+        signOut: jest.fn(),
+      });
+
+      const { getByText, findByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      // Press Carteira in bottom dock
+      await act(async () => {
+        fireEvent.press(getByText('Carteira'));
+      });
+
+      await waitFor(() => {
+        expect(apiClient.getWallet).toHaveBeenCalled();
+      });
+
+      // Check Sicoob card elements
+      expect(await findByText('SICOOB')).toBeTruthy();
+      expect(await findByText('CARTÃO FROTA PJ')).toBeTruthy();
+      expect(await findByText('Credifrotas DF (756)')).toBeTruthy();
+
+      // Check Open Finance status
+      expect(await findByText('Open Finance Brasil • Conexão Ativa mTLS')).toBeTruthy();
+
+      // Check Transaction item
+      expect(await findByText('Posto Shell Recanto das Emas')).toBeTruthy();
+      expect(await findByText('✓ Compensado (SCB-000101)')).toBeTruthy();
+    });
+  });
+
 });

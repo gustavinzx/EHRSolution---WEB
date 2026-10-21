@@ -7,6 +7,8 @@ import { Vehicle } from '../types/vehicle';
 const TOKEN_KEY = 'ehr_auth_token';
 const DRIVER_KEY = 'ehr_driver_data';
 const VEHICLE_KEY = 'ehr_vehicle_data';
+const CREDENTIALS_KEY = 'ehr_saved_credentials';
+const BIOMETRIC_KEY = 'ehr_biometric_opt_in';
 
 const isWeb = Platform.OS === 'web';
 
@@ -79,6 +81,31 @@ export const secureStorage = {
       await removeItem(VEHICLE_KEY);
       return null;
     }
+  },
+
+  async saveCredentials(email: string, pass: string): Promise<void> {
+    await setItem(CREDENTIALS_KEY, JSON.stringify({ email, pass }));
+  },
+  async getSavedCredentials(): Promise<{ email: string; pass: string } | null> {
+    const data = await getItem(CREDENTIALS_KEY);
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      await removeItem(CREDENTIALS_KEY);
+      return null;
+    }
+  },
+  async removeSavedCredentials(): Promise<void> {
+    await removeItem(CREDENTIALS_KEY);
+  },
+
+  async setBiometricOptIn(enabled: boolean): Promise<void> {
+    await setItem(BIOMETRIC_KEY, enabled ? 'true' : 'false');
+  },
+  async getBiometricOptIn(): Promise<boolean> {
+    const val = await getItem(BIOMETRIC_KEY);
+    return val === 'true';
   },
 
   async clearAll(): Promise<void> {
