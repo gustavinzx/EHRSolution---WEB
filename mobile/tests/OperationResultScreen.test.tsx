@@ -42,32 +42,30 @@ describe('OperationResultScreen', () => {
     it('authorizes with GPS granted sending lat and lng', async () => {
       (apiClient.authorizeSession as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'authorized' });
 
-      render(
+      const { findByText } = render(
         <OperationResultScreen 
           navigation={mockNavigation} 
           route={{ params: { sessionId: 1, initialState: 'AUTHORIZING' } } as any} 
         />
       );
 
-      await waitFor(() => {
-        expect(apiClient.authorizeSession).toHaveBeenCalledWith(1, { lat: -23.55, lng: -46.63 });
-      });
+      await findByText('Aguardando liberação da bomba');
+      expect(apiClient.authorizeSession).toHaveBeenCalledWith(1, { lat: -23.55, lng: -46.63 });
     });
 
     it('authorizes with GPS denied sending empty body', async () => {
       (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'denied' });
       (apiClient.authorizeSession as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'authorized' });
 
-      render(
+      const { findByText } = render(
         <OperationResultScreen 
           navigation={mockNavigation} 
           route={{ params: { sessionId: 1, initialState: 'AUTHORIZING' } } as any} 
         />
       );
 
-      await waitFor(() => {
-        expect(apiClient.authorizeSession).toHaveBeenCalledWith(1, undefined);
-      });
+      await findByText('Aguardando liberação da bomba');
+      expect(apiClient.authorizeSession).toHaveBeenCalledWith(1, undefined);
     });
 
     it('handles geofence 403 with real server error message', async () => {

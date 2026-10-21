@@ -514,5 +514,38 @@ describe('FacialAuthScreen', () => {
 
       jest.useRealTimers();
     });
+
+    it('exibe o preview da foto capturada enquanto valida e limpa caso falhe', async () => {
+      let resolveVerify: (val: any) => void;
+      (apiClient.verifyFace as jest.Mock).mockReturnValue(
+        new Promise((resolve) => {
+          resolveVerify = resolve;
+        })
+      );
+
+      const { getByTestId, queryByTestId } = render(
+        <FacialAuthScreen 
+          navigation={mockNavigation} 
+          route={{ params: { sessionId: 1, status: 'requested', releaseMethod: 'facial' } } as any} 
+        />
+      );
+
+      expect(queryByTestId('captured-photo-preview')).toBeNull();
+      fireEvent.press(getByTestId('capture-btn'));
+
+      await waitFor(() => {
+        const preview = getByTestId('captured-photo-preview');
+        expect(preview.props.source).toEqual({ uri: 'file:///manipulated.jpg' });
+      });
+
+      await act(async () => {
+        resolveVerify!({ verified: false, attempts: 1, attempts_left: 2 });
+      });
+
+      await waitFor(() => {
+        expect(queryByTestId('captured-photo-preview')).toBeNull();
+      });
+    });
   });
 });
+

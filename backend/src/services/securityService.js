@@ -51,7 +51,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
   
   const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
   // Eventos que geram alerta visível ao gestor, mas não marcam o caminhão como em risco
-  const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated']);
+  const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated', 'gps_position_divergence']);
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
   
   const { rows: events } = await runner.query(`INSERT INTO security_events
@@ -69,7 +69,8 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
       facial_auth_locked: `Motorista excedeu ${payload.max_attempts || 3} tentativas de reconhecimento facial. Liberação manual necessária.`,
       manager_override: `Trava liberada manualmente pelo gestor. Motivo: ${payload.reason || 'não informado'}.`,
       face_provider_error: 'Falha na comunicação com o provedor de biometria facial.',
-      driver_deactivated: 'Motorista desativado ativamente. Operações suspensas.'
+      driver_deactivated: 'Motorista desativado ativamente. Operações suspensas.',
+      gps_position_divergence: `Posição GPS do celular do motorista divergiu em ${payload.distance_km ?? '?'} km da posição do caminhão.`
     };
     const { rows } = await runner.query(`INSERT INTO fleet_alerts
       (truck_id, type, severity, message, plate, model) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${ALERT_RETURN_COLS}`,

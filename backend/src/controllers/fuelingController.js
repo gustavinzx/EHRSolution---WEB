@@ -342,7 +342,44 @@ exports.authorizeSession = async (req, res) => {
         req.body?.lat !== undefined &&
         req.body?.lat !== null &&
         req.body?.lng !== undefined &&
-        req.body?.lng !== null;
+        req.body?.lng !== null &&
+        Number.isFinite(Number(req.body.lat)) &&
+        Number.isFinite(Number(req.body.lng));
+
+      if (hasBodyCoords) {
+        const bodyLat = Number(req.body.lat);
+        const bodyLng = Number(req.body.lng);
+
+        await db.query(
+          `UPDATE fueling_sessions
+              SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
+            WHERE id = $2`,
+          [JSON.stringify({ authorized_lat: bodyLat, authorized_lng: bodyLng }), id]
+        );
+
+        if (session.truck_lat == null || session.truck_lng == null) {
+          await db.query(
+            `UPDATE trucks SET lat = COALESCE(lat, $1), lng = COALESCE(lng, $2) WHERE id = $3`,
+            [bodyLat, bodyLng, session.truck_id]
+          );
+        } else {
+          const divKm = haversineKm(bodyLat, bodyLng, Number(session.truck_lat), Number(session.truck_lng));
+          const maxDivKm = parseFloat(process.env.GPS_DIVERGENCE_KM) || 0.5;
+          if (divKm > maxDivKm) {
+            await security.recordSecurityEvent({
+              truckId: session.truck_id,
+              type: "gps_position_divergence",
+              severity: "medium",
+              source: "app",
+              payload: { session_id: Number(id), distance_km: Number(divKm.toFixed(3)) },
+              io: req.io,
+            }).catch((secErr) => {
+              console.error("[GPS-DIVERGENCE] Falha ao registrar alerta de divergência GPS:", secErr.message);
+            });
+          }
+        }
+      }
+
       const matchRes = await stationMatcher.resolveStation({ lat, lng });
       const matchedId = matchRes?.station?.id || null;
       const matchedStatus = matchRes?.status || "no_position";
@@ -389,7 +426,7 @@ exports.finishSession = async (req, res) => {
     const { id } = req.params;
     const { rows: sessions } = await db.query(
       `SELECT id, truck_id, driver_id, status, station_id, release_method,
-              requested_at, authorized_at, started_at, pump_liters,
+              requested_at, authorized_at, started_at, pump_liters, metadata,
               anp_station_id, station_match_status, station_match_distance_m, station_match_source
          FROM fueling_sessions
         WHERE id=$1 AND status IN ('authorized','active')
@@ -453,6 +490,9 @@ exports.finishSession = async (req, res) => {
       levelBefore = parseFloat(truck.current_level_liters);
     }
 
+    const logLat = truck.lat ?? session.metadata?.authorized_lat ?? null;
+    const logLng = truck.lng ?? session.metadata?.authorized_lng ?? null;
+
     const { rows: insertedLogs } = await db.query(
       `INSERT INTO fueling_logs
          (session_id, driver_id, truck_id, lat, lng, level_before, level_after, release_method,
@@ -460,7 +500,7 @@ exports.finishSession = async (req, res) => {
           pump_liters, tank_liters_delta, data_source,
           anp_station_id, station_match_status, station_match_distance_m, station_match_source)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
-      [id, session.driver_id, session.truck_id, truck.lat, truck.lng,
+      [id, session.driver_id, session.truck_id, logLat, logLng,
        levelBefore, levelAfter, session.release_method || "facial",
        session.station_id, truck.station_name || null,
        startedAt, now, durationMin.toFixed(1), volume,
@@ -853,7 +893,11 @@ exports.verifyFace = async (req, res) => {
 
     if (isSuccess) {
       const formattedPhoto = image_base64.startsWith('data:') ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
-      await client.query("UPDATE drivers SET face_photo = $1 WHERE id = $2 AND face_photo IS NULL", [formattedPhoto, req.actor.id]);
+      const simulatorPlaceholder = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+      await client.query(
+        "UPDATE drivers SET face_photo = $1 WHERE id = $2 AND (face_photo IS NULL OR face_photo = $3)",
+        [formattedPhoto, req.actor.id, simulatorPlaceholder]
+      );
       await client.query("UPDATE fueling_sessions SET facial_verified_at=NOW(), facial_attempt_id=$1 WHERE id=$2", [attemptIns[0].id, id]);
       await client.query("COMMIT");
       clientReleased = true;

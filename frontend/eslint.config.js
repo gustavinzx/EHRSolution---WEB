@@ -23,7 +23,9 @@ export default [
         Blob: "readonly",
         alert: "readonly",
         AbortController: "readonly",
-        Event: "readonly"
+        Event: "readonly",
+        navigator: "readonly",
+        FileReader: "readonly"
       },
       parserOptions: {
         ecmaFeatures: {

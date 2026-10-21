@@ -20,7 +20,6 @@ function BoundsWatcher({ onBoundsChange }) {
 
   useEffect(() => {
     notifyBounds();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useMapEvents({
