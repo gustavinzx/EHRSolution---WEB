@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,11 @@ import {
   Switch,
   TouchableOpacity,
 } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { getBaseUrl } from '../services/api/apiClient';
+import { secureStorage } from '../storage/secureStorage';
 
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
@@ -24,7 +26,79 @@ export const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometria');
+  const [, setHasSavedCredentials] = useState(false);
   const { signIn } = useAuth();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initBiometricsAndCreds() {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (isMounted && hasHardware && isEnrolled) {
+          setBiometricAvailable(true);
+          const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+          if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+            setBiometricType('Face ID');
+          } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+            setBiometricType('Digital');
+          } else {
+            setBiometricType('Biometria');
+          }
+        }
+
+        const savedCreds = await secureStorage.getSavedCredentials();
+        if (isMounted && savedCreds?.email) {
+          setIdentifier(savedCreds.email);
+          setHasSavedCredentials(true);
+        }
+      } catch (err) {
+        // Fallback gracioso caso não suporte no ambiente de execução
+      }
+    }
+
+    initBiometricsAndCreds();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleBiometricAuth = async () => {
+    setErrorMessage('');
+    try {
+      const savedCreds = await secureStorage.getSavedCredentials();
+      if (!savedCreds?.email || !savedCreds?.pass) {
+        Alert.alert(
+          'Biometria do Dispositivo',
+          'Faça login com seu e-mail e senha uma vez para associar este aparelho à sua conta.'
+        );
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Autentique com ${biometricType} para entrar no EHR Frota`,
+        fallbackLabel: 'Usar Senha',
+        cancelLabel: 'Cancelar',
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        setLoading(true);
+        await signIn(savedCreds.email, savedCreds.pass);
+      }
+    } catch (error: any) {
+      const msg = error.message || 'Falha na autenticação biométrica.';
+      setErrorMessage(msg);
+      Alert.alert('Erro Biometria', msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     setErrorMessage('');
@@ -38,6 +112,13 @@ export const LoginScreen: React.FC = () => {
     setLoading(true);
     try {
       await signIn(identifier.trim(), pass);
+      if (rememberMe) {
+        await secureStorage.saveCredentials(identifier.trim(), pass);
+        await secureStorage.setBiometricOptIn(true);
+      } else {
+        await secureStorage.removeSavedCredentials();
+        await secureStorage.setBiometricOptIn(false);
+      }
     } catch (error: any) {
       const msg = error.message || 'Falha ao autenticar.';
       setErrorMessage(msg);
@@ -157,6 +238,33 @@ export const LoginScreen: React.FC = () => {
                   style={styles.loginBtn}
                 />
 
+                {/* Acesso Biométrico Nativo (Face ID / Impressão Digital) */}
+                {biometricAvailable && (
+                  <View style={styles.biometricSection}>
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>OU DESBLOQUEIO RÁPIDO</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.biometricBtn}
+                      onPress={handleBiometricAuth}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.biometricIcon}>
+                        {biometricType === 'Face ID' ? '📱' : '👆'}
+                      </Text>
+                      <Text style={styles.biometricBtnText}>
+                        Entrar com {biometricType}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.biometricHint}>
+                      Autenticação biométrica nativa do seu smartphone
+                    </Text>
+                  </View>
+                )}
+
                 {/* Footer Corporativo */}
                 <View style={styles.footerInfo}>
                   <Text style={styles.footerText}>EHR Solutions • Gestão de Abastecimento</Text>
@@ -248,7 +356,7 @@ const styles = StyleSheet.create({
   },
   truckSpacer: {
     flex: 1,
-    minHeight: 130,
+    minHeight: 110,
   },
   card: {
     backgroundColor: 'rgba(11, 22, 40, 0.96)',
@@ -319,7 +427,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   rememberText: {
     fontSize: 13,
@@ -342,11 +450,62 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     marginTop: 6,
+    marginBottom: 8,
+  },
+  biometricSection: {
+    marginTop: 8,
     marginBottom: 10,
+    alignItems: 'center',
+    width: '100%',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dividerText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '700',
+    letterSpacing: 1,
+    paddingHorizontal: 8,
+  },
+  biometricBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(0, 212, 255, 0.45)',
+    gap: 10,
+  },
+  biometricIcon: {
+    fontSize: 18,
+  },
+  biometricBtnText: {
+    color: '#00D4FF',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  biometricHint: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 6,
+    textAlign: 'center',
   },
   footerInfo: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   footerText: {
     fontSize: 11,

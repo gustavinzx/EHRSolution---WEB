@@ -4,6 +4,7 @@ import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Session, ReleaseMethod } from '../../types/session';
 import { HistoryResponse } from '../../types/history';
+import { WalletResponse } from '../../types/wallet';
 
 const isLoopbackHost = (host: string): boolean => host === 'localhost' || host === '127.0.0.1';
 
@@ -192,6 +193,12 @@ export const apiClient = {
 
   async getHistory(page: number = 1, limit: number = 20): Promise<HistoryResponse> {
     return await request<HistoryResponse>(`/fueling/history?page=${page}&limit=${limit}`, {
+      method: 'GET'
+    });
+  },
+
+  async getWallet(): Promise<WalletResponse> {
+    return await request<WalletResponse>('/fueling/wallet', {
       method: 'GET'
     });
   }

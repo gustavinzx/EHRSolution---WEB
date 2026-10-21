@@ -6,6 +6,7 @@ const security = require("../services/securityService");
 const { releaseTruckIfIdle } = require("../services/sessionRelease");
 const stationMatcher = require("../services/stationMatcher");
 const { evaluateAnpStationAlertForLog } = require("../services/anomalyDetector");
+const sicoobService = require("../services/sicoobService");
 
 const SESSION_PUBLIC_COLS = `
   s.id, s.truck_id, s.driver_id, s.status, s.release_method,
@@ -218,6 +219,20 @@ exports.getHistory = async (req, res) => {
     });
   } catch (err) {
     console.error("Get fueling history error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.getDriverWallet = async (req, res) => {
+  try {
+    const driverId = req.actor?.id;
+    if (!driverId) {
+      return res.status(401).json({ error: "Authorization token missing or invalid" });
+    }
+    const wallet = await sicoobService.getDriverWallet(driverId);
+    return res.json(wallet);
+  } catch (err) {
+    console.error("Get driver wallet error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

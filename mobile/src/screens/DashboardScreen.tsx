@@ -20,6 +20,7 @@ import { apiClient } from '../services/api/apiClient';
 import { getBleLock } from '../services/bluetooth/bleLock';
 import { getCancelErrorMessage } from '../utils/cancelError';
 import { HistoryItem, HistorySummary } from '../types/history';
+import { WalletResponse } from '../types/wallet';
 
 const formatReleaseMethod = (method: string): string => {
   switch (method) {
@@ -69,7 +70,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { driver, vehicle, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'perfil'>('inicio');
+  const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'carteira' | 'perfil'>('inicio');
 
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
@@ -80,6 +81,36 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyInlineError, setHistoryInlineError] = useState<string | null>(null);
+
+  const [walletData, setWalletData] = useState<WalletResponse | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletRefreshing, setWalletRefreshing] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const loadWallet = useCallback(async (isRefresh: boolean = false) => {
+    if (isRefresh) {
+      setWalletRefreshing(true);
+    } else {
+      setWalletLoading(true);
+    }
+    setWalletError(null);
+    try {
+      const res = await apiClient.getWallet();
+      if (isMountedRef.current) {
+        setWalletData(res);
+      }
+    } catch (err: any) {
+      if (isMountedRef.current) {
+        setWalletError(err.message || 'Não foi possível carregar os dados da carteira.');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setWalletLoading(false);
+        setWalletRefreshing(false);
+      }
+    }
+  }, []);
+
 
   const latestRequestIdRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -159,12 +190,17 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     useCallback(() => {
       if (activeTab === 'historico') {
         loadHistory(1);
+      } else if (activeTab === 'carteira') {
+        loadWallet();
       }
-    }, [activeTab, loadHistory])
+    }, [activeTab, loadHistory, loadWallet])
   );
 
-  const handleTabPress = (tab: 'inicio' | 'historico' | 'perfil') => {
+  const handleTabPress = (tab: 'inicio' | 'historico' | 'carteira' | 'perfil') => {
     setActiveTab(tab);
+    if (tab === 'carteira' && !walletData && !walletLoading) {
+      loadWallet();
+    }
   };
 
   const driverFirstName = driver?.name?.split(' ')[0] || 'Motorista';
@@ -319,7 +355,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         refreshControl={
           activeTab === 'historico' ? (
             <RefreshControl
-              refreshing={historyRefreshing}
+              refreshing={activeTab === 'historico' ? historyRefreshing : activeTab === 'carteira' ? walletRefreshing : false}
               onRefresh={() => loadHistory(1, true)}
               tintColor="#00E5FF"
               colors={['#00E5FF']}
@@ -599,6 +635,179 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        
+        {/* ================= ABA CARTEIRA (SICOOB OPEN BANKING) ================= */}
+        {activeTab === 'carteira' && (
+          <View style={styles.walletContainer}>
+            {/* Cartão Corporativo Virtual Sicoob */}
+            <View style={styles.virtualCard}>
+              <View style={styles.virtualCardHeader}>
+                <View style={styles.sicoobBadge}>
+                  <Text style={styles.sicoobBadgeText}>SICOOB</Text>
+                </View>
+                <Text style={styles.virtualCardType}>CARTÃO FROTA PJ</Text>
+              </View>
+
+              <View style={styles.virtualCardChipRow}>
+                <View style={styles.cardChip}>
+                  <View style={styles.cardChipInner} />
+                </View>
+                <Text style={styles.virtualCardContactless}>📶</Text>
+              </View>
+
+              <Text style={styles.virtualCardNumber}>•••• •••• •••• 4321</Text>
+
+              <View style={styles.virtualCardFooter}>
+                <View>
+                  <Text style={styles.virtualCardLabel}>TITULAR</Text>
+                  <Text style={styles.virtualCardDriver}>{driver?.name || 'MOTORISTA'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.virtualCardLabel}>COOPERATIVA</Text>
+                  <Text style={styles.virtualCardBank}>Credifrotas DF (756)</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Status Open Banking */}
+            <View style={styles.openFinanceBadge}>
+              <View style={styles.openFinanceDot} />
+              <Text style={styles.openFinanceText}>
+                Open Finance Brasil • Conexão Ativa mTLS
+              </Text>
+            </View>
+
+            {walletLoading && !walletData ? (
+              <View style={styles.walletLoadingCard}>
+                <ActivityIndicator size="large" color="#00D4FF" />
+                <Text style={styles.walletLoadingText}>Consultando saldo e extrato Sicoob...</Text>
+              </View>
+            ) : walletError ? (
+              <View style={styles.walletErrorCard}>
+                <Text style={styles.walletErrorText}>{walletError}</Text>
+                <TouchableOpacity
+                  style={styles.retryWalletBtn}
+                  onPress={() => loadWallet(false)}
+                >
+                  <Text style={styles.retryWalletBtnText}>Tentar Novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {/* Métricas Financeiras */}
+                <View style={styles.walletMetricsCard}>
+                  <Text style={styles.walletMetricsHeaderLabel}>SALDO DISPONÍVEL P/ COMBUSTÍVEL</Text>
+                  <Text style={styles.walletBalanceAmount}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.balanceAvailable || 0)}
+                  </Text>
+
+                  {/* Barra de Consumo do Limite */}
+                  <View style={styles.walletProgressTrack}>
+                    <View
+                      style={[
+                        styles.walletProgressFill,
+                        {
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              ((walletData?.wallet?.totalSpentMonth || 0) /
+                                (walletData?.wallet?.monthlyCreditLimit || 5000)) *
+                                100
+                            )
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.walletLimitRow}>
+                    <Text style={styles.walletLimitText}>
+                      Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.totalSpentMonth || 0)}
+                    </Text>
+                    <Text style={styles.walletLimitText}>
+                      Limite: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(walletData?.wallet?.monthlyCreditLimit || 5000)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.walletSubMetricsGrid}>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Total Abastecido</Text>
+                      <Text style={styles.subMetricValue}>
+                        {walletData?.wallet?.totalLitersMonth != null ? walletData.wallet.totalLitersMonth.toFixed(1) : '0'} L
+                      </Text>
+                    </View>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Preço ANP Ref.</Text>
+                      <Text style={styles.subMetricValue}>
+                        R$ {walletData?.wallet?.averagePricePerLiter?.toFixed(2) || '6,05'}/L
+                      </Text>
+                    </View>
+                    <View style={styles.walletSubMetricBox}>
+                      <Text style={styles.subMetricLabel}>Operações</Text>
+                      <Text style={styles.subMetricValue}>
+                        {walletData?.wallet?.fuelingCount || 0}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Extrato / Lançamentos */}
+                <View style={styles.walletTransactionsSection}>
+                  <Text style={styles.cardSectionTitle}>Extrato de Abastecimentos (Sicoob)</Text>
+
+                  {(!walletData?.transactions || walletData.transactions.length === 0) ? (
+                    <View style={styles.walletEmptyCard}>
+                      <Text style={styles.walletEmptyIcon}>🧾</Text>
+                      <Text style={styles.walletEmptyTitle}>Nenhum lançamento no período</Text>
+                      <Text style={styles.walletEmptySub}>
+                        Seus abastecimentos liberados pelo aplicativo aparecerão aqui após a compensação no Sicoob.
+                      </Text>
+                    </View>
+                  ) : (
+                    walletData.transactions.map((tx) => (
+                      <View key={tx.id} style={styles.transactionCard}>
+                        <View style={styles.transactionRowTop}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.transactionStation}>{tx.stationName}</Text>
+                            <Text style={styles.transactionDate}>
+                              {formatDateTime(tx.timestamp)} • Placa {tx.truckPlate}
+                            </Text>
+                          </View>
+                          <Text style={styles.transactionAmount}>
+                            - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.totalAmount)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.transactionDivider} />
+
+                        <View style={styles.transactionRowBottom}>
+                          <Text style={styles.transactionDetail}>
+                            {tx.liters.toFixed(2)} L × R$ {tx.pricePerLiter.toFixed(2)}
+                          </Text>
+                          <View style={styles.transactionStatusBadge}>
+                            <Text style={styles.transactionStatusText}>
+                              ✓ Compensado ({tx.authProtocol})
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                {/* Info sobre a API Sicoob */}
+                <View style={styles.sicoobInfoBox}>
+                  <Text style={styles.sicoobInfoTitle}>Integrado via Sicoob Open Banking</Text>
+                  <Text style={styles.sicoobInfoText}>
+                    Esta carteira sincroniza diretamente com a conta cooperativa {walletData?.bank?.accountNumber || '10987-6'} da frota.
+                    Saiba mais no Portal dos Desenvolvedores Sicoob (developers.sicoob.com.br/portal/apis).
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {/* ================= ABA 3: PERFIL ================= */}
         {activeTab === 'perfil' && (
           <View>
@@ -696,6 +905,21 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             Histórico
           </Text>
           {activeTab === 'historico' && <View style={styles.activeDot} />}
+        </TouchableOpacity>
+
+        
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => handleTabPress('carteira')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'carteira' ? styles.tabIconActive : styles.tabIconInactive]}>
+            💳
+          </Text>
+          <Text style={[styles.tabLabel, activeTab === 'carteira' ? styles.tabLabelActive : styles.tabLabelInactive]}>
+            Carteira
+          </Text>
+          {activeTab === 'carteira' && <View style={styles.activeDot} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1486,4 +1710,332 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#00E5FF',
   },
+
+  walletContainer: {
+    width: '100%',
+  },
+  virtualCard: {
+    backgroundColor: '#072522',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#00D4FF',
+    marginBottom: 14,
+    shadowColor: '#00D4FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  virtualCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sicoobBadge: {
+    backgroundColor: '#005542',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#7DB61C',
+  },
+  sicoobBadgeText: {
+    color: '#7DB61C',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 1.5,
+  },
+  virtualCardType: {
+    color: '#8899A6',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  virtualCardChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  cardChip: {
+    width: 36,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardChipInner: {
+    width: 22,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.3)',
+  },
+  virtualCardContactless: {
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  virtualCardNumber: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  virtualCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  virtualCardLabel: {
+    fontSize: 9,
+    color: '#8899A6',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  virtualCardDriver: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  virtualCardBank: {
+    fontSize: 12,
+    color: '#00D4FF',
+    fontWeight: '600',
+  },
+  openFinanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.25)',
+    marginBottom: 16,
+  },
+  openFinanceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  openFinanceText: {
+    fontSize: 11,
+    color: '#00D4FF',
+    fontWeight: '600',
+  },
+  walletLoadingCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.2)',
+  },
+  walletLoadingText: {
+    fontSize: 13,
+    color: '#94A3B8',
+  },
+  walletErrorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  walletErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryWalletBtn: {
+    backgroundColor: '#00D4FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  retryWalletBtnText: {
+    color: '#050A14',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  walletMetricsCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.25)',
+    marginBottom: 16,
+  },
+  walletMetricsHeaderLabel: {
+    fontSize: 11,
+    color: '#8899A6',
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  walletBalanceAmount: {
+    fontSize: 28,
+    color: '#22C55E',
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  walletProgressTrack: {
+    height: 8,
+    backgroundColor: '#050A14',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  walletProgressFill: {
+    height: '100%',
+    backgroundColor: '#00D4FF',
+    borderRadius: 4,
+  },
+  walletLimitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  walletLimitText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  walletSubMetricsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  walletSubMetricBox: {
+    flex: 1,
+    backgroundColor: '#060B13',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  subMetricLabel: {
+    fontSize: 10,
+    color: '#8899A6',
+    marginBottom: 4,
+  },
+  subMetricValue: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  walletTransactionsSection: {
+    marginBottom: 16,
+  },
+  walletEmptyCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  walletEmptyIcon: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
+  walletEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  walletEmptySub: {
+    color: '#64748B',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  transactionCard: {
+    backgroundColor: '#0B1628',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.15)',
+    marginBottom: 10,
+  },
+  transactionRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  transactionStation: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  transactionDate: {
+    color: '#64748B',
+    fontSize: 11,
+  },
+  transactionAmount: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  transactionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: 10,
+  },
+  transactionRowBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionDetail: {
+    color: '#94A3B8',
+    fontSize: 12,
+  },
+  transactionStatusBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  transactionStatusText: {
+    color: '#22C55E',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sicoobInfoBox: {
+    backgroundColor: 'rgba(0, 85, 66, 0.15)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 182, 28, 0.3)',
+    marginBottom: 20,
+  },
+  sicoobInfoTitle: {
+    color: '#7DB61C',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  sicoobInfoText: {
+    color: '#8899A6',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+
 });
