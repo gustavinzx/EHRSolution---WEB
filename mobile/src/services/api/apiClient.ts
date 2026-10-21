@@ -4,7 +4,7 @@ import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Session, ReleaseMethod } from '../../types/session';
 import { HistoryResponse } from '../../types/history';
-import { WalletResponse } from '../../types/wallet';
+import { WalletResponse, DriverCard, CreateCardPayload } from '../../types/wallet';
 
 const isLoopbackHost = (host: string): boolean => host === 'localhost' || host === '127.0.0.1';
 
@@ -200,6 +200,25 @@ export const apiClient = {
   async getWallet(): Promise<WalletResponse> {
     return await request<WalletResponse>('/fueling/wallet', {
       method: 'GET'
+    });
+  },
+
+  async addCard(payload: CreateCardPayload): Promise<DriverCard> {
+    return await request<DriverCard>('/fueling/wallet/cards', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async deleteCard(cardId: number): Promise<{ success: boolean }> {
+    return await request<{ success: boolean }>(`/fueling/wallet/cards/${cardId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async setDefaultCard(cardId: number): Promise<{ success: boolean }> {
+    return await request<{ success: boolean }>(`/fueling/wallet/cards/${cardId}/default`, {
+      method: 'PATCH'
     });
   }
 };

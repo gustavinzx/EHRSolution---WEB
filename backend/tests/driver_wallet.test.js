@@ -104,4 +104,62 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
     expect(res.body.transactions[0].status).toBe('liquidated');
     expect(res.body.transactions[0].authProtocol).toMatch(/^SCB-\d+$/);
   });
+
+  it('permite cadastrar um novo cartão corporativo/frota para o motorista', async () => {
+    const res = await request(app)
+      .post('/api/fueling/wallet/cards')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({
+        cardHolder: 'JOAO SILVA FROTA',
+        cardNumber: '4532 1122 3344 9876',
+        expirationMonth: 12,
+        expirationYear: 2029,
+        monthlyLimit: 7500.0,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeDefined();
+    expect(res.body.cardHolder).toBe('JOAO SILVA FROTA');
+    expect(res.body.lastFour).toBe('9876');
+    expect(res.body.cardBrand).toContain('Visa');
+    expect(res.body.monthlyLimit).toBe(7500.0);
+    expect(res.body.isDefault).toBe(true);
+  });
+
+  it('rejeita cadastro de cartão com número inválido', async () => {
+    const res = await request(app)
+      .post('/api/fueling/wallet/cards')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({
+        cardHolder: 'JOAO SILVA',
+        cardNumber: '123',
+        expirationMonth: 12,
+        expirationYear: 2029,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('inválido');
+  });
+
+  it('permite desativar/remover cartão cadastrado', async () => {
+    const created = await request(app)
+      .post('/api/fueling/wallet/cards')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({
+        cardHolder: 'CARTAO TEMP',
+        cardNumber: '5123 4455 6677 1111',
+        expirationMonth: 6,
+        expirationYear: 2028,
+      });
+
+    const cardId = created.body.id;
+
+    const resDel = await request(app)
+      .delete(`/api/fueling/wallet/cards/${cardId}`)
+      .set('Authorization', `Bearer ${driverToken}`);
+
+    expect(resDel.status).toBe(200);
+    expect(resDel.body.success).toBe(true);
+  });
+
 });

@@ -20,6 +20,30 @@ export interface SicoobWalletMetrics {
   fuelingCount: number;
 }
 
+export interface DriverCard {
+  id: number;
+  cardHolder: string;
+  lastFour: string;
+  cardBrand: string;
+  bankName: string;
+  expirationMonth: number;
+  expirationYear: number;
+  monthlyLimit: number;
+  isDefault: boolean;
+  status: string;
+  createdAt?: string;
+}
+
+export interface CreateCardPayload {
+  cardHolder: string;
+  cardNumber: string;
+  expirationMonth: number | string;
+  expirationYear: number | string;
+  cardBrand?: string;
+  bankName?: string;
+  monthlyLimit?: number;
+}
+
 export interface SicoobTransaction {
   id: number;
   timestamp: string;
@@ -37,5 +61,7 @@ export interface SicoobTransaction {
 export interface WalletResponse {
   bank: SicoobBankInfo;
   wallet: SicoobWalletMetrics;
+  activeCard?: DriverCard | null;
+  cards?: DriverCard[];
   transactions: SicoobTransaction[];
 }

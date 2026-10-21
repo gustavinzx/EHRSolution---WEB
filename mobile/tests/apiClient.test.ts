@@ -686,4 +686,98 @@ describe('apiClient', () => {
       );
     });
   });
+
+  describe('Driver Cards API', () => {
+    it('addCard sends POST with card data and returns created card', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      const mockCard = {
+        id: 1,
+        cardHolder: 'JOAO SILVA',
+        lastFour: '1234',
+        cardBrand: 'Visa Frota',
+        bankName: 'Sicoob Credifrotas (756)',
+        expirationMonth: 12,
+        expirationYear: 2029,
+        monthlyLimit: 5000,
+        isDefault: true,
+        status: 'active',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockCard),
+      });
+
+      const res = await apiClient.addCard({
+        cardNumber: '4111111111111234',
+        cardHolder: 'JOAO SILVA',
+        expirationMonth: 12,
+        expirationYear: 2029,
+        cardBrand: 'Visa Frota',
+        bankName: 'Sicoob Credifrotas (756)',
+        monthlyLimit: 5000,
+      });
+
+      expect(res).toEqual(mockCard);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/wallet/cards`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer driver_token',
+            'Content-Type': 'application/json',
+          }),
+          body: JSON.stringify({
+            cardNumber: '4111111111111234',
+            cardHolder: 'JOAO SILVA',
+            expirationMonth: 12,
+            expirationYear: 2029,
+            cardBrand: 'Visa Frota',
+            bankName: 'Sicoob Credifrotas (756)',
+            monthlyLimit: 5000,
+          }),
+        })
+      );
+    });
+
+    it('deleteCard sends DELETE to /cards/:cardId', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ success: true }),
+      });
+
+      const res = await apiClient.deleteCard(42);
+      expect(res).toEqual({ success: true });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/wallet/cards/42`,
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer driver_token',
+          }),
+        })
+      );
+    });
+
+    it('setDefaultCard sends PATCH to /cards/:cardId/default', async () => {
+      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ success: true }),
+      });
+
+      const res = await apiClient.setDefaultCard(42);
+      expect(res).toEqual({ success: true });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${getBaseUrl()}/fueling/wallet/cards/42/default`,
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer driver_token',
+          }),
+        })
+      );
+    });
+  });
 });
