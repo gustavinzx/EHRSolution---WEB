@@ -12,7 +12,6 @@ import {
   ScrollView,
   Switch,
   TouchableOpacity,
-  Vibration,
 } from 'react-native';
 let LocalAuthModule: typeof import('expo-local-authentication') | null = null;
 try {
@@ -35,6 +34,7 @@ export const LoginScreen: React.FC = () => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometria');
   const [, setHasSavedCredentials] = useState(false);
+  const [biometricLoginReady, setBiometricLoginReady] = useState(false);
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -42,11 +42,13 @@ export const LoginScreen: React.FC = () => {
 
     async function initBiometricsAndCreds() {
       try {
+        let deviceReady = false;
         if (LocalAuthModule) {
           const hasHardware = await LocalAuthModule.hasHardwareAsync();
           const isEnrolled = await LocalAuthModule.isEnrolledAsync();
 
           if (isMounted && hasHardware && isEnrolled) {
+            deviceReady = true;
             setBiometricAvailable(true);
             const supportedTypes = await LocalAuthModule.supportedAuthenticationTypesAsync();
             if (supportedTypes.includes(2)) {
@@ -60,9 +62,13 @@ export const LoginScreen: React.FC = () => {
         }
 
         const savedCreds = await secureStorage.getSavedCredentials();
+        const optIn = await secureStorage.getBiometricOptIn();
         if (isMounted && savedCreds?.email) {
           setIdentifier(savedCreds.email);
           setHasSavedCredentials(true);
+        }
+        if (isMounted) {
+          setBiometricLoginReady(Boolean(deviceReady && optIn && savedCreds?.email && savedCreds?.pass));
         }
       } catch (err) {
         // Fallback gracioso caso não suporte no ambiente de execução
@@ -102,7 +108,23 @@ export const LoginScreen: React.FC = () => {
 
       if (result?.success) {
         setLoading(true);
-        await signIn(savedCreds.email, savedCreds.pass);
+        try {
+          await signIn(savedCreds.email, savedCreds.pass);
+        } catch (signInError: any) {
+          // Senha alterada/conta desativada: invalida o acesso biométrico salvo
+          if (signInError?.status === 401 || signInError?.status === 403) {
+            await secureStorage.removeSavedCredentials();
+            await secureStorage.setBiometricOptIn(false);
+            setBiometricLoginReady(false);
+            setPass('');
+            throw {
+              message: 'Sua senha foi alterada ou o acesso expirou. Entre com e-mail e senha para reativar a biometria.',
+            };
+          }
+          throw signInError;
+        }
+      } else if (result && result.error && result.error !== 'user_cancel' && result.error !== 'system_cancel' && result.error !== 'app_cancel') {
+        setErrorMessage('Biometria não reconhecida. Tente novamente ou use sua senha.');
       }
     } catch (error: any) {
       const msg = error.message || 'Falha na autenticação biométrica.';
@@ -110,64 +132,6 @@ export const LoginScreen: React.FC = () => {
       Alert.alert('Erro Biometria', msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleTestBiometrics = async () => {
-    try {
-      if (!LocalAuthModule) {
-        Alert.alert('Sensor Biométrico', 'Módulo biométrico nativo não disponível neste ambiente.');
-        return;
-      }
-
-      const hasHardware = await LocalAuthModule.hasHardwareAsync();
-      if (!hasHardware) {
-        Alert.alert(
-          'Sensor Biométrico',
-          'Nenhum sensor de biometria física (Touch ID / Face ID) foi detectado neste dispositivo.'
-        );
-        return;
-      }
-
-      const isEnrolled = await LocalAuthModule.isEnrolledAsync();
-      const types = await LocalAuthModule.supportedAuthenticationTypesAsync();
-      const typeNames = types.map((t: number) => {
-        if (t === 1) return 'Digital (Touch ID)';
-        if (t === 2) return 'Facial (Face ID)';
-        if (t === 3) return 'Íris';
-        return 'Biometria';
-      }).join(', ') || 'Biometria';
-
-      if (!isEnrolled) {
-        Alert.alert(
-          'Biometria Não Cadastrada',
-          `Sensor (${typeNames}) detectado, mas nenhuma digital ou face foi cadastrada nas configurações do celular.`
-        );
-        return;
-      }
-
-      const result = await LocalAuthModule.authenticateAsync({
-        promptMessage: 'Teste de Sensor Biométrico - EHR Frota',
-        cancelLabel: 'Cancelar',
-        fallbackLabel: 'Usar Senha',
-        disableDeviceFallback: false,
-      });
-
-      if (result.success) {
-        try {
-          Vibration.vibrate([0, 80]);
-        } catch (_) {}
-        Alert.alert(
-          '✅ Sensor 100% Funcional!',
-          `Seu leitor biométrico (${typeNames}) respondeu com sucesso!\n\nStatus: Hardware Ativo e Biometria Reconhecida.`
-        );
-      } else {
-        if (result.error !== 'user_cancel' && result.error !== 'app_cancel') {
-          Alert.alert('Aviso do Sensor', `Leitura biométrica não concluída (${result.error || 'Cancelado'}).`);
-        }
-      }
-    } catch (err: any) {
-      Alert.alert('Sensor Biométrico', err?.message || 'Falha ao acessar o sensor biométrico.');
     }
   };
 
@@ -310,19 +274,20 @@ export const LoginScreen: React.FC = () => {
                 />
 
                 {/* Acesso Biométrico Nativo (Face ID / Impressão Digital) */}
-                <View style={styles.biometricSection}>
-                  <View style={styles.dividerRow}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>BIOMETRIA DO DISPOSITIVO</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-
-                  {biometricAvailable && (
+                {biometricLoginReady && (
+                  <View style={styles.biometricSection}>
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>OU DESBLOQUEIO RÁPIDO</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
                     <TouchableOpacity
                       style={styles.biometricBtn}
                       onPress={handleBiometricAuth}
                       disabled={loading}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Entrar com ${biometricType}`}
                     >
                       <Text style={styles.biometricIcon}>
                         {biometricType === 'Face ID' ? '📱' : '👆'}
@@ -331,23 +296,14 @@ export const LoginScreen: React.FC = () => {
                         Entrar com {biometricType}
                       </Text>
                     </TouchableOpacity>
-                  )}
+                  </View>
+                )}
 
-                  <TouchableOpacity
-                    style={[styles.biometricTestBtn, !biometricAvailable && { marginTop: 4 }]}
-                    onPress={handleTestBiometrics}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.biometricTestIcon}>🧪</Text>
-                    <Text style={styles.biometricTestBtnText}>
-                      Testar Sensor ({biometricType})
-                    </Text>
-                  </TouchableOpacity>
+                {!biometricLoginReady && biometricAvailable && (
                   <Text style={styles.biometricHint}>
-                    Toque para testar o sensor físico do aparelho (Touch ID / Face ID)
+                    Ative "Lembrar de mim" para entrar com {biometricType} nos próximos acessos.
                   </Text>
-                </View>
+                )}
 
                 {/* Footer Corporativo */}
                 <View style={styles.footerInfo}>
@@ -580,28 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  biometricTestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 212, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.28)',
-    marginTop: 8,
-    gap: 8,
-  },
-  biometricTestIcon: {
-    fontSize: 15,
-  },
-  biometricTestBtnText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
   },
   biometricHint: {
     fontSize: 10,

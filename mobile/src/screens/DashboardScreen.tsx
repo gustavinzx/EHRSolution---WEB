@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Vibration,
+  Switch,
 } from 'react-native';
 let LocalAuthModule: typeof import('expo-local-authentication') | null = null;
 try {
@@ -22,6 +23,7 @@ try {
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
+import { secureStorage } from '../storage/secureStorage';
 import { Button } from '../components/Button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -110,6 +112,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricTypeName, setBiometricTypeName] = useState('Biometria');
   const [biometricEnrolled, setBiometricEnrolled] = useState(false);
+  const [biometricOptIn, setBiometricOptIn] = useState(false);
 
   const loadWallet = useCallback(async (isRefresh: boolean = false) => {
     if (isRefresh) {
@@ -148,21 +151,27 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     isMountedRef.current = true;
 
     async function checkDeviceBiometrics() {
-      if (!LocalAuthModule) return;
       try {
-        const hasHardware = await LocalAuthModule.hasHardwareAsync();
-        const enrolled = await LocalAuthModule.isEnrolledAsync();
+        const optIn = await secureStorage.getBiometricOptIn();
         if (isMountedRef.current) {
-          setBiometricAvailable(hasHardware);
-          setBiometricEnrolled(enrolled);
-          if (hasHardware) {
-            const types = await LocalAuthModule.supportedAuthenticationTypesAsync();
-            if (types.includes(2)) {
-              setBiometricTypeName('Face ID');
-            } else if (types.includes(1)) {
-              setBiometricTypeName('Touch ID / Digital');
-            } else {
-              setBiometricTypeName('Biometria');
+          setBiometricOptIn(Boolean(optIn));
+        }
+
+        if (LocalAuthModule) {
+          const hasHardware = await LocalAuthModule.hasHardwareAsync();
+          const enrolled = await LocalAuthModule.isEnrolledAsync();
+          if (isMountedRef.current) {
+            setBiometricAvailable(hasHardware);
+            setBiometricEnrolled(enrolled);
+            if (hasHardware) {
+              const types = await LocalAuthModule.supportedAuthenticationTypesAsync();
+              if (types.includes(2)) {
+                setBiometricTypeName('Face ID');
+              } else if (types.includes(1)) {
+                setBiometricTypeName('Touch ID / Digital');
+              } else {
+                setBiometricTypeName('Biometria');
+              }
             }
           }
         }
@@ -175,6 +184,22 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       isMountedRef.current = false;
     };
   }, []);
+
+  const handleToggleBiometricOptIn = async (value: boolean) => {
+    if (value && LocalAuthModule) {
+      try {
+        const res = await LocalAuthModule.authenticateAsync({
+          promptMessage: `Confirme sua ${biometricTypeName} para ativar o login biométrico`,
+          cancelLabel: 'Cancelar',
+        });
+        if (!res?.success) return;
+      } catch (_) {
+        return;
+      }
+    }
+    await secureStorage.setBiometricOptIn(value);
+    setBiometricOptIn(value);
+  };
 
   const formatCardNumberInput = (text: string) => {
     const cleaned = text.replace(/\D/g, '').slice(0, 16);
@@ -331,7 +356,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       const result = await LocalAuthModule.authenticateAsync({
-        promptMessage: 'Teste de Sensor Biométrico - EHR Frota',
+        promptMessage: `Autentique com ${typeLabel} para validar seu acesso`,
         cancelLabel: 'Cancelar',
         fallbackLabel: 'Usar Senha',
         disableDeviceFallback: false,
@@ -342,8 +367,8 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           Vibration.vibrate([0, 80]);
         } catch (_) {}
         Alert.alert(
-          '✅ Sensor 100% Funcional!',
-          `Seu leitor biométrico (${typeLabel}) respondeu com sucesso!\n\nSensor validado e pronto para autenticação rápida e autorização segura de abastecimentos.`
+          'Biometria Verificada',
+          `Seu sensor biométrico (${typeLabel}) está ativo e validado com sucesso.`
         );
       } else {
         if (result.error !== 'user_cancel' && result.error !== 'app_cancel') {
@@ -1230,6 +1255,21 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
 
+              {biometricAvailable && biometricEnrolled && (
+                <>
+                  <View style={styles.profileDivider} />
+                  <View style={styles.profileRow}>
+                    <Text style={styles.profileRowLabel}>Login por {biometricTypeName}</Text>
+                    <Switch
+                      value={biometricOptIn}
+                      onValueChange={handleToggleBiometricOptIn}
+                      trackColor={{ false: '#1E293B', true: '#00D4FF' }}
+                      thumbColor={biometricOptIn ? '#FFFFFF' : '#94A3B8'}
+                    />
+                  </View>
+                </>
+              )}
+
               <View style={styles.profileDivider} />
 
               <TouchableOpacity
@@ -1238,9 +1278,9 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.8}
                 testID="test-biometrics-profile-btn"
               >
-                <Text style={styles.testBiometricsProfileIcon}>🧪</Text>
+                <Text style={styles.testBiometricsProfileIcon}>🔐</Text>
                 <Text style={styles.testBiometricsProfileText}>
-                  Testar Sensor ({biometricTypeName})
+                  Validar Leitor ({biometricTypeName})
                 </Text>
               </TouchableOpacity>
             </View>

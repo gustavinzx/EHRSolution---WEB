@@ -32,6 +32,7 @@ describe('LoginScreen', () => {
     (secureStorage.saveCredentials as jest.Mock).mockResolvedValue(undefined);
     (secureStorage.setBiometricOptIn as jest.Mock).mockResolvedValue(undefined);
     (secureStorage.removeSavedCredentials as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(false);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(false);
     (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([]);
@@ -82,6 +83,7 @@ describe('LoginScreen', () => {
       email: 'motorista1@ehr.com',
       pass: 'Demo@1234',
     });
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
 
     const { findByText } = render(<LoginScreen />);
 
@@ -94,5 +96,44 @@ describe('LoginScreen', () => {
 
     expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled();
     expect(mockSignIn).toHaveBeenCalledWith('motorista1@ehr.com', 'Demo@1234');
+  });
+
+  it('hides biometric login when the user has not opted in', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue({
+      email: 'motorista1@ehr.com',
+      pass: 'Demo@1234',
+    });
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
+
+    const { findByText, queryByText } = render(<LoginScreen />);
+
+    expect(await findByText(/Ative "Lembrar de mim" para entrar com Digital/)).toBeTruthy();
+    expect(queryByText('Entrar com Digital')).toBeNull();
+  });
+
+  it('clears saved biometric access when the stored password is rejected', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue({
+      email: 'motorista1@ehr.com',
+      pass: 'senha-antiga',
+    });
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+    mockSignIn.mockRejectedValueOnce({ status: 401, message: 'Credenciais inválidas' });
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    const { findByText } = render(<LoginScreen />);
+    const btn = await findByText('Entrar com Digital');
+
+    await act(async () => {
+      fireEvent.press(btn);
+    });
+
+    expect(secureStorage.removeSavedCredentials).toHaveBeenCalled();
+    expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(false);
   });
 });
