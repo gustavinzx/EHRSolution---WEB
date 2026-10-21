@@ -53,10 +53,16 @@ app.use(compression());
 // Acceptable for an academic/demo project — document and revisit before any public deployment.
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: process.env.NODE_ENV === 'development' ? 3000 : 1000,
+  max: process.env.NODE_ENV === 'production' ? 1000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => Boolean(req.headers['x-api-key']) || process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true',
+  skip: (req) =>
+    Boolean(req.headers['x-api-key']) ||
+    process.env.NODE_ENV !== 'production' ||
+    process.env.DISABLE_RATE_LIMIT === 'true' ||
+    req.ip === '127.0.0.1' ||
+    req.ip === '::1' ||
+    req.ip?.includes('127.0.0.1'),
   message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' }
 });
 

@@ -1,16 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import client from '../api/client';
 
 import useFleetState from '../store/useFleetState';
 
-export function useAlerts(filters = {}) {
+const EMPTY_FILTERS = {};
+
+export function useAlerts(filters = EMPTY_FILTERS) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
-  const fetchAlerts = useCallback(async (currentFilters = filters) => {
+  const filtersKey = JSON.stringify(filters);
+
+  const fetchAlerts = useCallback(async (overrideFilters) => {
     try {
       setLoading(true);
+      const currentFilters = overrideFilters ?? filtersRef.current;
       const params = new URLSearchParams();
       if (currentFilters.truck_id) params.append('truck_id', currentFilters.truck_id);
       if (currentFilters.type) params.append('type', currentFilters.type);
@@ -20,7 +27,7 @@ export function useAlerts(filters = {}) {
       if (currentFilters.end) params.append('end', currentFilters.end);
       
       const { data } = await client.get(`/alerts?${params.toString()}`);
-      setAlerts(data);
+      setAlerts(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -28,11 +35,11 @@ export function useAlerts(filters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
     fetchAlerts();
-  }, [fetchAlerts]);
+  }, [fetchAlerts, filtersKey]);
 
   const resolveAlert = async (id, resolution_note) => {
     try {
