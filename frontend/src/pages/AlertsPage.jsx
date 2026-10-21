@@ -8,6 +8,24 @@ import toast from 'react-hot-toast';
 
 import { getAlertMeta } from '../utils/alertMapping';
 
+const glass = {
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
+  borderRadius: '16px',
+};
+
+const inputStyle = {
+  background: 'rgba(6, 11, 19, 0.7)',
+  border: '1px solid rgba(0, 212, 255, 0.2)',
+  color: '#e2e8f0',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  outline: 'none',
+  fontSize: '13px',
+};
+
 function fmtDate(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleString('pt-BR');
@@ -43,21 +61,55 @@ export default function AlertsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(248,113,113,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ShieldAlert size={24} color="#f87171" />
+      <div style={{
+        ...glass,
+        padding: '26px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+        border: '1px solid rgba(0, 212, 255, 0.22)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+      }}>
+        <div style={{
+          width: '52px',
+          height: '52px',
+          borderRadius: '14px',
+          background: 'rgba(248, 113, 113, 0.12)',
+          border: '1px solid rgba(248, 113, 113, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 0 20px rgba(248, 113, 113, 0.25)',
+        }}>
+          <ShieldAlert size={26} color="#f87171" />
         </div>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#fff' }}>Central de Alertas</h1>
-          <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>Histórico completo de incidentes e resoluções.</p>
+          <h1 style={{ fontSize: '26px', fontWeight: 800, margin: 0, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+            Central de Alertas e Incidentes
+          </h1>
+          <p style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}>
+            Auditoria em tempo real de divergências volumétricas, rotas não autorizadas e violações.
+          </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <form onSubmit={handleApplyFilters} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* Filters Toolbar */}
+      <form
+        onSubmit={handleApplyFilters}
+        style={{
+          ...glass,
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          background: 'rgba(11, 22, 40, 0.75)',
+          padding: '16px 20px',
+          alignItems: 'center',
+        }}
+      >
         <select value={filters.status || 'all'} onChange={e => setFilters({...filters, status: e.target.value})} style={inputStyle}>
           <option value="all">Status: Todos</option>
           <option value="active">Status: Ativos</option>
@@ -65,7 +117,7 @@ export default function AlertsPage() {
         </select>
         <select value={filters.truck_id || ''} onChange={e => setFilters({...filters, truck_id: e.target.value})} style={inputStyle}>
           <option value="">Veículo: Todos</option>
-          {trucks.map(t => <option key={t.id} value={t.id}>{t.plate}</option>)}
+          {trucks.map(t => <option key={t.id} value={t.id}>{t.plate} - {t.model}</option>)}
         </select>
         <select value={filters.severity || ''} onChange={e => setFilters({...filters, severity: e.target.value})} style={inputStyle}>
           <option value="">Severidade: Todas</option>
@@ -74,53 +126,124 @@ export default function AlertsPage() {
           <option value="medium">Média</option>
           <option value="low">Baixa</option>
         </select>
-        <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)', color: '#fff', border: 'none', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+        <button
+          type="submit"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
+            color: '#FFFFFF',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            fontWeight: 700,
+            fontSize: '13px',
+            boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
+            transition: 'all 0.2s',
+          }}
+        >
           <Filter size={14} /> Filtrar
         </button>
       </form>
 
       {/* List */}
       {loading ? <LoadingSpinner /> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {alerts.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Nenhum alerta encontrado com estes filtros.</div>
+            <div style={{ ...glass, padding: '80px 20px', textAlign: 'center', color: '#64748B' }}>
+              <ShieldAlert size={48} style={{ opacity: 0.2, marginBottom: '14px' }} />
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#E2E8F0' }}>Nenhum alerta registrado</div>
+              <div style={{ fontSize: '13px', marginTop: '6px' }}>Todos os veículos estão operando dentro dos parâmetros de segurança.</div>
+            </div>
           ) : alerts.map(a => {
             const isResolved = !!a.resolved_at;
             const meta = getAlertMeta(a.type);
             let icon = meta.icon;
             let color = '#fbbf24';
             if (a.severity === 'critical') { icon = ShieldAlert; color = '#f87171'; }
-            if (isResolved) { icon = CheckCircle; color = '#34d399'; }
+            if (isResolved) { icon = CheckCircle; color = '#00F5A0'; }
 
             const Icon = icon;
 
             return (
-              <div key={a.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: isResolved ? 'rgba(255,255,255,0.02)' : `${color}0a`, border: `1px solid ${isResolved ? 'rgba(255,255,255,0.05)' : color+'40'}`, borderRadius: '16px' }}>
+              <div
+                key={a.id}
+                style={{
+                  ...glass,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  padding: '20px 24px',
+                  background: isResolved ? 'rgba(11, 22, 40, 0.6)' : `${color}0d`,
+                  border: `1px solid ${isResolved ? 'rgba(255,255,255,0.06)' : color + '44'}`,
+                  boxShadow: isResolved ? 'none' : `0 0 16px ${color}15`,
+                  transition: 'all 0.2s ease',
+                }}
+              >
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: `${color}18`,
+                    border: `1px solid ${color}35`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
                     <Icon size={20} color={color} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{a.message}</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>{fmtDate(a.created_at)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: '15px', color: '#FFFFFF' }}>{a.message}</div>
+                      <div style={{ fontSize: '12px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>{fmtDate(a.created_at)}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-                      <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Veículo: {a.plate}</span>
-                      <span>Tipo: {meta.label}</span>
+                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '12px', color: '#8899A6' }}>
+                      <span style={{ fontWeight: 800, color: '#00D4FF', fontFamily: "'IBM Plex Mono', monospace" }}>Veículo: {a.plate}</span>
+                      <span>Tipo: <strong style={{ color: '#e2e8f0' }}>{meta.label}</strong></span>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: `${color}20`,
+                        color: color,
+                        textTransform: 'uppercase',
+                      }}>
+                        {a.severity}
+                      </span>
                     </div>
                   </div>
                   {!isResolved && user?.role !== 'auditor' && (
-                    <button onClick={() => setResolvingId(a.id)} style={{ padding: '8px 16px', background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                    <button
+                      onClick={() => setResolvingId(a.id)}
+                      style={{
+                        padding: '9px 18px',
+                        background: 'rgba(0, 245, 160, 0.12)',
+                        color: '#00F5A0',
+                        border: '1px solid rgba(0, 245, 160, 0.4)',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        boxShadow: '0 0 10px rgba(0, 245, 160, 0.2)',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0, 245, 160, 0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0, 245, 160, 0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
                       Resolver
                     </button>
                   )}
                 </div>
 
                 {isResolved && (
-                  <div style={{ marginTop: '4px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', fontSize: '13px' }}>
-                    <div style={{ color: '#34d399', fontWeight: 600, marginBottom: '4px' }}>Resolvido por {a.resolved_by} em {fmtDate(a.resolved_at)}</div>
-                    <div style={{ color: '#94a3b8' }}>Nota: {a.resolution_note}</div>
+                  <div style={{ marginTop: '4px', padding: '12px 16px', background: 'rgba(6, 11, 19, 0.6)', borderRadius: '10px', fontSize: '13px', border: '1px solid rgba(0, 245, 160, 0.2)' }}>
+                    <div style={{ color: '#00F5A0', fontWeight: 700, marginBottom: '4px' }}>Resolvido por {a.resolved_by} em {fmtDate(a.resolved_at)}</div>
+                    <div style={{ color: '#cbd5e1' }}>Nota: {a.resolution_note}</div>
                   </div>
                 )}
               </div>
@@ -131,20 +254,20 @@ export default function AlertsPage() {
 
       {/* Resolve Modal */}
       {resolvingId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#111b28', padding: '24px', borderRadius: '16px', width: '400px', border: '1px solid #1f2e3b' }}>
-            <h3 style={{ color: '#fff', margin: '0 0 16px 0' }}>Resolver Alerta</h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: 'rgba(11, 22, 40, 0.98)', padding: '28px', borderRadius: '20px', width: '100%', maxWidth: '440px', border: '1px solid rgba(0, 212, 255, 0.35)', boxShadow: '0 24px 80px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 212, 255, 0.2)' }}>
+            <h3 style={{ color: '#fff', margin: '0 0 16px 0', fontSize: '18px', fontWeight: 800 }}>Resolver Alerta</h3>
             <textarea
               autoFocus
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="Descreva a ação tomada (mínimo 5 caracteres)..."
               rows={4}
-              style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid #1f2e3b', borderRadius: '8px', color: '#fff', outline: 'none', resize: 'none' }}
+              style={{ width: '100%', padding: '12px 14px', background: 'rgba(6, 11, 19, 0.8)', border: '1px solid rgba(0, 212, 255, 0.25)', borderRadius: '10px', color: '#fff', outline: 'none', resize: 'none', fontSize: '13px', boxSizing: 'border-box' }}
             />
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <button onClick={() => { setResolvingId(null); setNote(''); }} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #1f2e3b', color: '#94a3b8', borderRadius: '8px', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={confirmResolve} style={{ flex: 1, padding: '10px', background: '#2FBEB5', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Confirmar Resolução</button>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '18px' }}>
+              <button onClick={() => { setResolvingId(null); setNote(''); }} style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+              <button onClick={confirmResolve} style={{ flex: 1, padding: '11px', background: 'linear-gradient(135deg, #00D4FF, #0072FF)', border: 'none', color: '#fff', borderRadius: '10px', cursor: 'pointer', fontWeight: 800, boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)' }}>Confirmar Resolução</button>
             </div>
           </div>
         </div>
@@ -153,19 +276,3 @@ export default function AlertsPage() {
     </div>
   );
 }
-
-const inputStyle = {
-  background: 'rgba(0,0,0,0.2)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: '#e2e8f0',
-  padding: '8px 12px',
-  borderRadius: '8px',
-  outline: 'none',
-  fontSize: '13px'
-};
-
-
-
-
-
-

@@ -22,20 +22,24 @@ function CenterOnTruck({ lat, lng }) {
 }
 import LiveTruckMarker from '../components/LiveTruckMarker';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert, LockKeyhole, Key, Copy, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Gauge, Droplets, Users, Navigation, Map, ShieldAlert, LockKeyhole, Key, Copy, Check, Radio } from 'lucide-react';
 
 const glass = {
-  background: 'var(--bg-panel)',
-  border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden',
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
+  borderRadius: '16px',
+  overflow: 'hidden',
 };
 
 const STATUS_META = {
   critical_fuel: { label: 'Sem autonomia — abastecer', color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
-  ok:        { label: 'OK',         color: '#34d399', glow: 'rgba(52,211,153,0.15)' },
+  ok:        { label: 'OK',         color: '#00F5A0', glow: 'rgba(0,245,160,0.15)' },
   low_fuel:  { label: 'Comb. Baixo',color: '#fbbf24', glow: 'rgba(251,191,36,0.15)' },
-  no_signal: { label: 'Sem Sinal',  color: '#f87171', glow: 'rgba(248,113,113,0.15)' },
+  no_signal: { label: 'Sem Sinal',  color: '#94a3b8', glow: 'rgba(148,163,184,0.15)' },
   security_alert: { label: 'Alerta de segurança', color: '#fb7185', glow: 'rgba(251,113,133,0.18)' },
-  arrived: { label: 'Chegou ao destino', color: '#4F8EF7', glow: 'rgba(96,165,250,0.18)' },
+  arrived: { label: 'Chegou ao destino', color: '#00D4FF', glow: 'rgba(0,212,255,0.18)' },
 };
 
 import useFleetState from '../store/useFleetState';
@@ -64,8 +68,8 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        background: 'rgba(0,0,0,0.75)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(3, 7, 18, 0.85)',
+        backdropFilter: 'blur(12px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -79,20 +83,20 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
         aria-labelledby="hw-key-modal-title"
         data-testid="hardware-key-modal"
         style={{
-          background: 'rgba(11,20,36,0.98)',
-          border: '1px solid rgba(47,190,181,0.4)',
-          borderRadius: '18px',
+          background: 'rgba(11, 22, 40, 0.98)',
+          border: '1px solid rgba(0, 212, 255, 0.4)',
+          borderRadius: '20px',
           width: '100%',
           maxWidth: '540px',
-          padding: '26px',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.75)',
+          padding: '28px',
+          boxShadow: '0 24px 80px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 212, 255, 0.2)',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2FBEB5', fontWeight: 700, fontSize: '17px' }}>
-          <Key size={20} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#00D4FF', fontWeight: 800, fontSize: '18px' }}>
+          <Key size={22} color="#00D4FF" />
           <span id="hw-key-modal-title">Nova Chave do Hardware Gerada</span>
         </div>
 
@@ -101,7 +105,7 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
           style={{
             fontSize: '13px',
             color: '#cbd5e1',
-            fontFamily: 'var(--font-mono, monospace)',
+            fontFamily: "'IBM Plex Mono', monospace",
             userSelect: 'text',
           }}
         >
@@ -115,14 +119,15 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
         <div
           data-testid="hardware-key-secret-value"
           style={{
-            background: 'rgba(0,0,0,0.45)',
+            background: 'rgba(6, 11, 19, 0.8)',
             padding: '12px 14px',
             borderRadius: '10px',
-            fontFamily: 'var(--font-mono, monospace)',
+            fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '14px',
-            color: '#2FBEB5',
+            color: '#00D4FF',
             wordBreak: 'break-all',
-            border: '1px solid rgba(47,190,181,0.3)',
+            border: '1px solid rgba(0, 212, 255, 0.35)',
+            boxShadow: 'inset 0 0 10px rgba(0, 212, 255, 0.1)',
             userSelect: 'text',
           }}
         >
@@ -137,15 +142,15 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
             data-testid="hardware-key-ps-command"
             style={{
               margin: 0,
-              background: 'rgba(0,0,0,0.45)',
+              background: 'rgba(6, 11, 19, 0.8)',
               padding: '12px 14px',
               borderRadius: '10px',
-              fontFamily: 'var(--font-mono, monospace)',
+              fontFamily: "'IBM Plex Mono', monospace",
               fontSize: '12px',
               color: '#e2e8f0',
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-all',
-              border: '1px solid rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               userSelect: 'text',
             }}
           >
@@ -153,7 +158,7 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
           </pre>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '4px' }}>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '6px' }}>
           <button
             type="button"
             onClick={() => {
@@ -169,11 +174,12 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
               padding: '10px 18px',
               borderRadius: '10px',
               border: 'none',
-              background: copied ? '#34d399' : '#2FBEB5',
-              color: '#0b1424',
-              fontWeight: 700,
+              background: copied ? '#00F5A0' : 'linear-gradient(135deg, #00D4FF, #0072FF)',
+              color: copied ? '#060B13' : '#FFFFFF',
+              fontWeight: 800,
               fontSize: '13px',
               cursor: 'pointer',
+              boxShadow: '0 0 16px rgba(0, 212, 255, 0.3)',
             }}
           >
             {copied ? <Check size={15} /> : <Copy size={15} />}
@@ -194,9 +200,9 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
               gap: '6px',
               padding: '10px 18px',
               borderRadius: '10px',
-              border: '1px solid rgba(47,190,181,0.4)',
-              background: 'rgba(47,190,181,0.14)',
-              color: '#2FBEB5',
+              border: '1px solid rgba(0, 212, 255, 0.4)',
+              background: 'rgba(0, 212, 255, 0.12)',
+              color: '#00D4FF',
               fontWeight: 700,
               fontSize: '13px',
               cursor: 'pointer',
@@ -212,8 +218,8 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
             style={{
               padding: '10px 18px',
               borderRadius: '10px',
-              border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'rgba(255, 255, 255, 0.06)',
               color: '#fff',
               fontWeight: 600,
               fontSize: '13px',
@@ -250,7 +256,7 @@ export default function TruckDetailsPage() {
   const [hwKeyRefreshError, setHwKeyRefreshError] = useState(null);
   const [hwKeyBusy, setHwKeyBusy] = useState(false);
   const [generatedKeyModalData, setGeneratedKeyModalData] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null); // 'rotate' | 'revoke' | null
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const hwKeyStatusRef = React.useRef(null);
   useEffect(() => {
@@ -326,11 +332,9 @@ export default function TruckDetailsPage() {
       });
   }, [id, fetchTruckDetails]);
 
-  // Carrega apenas na montagem (para pegar dados detalhados)
   useEffect(() => {
     loadData();
     loadHardwareKeyStatus(false);
-    // No more polling, live telemetry comes from useFleetState
   }, [id, loadData, loadHardwareKeyStatus]);
 
   useEffect(() => {
@@ -393,7 +397,6 @@ export default function TruckDetailsPage() {
     }
   };
 
-  // Combine live telemetry from global store with detailed data
   const liveTruck = fleet.find(t => t.id === Number(id));
   const truck = liveTruck && truckDetails ? { ...truckDetails, ...liveTruck } : truckDetails;
 
@@ -408,9 +411,9 @@ export default function TruckDetailsPage() {
             style={{
               padding: '10px 18px',
               borderRadius: '10px',
-              border: '1px solid rgba(47,190,181,0.4)',
-              background: 'rgba(47,190,181,0.12)',
-              color: '#2FBEB5',
+              border: '1px solid rgba(0, 212, 255, 0.4)',
+              background: 'rgba(0, 212, 255, 0.12)',
+              color: '#00D4FF',
               fontWeight: 700,
               fontSize: '13px',
               cursor: 'pointer',
@@ -441,6 +444,7 @@ export default function TruckDetailsPage() {
     );
   }
   if (error) return <ErrorMessage message={error} />;
+
   const handleCancelRoute = () => {
     toast((t) => (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -472,10 +476,9 @@ export default function TruckDetailsPage() {
 
   const s = STATUS_META[truck.status] || STATUS_META.ok;
   const pct = truck.capacity_liters > 0 ? Math.round((truck.current_level_liters / truck.capacity_liters) * 100) : 0;
-  const levelColor = pct < 20 ? '#f87171' : pct < 50 ? '#fbbf24' : '#34d399';
+  const levelColor = pct < 20 ? '#f87171' : pct < 50 ? '#fbbf24' : '#00F5A0';
   const drivers = truck.current_drivers?.length > 0 ? truck.current_drivers.map(d => d.name).join(', ') : 'Sem motorista';
 
-  // O motor de simulador já gera toda a rota via truck.route_geometry.
   const routePoints = [];
   let currentPos = null;
   const isArrived = truck.status === 'arrived' || truck.sim_state === 'arrived' || truck.route_phase === 'arrived' || truck.sim_state === 'idle';
@@ -485,7 +488,6 @@ export default function TruckDetailsPage() {
     try {
       const geo = typeof routeGeometry === 'string' ? JSON.parse(routeGeometry) : routeGeometry;
       if (Array.isArray(geo)) {
-        // geometry vem no formato [lng, lat], o leaflet precisa de [lat, lng]
         geo.forEach(p => {
           if (Array.isArray(p) && p.length >= 2) routePoints.push([p[1], p[0]]);
         });
@@ -499,7 +501,6 @@ export default function TruckDetailsPage() {
     currentPos = [parseFloat(truck.lat), parseFloat(truck.lng)];
   }
 
-  // FIX 1.4: Use Number.isFinite(parseFloat()) instead of !isNaN() — isNaN('') === false which lets empty strings through.
   const safeLat = parseFloat(truck.lat);
   const safeLng = parseFloat(truck.lng);
   if (!currentPos && Number.isFinite(safeLat) && Number.isFinite(safeLng)) {
@@ -507,8 +508,6 @@ export default function TruckDetailsPage() {
     if (routePoints.length === 0) routePoints.push(currentPos);
   }
 
-  
-  // Combine fueling and unloading events
   const fuelingLogs = Array.isArray(truck.recent_fueling_logs) ? truck.recent_fueling_logs.map(log => ({ ...log, type: 'fueling' })) : (Array.isArray(truck.recent_fueling) ? truck.recent_fueling.map(log => ({ ...log, type: 'fueling' })) : []);
   const unloadingEvents = Array.isArray(truck.unloading_events) ? truck.unloading_events.map(ev => ({ ...ev, type: 'unloading' })) : [];
   
@@ -522,128 +521,175 @@ export default function TruckDetailsPage() {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
       {/* Header */}
       <div>
-        <Link to="/fleet" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', textDecoration: 'none', fontSize: '13px', marginBottom: '12px', transition: 'color 0.2s' }} onMouseEnter={e=>e.target.style.color='#fff'} onMouseLeave={e=>e.target.style.color='var(--text-muted)'}>
+        <Link
+          to="/fleet"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: '#8899A6',
+            textDecoration: 'none',
+            fontSize: '13px',
+            marginBottom: '14px',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = '#00D4FF'}
+          onMouseLeave={e => e.currentTarget.style.color = '#8899A6'}
+        >
           <ArrowLeft size={14} /> Voltar para Frota
         </Link>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{ fontSize: '32px', fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {truck.plate}
-              <span style={{ fontSize:'12px', fontWeight:700, padding:'4px 12px', borderRadius:'20px', background: s.glow, color: s.color, border:`1px solid ${s.color}44`, verticalAlign: 'middle' }}>
-                {s.label}
-              </span>
-            </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '6px' }}>{truck.model}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Cyber Mercosul Plate Display */}
+            <div style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              border: '2px solid #00D4FF',
+              boxShadow: '0 0 20px rgba(0, 212, 255, 0.35)',
+              background: '#070D18',
+            }}>
+              <div style={{
+                background: 'linear-gradient(90deg, #0052CC, #00D4FF)',
+                height: '7px',
+              }} />
+              <div style={{
+                padding: '4px 14px',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontWeight: 900,
+                fontSize: '24px',
+                color: '#FFFFFF',
+                letterSpacing: '2px',
+                textAlign: 'center',
+              }}>
+                {truck.plate}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize:'12px', fontWeight:700, padding:'4px 12px', borderRadius:'20px', background: s.glow, color: s.color, border:`1px solid ${s.color}55`, verticalAlign: 'middle', boxShadow: `0 0 10px ${s.color}33` }}>
+                  {s.label}
+                </span>
+              </div>
+              <p style={{ color: '#8899A6', fontSize: '14px', marginTop: '6px', margin: '6px 0 0' }}>{truck.model}</p>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '24px', background: 'rgba(255,255,255,0.03)', padding: '16px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '20px', background: 'rgba(11, 22, 40, 0.8)', padding: '14px 20px', borderRadius: '14px', border: '1px solid rgba(0, 212, 255, 0.15)' }}>
                <div>
-                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Motorista Atual</div>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 500, color: '#fff' }}><Users size={14} color="var(--teal)" /> {drivers}</div>
+                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Motorista Atual</div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#fff' }}><Users size={14} color="#00D4FF" /> {drivers}</div>
                </div>
                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
                <div>
-                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Velocidade</div>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontFamily: 'var(--font-mono)', color: '#fff' }}><Gauge size={14} color="var(--blue)" /> {truck.speed_kmh} km/h</div>
-                 {user?.role !== 'auditor' && <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Você tem certeza? Isso abrirá a trava de segurança fisicamente no veículo via GPRS de emergência.")) {
-                        toast.success('Comando de liberação emergencial enviado para o hardware!', { icon: '🔓' });
-                      }
-                    }}
-                    style={{
-                      width: '100%', padding: '14px', borderRadius: '10px',
-                      background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)',
-                      color: '#f87171', fontWeight: 700, fontSize: '14px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <LockKeyhole size={16} /> Liberação de Emergência
-                  </button>
-                </div>}
-              </div>
+                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>Velocidade</div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontFamily: "'IBM Plex Mono', monospace", color: '#00F5A0', fontWeight: 800 }}><Gauge size={14} color="#00F5A0" /> {truck.speed_kmh} km/h</div>
+               </div>
             </div>
             
-            <div style={{ display: 'flex', gap: '16px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {user?.role !== 'auditor' && (
+                <button
+                  onClick={() => {
+                    if (window.confirm("Você tem certeza? Isso abrirá a trava de segurança fisicamente no veículo via GPRS de emergência.")) {
+                      toast.success('Comando de liberação emergencial enviado para o hardware!', { icon: '🔓' });
+                    }
+                  }}
+                  style={{
+                    padding: '0 16px', borderRadius: '10px',
+                    background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.3)',
+                    color: '#f87171', fontWeight: 700, fontSize: '13px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    cursor: 'pointer', height: '42px', transition: 'all 0.2s',
+                  }}
+                >
+                  <LockKeyhole size={15} /> Liberação de Emergência
+                </button>
+              )}
+
               {(user?.role !== 'auditor' && (truck.sim_state === 'driving' || truck.route_phase !== 'arrived')) && (
                 <button onClick={handleCancelRoute} style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(248,113,113,0.4)',
-                  background: 'rgba(248,113,113,0.1)',
-                  color: '#f87171', fontFamily: 'var(--font-display)', fontWeight: 700,
-                  fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s',
-                  height: '44px'
+                  padding: '0 16px', borderRadius: '10px', border: '1px solid rgba(248,113,113,0.4)',
+                  background: 'rgba(248,113,113,0.12)',
+                  color: '#f87171', fontWeight: 700,
+                  fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s',
+                  height: '42px'
                 }}>
                   Cancelar Viagem
                 </button>
               )}
-              {/* Investigar Button */}
+              
               <Link to={`/investigation/${id}`} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '0 20px', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.4)',
-                background: 'rgba(251,191,36,0.08)',
-                color: '#fbbf24', fontFamily: 'var(--font-display)', fontWeight: 700,
-                fontSize: '14px', cursor: 'pointer', textDecoration: 'none',
-                height: '44px', transition: 'all 0.2s'
+                padding: '0 16px', borderRadius: '10px', border: '1px solid rgba(251,191,36,0.4)',
+                background: 'rgba(251,191,36,0.1)',
+                color: '#fbbf24', fontWeight: 700,
+                fontSize: '13px', cursor: 'pointer', textDecoration: 'none',
+                height: '42px', transition: 'all 0.2s'
               }}>
-                <ShieldAlert size={16} /> Investigar
+                <ShieldAlert size={15} /> Investigar
               </Link>
-              {user?.role !== 'auditor' && <button onClick={() => setIsModalOpen(true)} style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '0 20px', borderRadius: '12px', border: 'none',
-                background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
-                color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700,
-                fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 20px rgba(56,189,248,0.3)',
-                height: '44px'
-              }}>
-                <Map size={16} /> Nova Rota
-              </button>}
+              
+              {user?.role !== 'auditor' && (
+                <button onClick={() => setIsModalOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '0 18px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
+                  color: '#fff', fontWeight: 700,
+                  fontSize: '13px', cursor: 'pointer', boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
+                  height: '42px', transition: 'all 0.2s',
+                }}>
+                  <Map size={15} /> Nova Rota
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="detail-columns">
+      <div className="detail-columns" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '22px', alignItems: 'start' }}>
         {/* Left Column (Map & Chart) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           
           {/* DRIVER PROFILE FOR SECURITY MONITORING */}
-          <div style={{ ...glass, padding: '20px', display: 'flex', gap: '24px', alignItems: 'center', background: 'linear-gradient(90deg, rgba(56,189,248,0.05), transparent)' }}>
+          <div style={{ ...glass, padding: '20px 24px', display: 'flex', gap: '20px', alignItems: 'center', background: 'linear-gradient(90deg, rgba(0, 212, 255, 0.08), rgba(11, 22, 40, 0.75))' }}>
             {truck.current_drivers?.length > 0 ? (
               <>
-                <div style={{ width: '80px', height: '80px', borderRadius: '12px', border: '2px solid var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(47,190,181,0.1)', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
-                  <Users size={36} color="var(--teal)" />
+                <div style={{ width: '64px', height: '64px', borderRadius: '16px', border: '2px solid #00D4FF', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 212, 255, 0.1)', boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)' }}>
+                  <Users size={30} color="#00D4FF" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700, marginBottom: '4px' }}>Motorista Ativo</div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#fff', fontFamily: 'var(--font-display)' }}>{truck.current_drivers[0].name}</h3>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', gap: '20px' }}>
+                  <div style={{ fontSize: '11px', color: '#00D4FF', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800, marginBottom: '4px' }}>Motorista Ativo</div>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', color: '#fff', fontWeight: 800 }}>{truck.current_drivers[0].name}</h3>
+                  <div style={{ fontSize: '12px', color: '#8899A6', display: 'flex', gap: '18px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399' }} /> Identidade Validada (Facial)
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#00F5A0', boxShadow: '0 0 8px #00F5A0' }} /> Identidade Validada (Facial)
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <MapPin size={14} color="var(--blue)" /> Em Rota de Transporte
+                      <MapPin size={13} color="#00D4FF" /> Em Rota de Transporte
                     </span>
                   </div>
                 </div>
               </>
             ) : (
-              <div style={{ color: 'var(--text-muted)' }}>Nenhum motorista vinculado no momento.</div>
+              <div style={{ color: '#8899A6', fontSize: '13px' }}>Nenhum motorista vinculado no momento.</div>
             )}
           </div>
 
           {/* MAP */}
-          <div style={{ ...glass, height: '600px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between' }}>
-               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>Rota e posição atual</span>
-               <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} /> Rota completa</span>
+          <div style={{ ...glass, height: '560px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0, 212, 255, 0.12)', display: 'flex', justifyContent: 'space-between', background: 'rgba(6, 11, 19, 0.6)' }}>
+               <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Rota e posição atual</span>
+               <span style={{ color: '#8899A6', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#00D4FF" /> Rota telemétrica</span>
             </div>
-            <div style={{ flex: 1, background: '#0a101a' }}>
+            <div style={{ flex: 1, background: '#060B13' }}>
               {routePoints.length > 0 ? (
                 <MapContainer center={[parseFloat(truck.lat), parseFloat(truck.lng)]} zoom={15} style={{ height: '100%', width: '100%' }}>
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
@@ -653,20 +699,21 @@ export default function TruckDetailsPage() {
                     className="map-tiles"
                     noWrap={true}
                   />
-                  <Polyline positions={routePoints} pathOptions={{ color: 'var(--teal)', weight: 4, opacity: 0.8 }} />
+                  <Polyline positions={routePoints} pathOptions={{ color: '#00D4FF', weight: 4, opacity: 0.85 }} />
                   <LiveTruckMarker key={truck.id} truck={truck}>
                     <Popup minWidth={100}><div style={{ color: '#000', fontWeight: 'bold' }}>Posição Atual</div></Popup>
                   </LiveTruckMarker>
                 </MapContainer>
               ) : (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Sem dados de rota</div>
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8899A6' }}>Sem dados de rota</div>
               )}
             </div>
           </div>
 
           {/* CHART */}
-          <div style={{ ...glass, padding: '20px' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', marginBottom: '20px' }}>
+          <div style={{ ...glass, padding: '22px' }}>
+            <div style={{ fontWeight: 800, fontSize: '15px', color: '#FFFFFF', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Droplets size={16} color="#00D4FF" />
               Consumo de Combustível (Histórico)
             </div>
             <div style={{ height: '240px', width: '100%' }}>
@@ -679,11 +726,11 @@ export default function TruckDetailsPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" fontSize={11} tickMargin={10} minTickGap={30} />
-                  <YAxis stroke="rgba(255,255,255,0.2)" fontSize={11} tickFormatter={val => `${val}L`} />
+                  <XAxis dataKey="time" stroke="rgba(255,255,255,0.2)" fontSize={11} tickMargin={10} minTickGap={30} fontFamily="'IBM Plex Mono', monospace" />
+                  <YAxis stroke="rgba(255,255,255,0.2)" fontSize={11} tickFormatter={val => `${val}L`} fontFamily="'IBM Plex Mono', monospace" />
                   <RechartsTooltip 
-                    contentStyle={{ background: 'rgba(15,29,46,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
-                    itemStyle={{ color: '#fff', fontSize: '13px' }} labelStyle={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '4px' }}
+                    contentStyle={{ background: 'rgba(11,22,40,0.96)', border: '1px solid rgba(0,212,255,0.3)', borderRadius: '10px', boxShadow: '0 8px 32px rgba(0,0,0,0.7)' }}
+                    itemStyle={{ color: '#fff', fontSize: '13px' }} labelStyle={{ color: '#8899A6', fontSize: '12px', marginBottom: '4px' }}
                   />
                   <Area type="monotone" dataKey="combustivel" name="Volume (L)" stroke={levelColor} strokeWidth={3} fillOpacity={1} fill="url(#colorFuel)" />
                 </AreaChart>
@@ -694,22 +741,22 @@ export default function TruckDetailsPage() {
         </div>
 
         {/* Right Column (Status & Logs) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           
           {/* Fuel Status Widget */}
-          <div style={{ ...glass, padding: '24px', background: `linear-gradient(180deg, rgba(255,255,255,0.04) 0%, ${levelColor}11 100%)` }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600, marginBottom: '16px' }}>
+          <div style={{ ...glass, padding: '24px', background: `linear-gradient(180deg, rgba(11, 22, 40, 0.85) 0%, ${levelColor}15 100%)` }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8899A6', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700, marginBottom: '16px' }}>
                <Droplets size={14} color={levelColor} /> Nível do Tanque
              </div>
-             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '16px' }}>
-               <span style={{ fontFamily: 'var(--font-display)', fontSize: '48px', fontWeight: 800, color: levelColor, lineHeight: 1 }}>{pct}%</span>
-               <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{truck.current_level_liters} L</span>
+             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '16px' }}>
+               <span style={{ fontSize: '48px', fontWeight: 900, color: levelColor, lineHeight: 1, fontFamily: "'IBM Plex Mono', monospace" }}>{pct}%</span>
+               <span style={{ fontSize: '15px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>{truck.current_level_liters} L</span>
              </div>
-             <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: levelColor, boxShadow: `0 0 12px ${levelColor}` }} />
+             <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: levelColor, boxShadow: `0 0 14px ${levelColor}` }} />
              </div>
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-               <span>0</span><span>Capacidade: {truck.capacity_liters}L</span>
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>
+               <span>0 L</span><span>Capacidade: {truck.capacity_liters}L</span>
              </div>
           </div>
 
@@ -717,8 +764,8 @@ export default function TruckDetailsPage() {
           {user?.role !== 'auditor' && (
             <div data-testid="hardware-key-card" style={{ ...glass, padding: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600 }}>
-                  <Key size={14} color="#2FBEB5" /> Chave do hardware
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8899A6', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>
+                  <Key size={14} color="#00D4FF" /> Chave do hardware
                 </div>
                 <button
                   type="button"
@@ -727,10 +774,10 @@ export default function TruckDetailsPage() {
                   style={{
                     padding: '5px 12px',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: '#cbd5e1',
-                    fontWeight: 600,
+                    border: '1px solid rgba(0, 212, 255, 0.3)',
+                    background: 'rgba(0, 212, 255, 0.08)',
+                    color: '#00D4FF',
+                    fontWeight: 700,
                     fontSize: '12px',
                     cursor: hwKeyLoading || hwKeyBusy ? 'not-allowed' : 'pointer',
                   }}
@@ -744,7 +791,7 @@ export default function TruckDetailsPage() {
                 style={{
                   fontSize: '12px',
                   color: '#cbd5e1',
-                  fontFamily: 'var(--font-mono, monospace)',
+                  fontFamily: "'IBM Plex Mono', monospace",
                   marginBottom: '12px',
                   userSelect: 'text',
                 }}
@@ -753,7 +800,7 @@ export default function TruckDetailsPage() {
               </div>
 
               {hwKeyLoading ? (
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Carregando status da chave...</div>
+                <div style={{ fontSize: '13px', color: '#8899A6' }}>Carregando status da chave...</div>
               ) : hwKeyError ? (
                 <div style={{ fontSize: '13px', color: '#f87171' }}>{hwKeyError}</div>
               ) : hwKeyStatus?.configured ? (
@@ -769,9 +816,9 @@ export default function TruckDetailsPage() {
                       style={{
                         padding: '9px 16px',
                         borderRadius: '10px',
-                        border: '1px solid rgba(47,190,181,0.4)',
-                        background: 'rgba(47,190,181,0.12)',
-                        color: '#2FBEB5',
+                        border: '1px solid rgba(0, 212, 255, 0.4)',
+                        background: 'rgba(0, 212, 255, 0.12)',
+                        color: '#00D4FF',
                         fontWeight: 700,
                         fontSize: '13px',
                         cursor: hwKeyBusy ? 'not-allowed' : 'pointer',
@@ -800,7 +847,7 @@ export default function TruckDetailsPage() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div data-testid="hardware-key-empty-status" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  <div data-testid="hardware-key-empty-status" style={{ fontSize: '13px', color: '#8899A6' }}>
                     Nenhuma chave configurada
                   </div>
                   <div>
@@ -809,14 +856,15 @@ export default function TruckDetailsPage() {
                       disabled={hwKeyBusy}
                       onClick={executeGenerateKey}
                       style={{
-                        padding: '9px 16px',
+                        padding: '9px 18px',
                         borderRadius: '10px',
                         border: 'none',
-                        background: 'linear-gradient(135deg, #2FBEB5, #4F8EF7)',
+                        background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                         color: '#fff',
-                        fontWeight: 700,
+                        fontWeight: 800,
                         fontSize: '13px',
                         cursor: hwKeyBusy ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
                       }}
                     >
                       Gerar chave
@@ -899,51 +947,51 @@ export default function TruckDetailsPage() {
 
           {/* Timeline de Eventos */}
           <div style={{ ...glass, display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0, 212, 255, 0.12)', fontWeight: 800, fontSize: '14px', color: '#FFFFFF', background: 'rgba(6, 11, 19, 0.6)' }}>
               Linha do Tempo
             </div>
-            <div style={{ flex: 1, padding: '12px' }}>
+            <div style={{ flex: 1, padding: '16px' }}>
               {timelineEvents.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
-                  <div style={{ position: 'absolute', left: '20px', top: '10px', bottom: '10px', width: '2px', background: 'rgba(255,255,255,0.1)' }} />
-                  {timelineEvents.map((ev, i) => {
+                  <div style={{ position: 'absolute', left: '20px', top: '10px', bottom: '10px', width: '2px', background: 'rgba(0, 212, 255, 0.15)' }} />
+                  {timelineEvents.map((ev) => {
                     const isFueling = ev.type === 'fueling';
                     
-                    let bg = 'rgba(0,0,0,0.2)';
-                    let borderColor = 'rgba(255,255,255,0.03)';
-                    let iconColor = 'var(--blue)';
+                    let bg = 'rgba(6, 11, 19, 0.5)';
+                    let borderColor = 'rgba(0, 212, 255, 0.1)';
+                    let iconColor = '#00D4FF';
                     
                     if (!isFueling) {
                        if (ev.status === 'low') { borderColor = 'rgba(251,191,36,0.3)'; iconColor = '#fbbf24'; }
                        else if (ev.status === 'high') { borderColor = 'rgba(248,113,113,0.3)'; iconColor = '#f87171'; }
-                       else { borderColor = 'rgba(52,211,153,0.3)'; iconColor = '#34d399'; }
+                       else { borderColor = 'rgba(0,245,160,0.3)'; iconColor = '#00F5A0'; }
                     }
 
                     return (
                     <div key={ev.type + ev.id} style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1 }}>
                       <div style={{ width: '40px', display: 'flex', justifyContent: 'center', paddingTop: '12px' }}>
-                         <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: iconColor, border: '2px solid #0a101a', boxShadow: `0 0 8px ${iconColor}` }} />
+                         <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: iconColor, border: '2px solid #060B13', boxShadow: `0 0 10px ${iconColor}` }} />
                       </div>
-                      <div style={{ flex: 1, background: bg, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${borderColor}` }}>
+                      <div style={{ flex: 1, background: bg, padding: '12px 16px', borderRadius: '12px', border: `1px solid ${borderColor}` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
+                          <span style={{ fontSize: '12px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>{new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                           {isFueling ? (
-                             <span style={{ fontSize: '11px', color: 'var(--blue)', background: 'rgba(79,142,247,0.1)', padding: '2px 8px', borderRadius: '12px' }}>Abastecimento ({ev.release_method})</span>
+                             <span style={{ fontSize: '11px', color: '#00D4FF', background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.25)', padding: '2px 8px', borderRadius: '12px' }}>Abastecimento ({ev.release_method})</span>
                           ) : (
                              <span style={{ fontSize: '11px', color: iconColor, background: `${iconColor}22`, padding: '2px 8px', borderRadius: '12px' }}>Descarga (Dump Pro)</span>
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>
                             {isFueling ? (ev.driver_name || 'Desconhecido') : (ev.status === 'safe' ? 'Segura' : ev.status === 'low' ? 'Risco Tombamento' : 'Vibração Excessiva')}
                           </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: iconColor, fontWeight: 600 }}>
+                          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '14px', color: iconColor, fontWeight: 700 }}>
                             {isFueling ? `+${(ev.level_after - ev.level_before).toFixed(2)}L` : `${ev.vibration_level}%`}
                           </span>
                         </div>
                         {isFueling && (
                           <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Posto (ANP)</span>
+                            <span style={{ fontSize: '11px', color: '#8899A6' }}>Posto (ANP)</span>
                             <div>{renderAnpMatchCell(ev)}</div>
                           </div>
                         )}
@@ -952,7 +1000,7 @@ export default function TruckDetailsPage() {
                   )})}
                 </div>
               ) : (
-                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Nenhum evento recente.</div>
+                <div style={{ padding: '24px', textAlign: 'center', color: '#8899A6', fontSize: '13px' }}>Nenhum evento recente.</div>
               )}
             </div>
           </div>
@@ -975,13 +1023,3 @@ export default function TruckDetailsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-

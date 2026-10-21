@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowRight, Shield, Gauge, Bell } from 'lucide-react';
+import { ArrowRight, Shield, Gauge, Bell, Lock, Mail, Radio } from 'lucide-react';
 
 const features = [
-  { icon: Gauge,  label: 'Telemetria e rastreamento em tempo real' },
-  { icon: Shield, label: 'Liberação de abastecimento com biometria facial' },
-  { icon: Bell,   label: 'Detecção de anomalias e alertas de segurança' },
+  { icon: Gauge,  label: 'Telemetria telemática contínua e rastreamento em tempo real' },
+  { icon: Shield, label: 'Liberação física de bocal com biometria facial e IA liveness' },
+  { icon: Bell,   label: 'Detecção de divergência volumétrica e auditoria ANP' },
 ];
 
 export default function LoginPage() {
@@ -26,8 +26,8 @@ export default function LoginPage() {
   };
 
   const inputStyle = {
-    background: 'rgba(7, 13, 26, 0.6)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    background: 'rgba(6, 11, 19, 0.75)',
+    border: '1px solid rgba(0, 212, 255, 0.2)',
     color: '#fff',
     padding: '13px 16px',
     borderRadius: '12px',
@@ -42,7 +42,7 @@ export default function LoginPage() {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
-      background: 'radial-gradient(ellipse at 20% 50%, rgba(0, 196, 208, 0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(11, 21, 35, 0.8) 0%, transparent 50%), #070d1a',
+      background: 'radial-gradient(ellipse at 15% 50%, rgba(0, 212, 255, 0.12) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(0, 114, 255, 0.12) 0%, transparent 55%), #060B13',
     }}>
       {/* Left: branding */}
       <div style={{
@@ -52,24 +52,24 @@ export default function LoginPage() {
       }}>
         {/* Decorative blur spots */}
         <div style={{
-          position: 'absolute', top: '-80px', left: '-80px',
-          width: '320px', height: '320px', borderRadius: '50%',
-          background: 'rgba(0, 196, 208, 0.12)', filter: 'blur(50px)', pointerEvents: 'none'
+          position: 'absolute', top: '-100px', left: '-100px',
+          width: '360px', height: '360px', borderRadius: '50%',
+          background: 'rgba(0, 212, 255, 0.14)', filter: 'blur(60px)', pointerEvents: 'none'
         }} />
         <div style={{
           position: 'absolute', bottom: '-80px', right: '-80px',
-          width: '240px', height: '240px', borderRadius: '50%',
-          background: 'rgba(0, 151, 167, 0.1)', filter: 'blur(40px)', pointerEvents: 'none'
+          width: '280px', height: '280px', borderRadius: '50%',
+          background: 'rgba(0, 114, 255, 0.12)', filter: 'blur(50px)', pointerEvents: 'none'
         }} />
 
-        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, maxWidth: '420px' }}>
+        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, maxWidth: '440px' }}>
           {/* Official Logo Container */}
           <div style={{
-            width: '90px', height: '90px', borderRadius: '24px', margin: '0 auto 24px',
-            background: 'rgba(0, 196, 208, 0.08)',
-            border: '1px solid rgba(0, 196, 208, 0.3)',
+            width: '92px', height: '92px', borderRadius: '24px', margin: '0 auto 24px',
+            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+            border: '1.5px solid rgba(0, 212, 255, 0.45)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 35px rgba(0, 196, 208, 0.25)',
+            boxShadow: '0 0 35px rgba(0, 212, 255, 0.35)',
           }}>
             <img
               src="/ehr-logo-official.png"
@@ -79,34 +79,35 @@ export default function LoginPage() {
           </div>
 
           <h1 style={{
-            fontSize: '38px', fontWeight: 800,
+            fontSize: '40px', fontWeight: 900,
             color: '#fff', margin: '0 0 10px', lineHeight: 1.1,
             letterSpacing: '-0.5px'
           }}>
-            EHR <span style={{ color: '#00C4D0' }}>Solutions</span>
+            EHR <span style={{ color: '#00D4FF', textShadow: '0 0 20px rgba(0, 212, 255, 0.5)' }}>Solutions</span>
           </h1>
 
-          <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px' }}>
-            Plataforma Inteligente de Gestão de Frotas e Telemetria
+          <p style={{ color: '#8899A6', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px' }}>
+            Plataforma Next-Gen de Gestão de Frotas, Telemetria IoT e Segurança Forense
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
             {features.map(({ icon: Icon, label }) => (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', gap: '14px',
-                padding: '12px 18px', borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
+                padding: '14px 18px', borderRadius: '14px',
+                background: 'rgba(11, 22, 40, 0.75)',
+                border: '1px solid rgba(0, 212, 255, 0.15)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
               }}>
                 <div style={{
-                  width: '34px', height: '34px', borderRadius: '10px',
-                  background: 'rgba(0, 196, 208, 0.12)',
-                  border: '1px solid rgba(0, 196, 208, 0.25)',
+                  width: '36px', height: '36px', borderRadius: '10px',
+                  background: 'rgba(0, 212, 255, 0.12)',
+                  border: '1px solid rgba(0, 212, 255, 0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <Icon size={16} color="#00C4D0" />
+                  <Icon size={18} color="#00D4FF" />
                 </div>
-                <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 500 }}>{label}</span>
+                <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>{label}</span>
               </div>
             ))}
           </div>
@@ -118,47 +119,48 @@ export default function LoginPage() {
         width: '460px', flexShrink: 0,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: '60px 48px',
-        background: 'rgba(11, 21, 35, 0.75)',
+        background: 'rgba(11, 22, 40, 0.88)',
         backdropFilter: 'blur(30px)',
         WebkitBackdropFilter: 'blur(30px)',
-        borderLeft: '1px solid rgba(255, 255, 255, 0.07)',
+        borderLeft: '1px solid rgba(0, 212, 255, 0.18)',
+        boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.5)',
       }}>
         <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(0, 196, 208, 0.1)', border: '1px solid rgba(0, 196, 208, 0.25)', padding: '4px 10px', borderRadius: '20px', color: '#00C4D0', fontSize: '11px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '12px' }}>
-            Portal do Gestor
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(0, 212, 255, 0.12)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '5px 12px', borderRadius: '20px', color: '#00D4FF', fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '14px', boxShadow: '0 0 12px rgba(0, 212, 255, 0.2)' }}>
+            <Radio size={12} color="#00D4FF" /> Portal do Gestor
           </div>
-          <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#fff', marginBottom: '6px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', marginBottom: '6px', letterSpacing: '-0.3px' }}>
             Acessar Painel
           </h2>
-          <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-            Entre com suas credenciais autorizadas
+          <p style={{ color: '#8899A6', fontSize: '14px', margin: 0 }}>
+            Entre com suas credenciais autorizadas de comando
           </p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#8899A6', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               E-mail
             </label>
             <input
               type="email" required autoComplete="email" placeholder="gestor@ehr.com"
               value={email} onChange={e => setEmail(e.target.value)}
               style={inputStyle}
-              onFocus={e => { e.target.style.borderColor='#00C4D0'; e.target.style.boxShadow='0 0 0 3px rgba(0, 196, 208, 0.15)'; }}
-              onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
+              onFocus={e => { e.target.style.borderColor='#00D4FF'; e.target.style.boxShadow='0 0 16px rgba(0, 212, 255, 0.25)'; }}
+              onBlur={e => { e.target.style.borderColor='rgba(0, 212, 255, 0.2)'; e.target.style.boxShadow='none'; }}
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#8899A6', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               Senha
             </label>
             <input
               type="password" required autoComplete="current-password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)}
               style={inputStyle}
-              onFocus={e => { e.target.style.borderColor='#00C4D0'; e.target.style.boxShadow='0 0 0 3px rgba(0, 196, 208, 0.15)'; }}
-              onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
+              onFocus={e => { e.target.style.borderColor='#00D4FF'; e.target.style.boxShadow='0 0 16px rgba(0, 212, 255, 0.25)'; }}
+              onBlur={e => { e.target.style.borderColor='rgba(0, 212, 255, 0.2)'; e.target.style.boxShadow='none'; }}
             />
           </div>
 
@@ -167,10 +169,10 @@ export default function LoginPage() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               padding: '14px', borderRadius: '12px', border: 'none',
-              background: loading ? 'rgba(0, 196, 208, 0.5)' : 'linear-gradient(135deg, #00C4D0 0%, #0097A7 100%)',
-              color: '#fff', fontWeight: 700,
+              background: loading ? 'rgba(0, 212, 255, 0.4)' : 'linear-gradient(135deg, #00D4FF 0%, #0072FF 100%)',
+              color: '#fff', fontWeight: 800,
               fontSize: '15px', cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 8px 24px rgba(0, 196, 208, 0.35)',
+              boxShadow: '0 0 24px rgba(0, 212, 255, 0.4)',
               transition: 'all 0.2s',
               marginTop: '6px',
             }}
@@ -185,20 +187,21 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowDemo(!showDemo)}
-              style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+              style={{ background: 'none', border: 'none', color: '#8899A6', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
             >
               {showDemo ? 'Ocultar credenciais de teste' : 'Mostrar credenciais de teste'}
             </button>
             {showDemo && (
               <div style={{
-                marginTop: '12px', padding: '12px 16px',
-                background: 'rgba(0, 196, 208, 0.06)',
-                border: '1px solid rgba(0, 196, 208, 0.2)',
-                borderRadius: '10px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.6, textAlign: 'left'
+                marginTop: '12px', padding: '14px 18px',
+                background: 'rgba(0, 212, 255, 0.08)',
+                border: '1px solid rgba(0, 212, 255, 0.3)',
+                borderRadius: '12px', fontSize: '12px', color: '#cbd5e1', lineHeight: 1.6, textAlign: 'left',
+                boxShadow: '0 0 16px rgba(0, 212, 255, 0.15)',
               }}>
-                <div style={{ fontWeight: 700, color: '#00C4D0', marginBottom: '4px' }}>🔑 Acesso Demo</div>
-                <div>E-mail: gestor@ehr.com</div>
-                <div>Senha: Demo@1234</div>
+                <div style={{ fontWeight: 800, color: '#00D4FF', marginBottom: '4px' }}>🔑 Acesso Demo (Desenvolvimento)</div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace" }}>E-mail: gestor@ehr.com</div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace" }}>Senha: Demo@1234</div>
               </div>
             )}
           </div>

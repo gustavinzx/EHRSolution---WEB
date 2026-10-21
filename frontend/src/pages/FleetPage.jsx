@@ -4,25 +4,27 @@ import toast from 'react-hot-toast';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import { RefreshCw, MapPin, Users, Gauge, Droplets, Truck, PlusCircle, Search, Navigation } from 'lucide-react';
+import { RefreshCw, MapPin, Users, Gauge, Droplets, Truck, PlusCircle, Search, Navigation, Radio } from 'lucide-react';
 import MapView from '../components/MapView';
 import RouteModal from '../components/RouteModal';
 import NewTruckModal from '../components/NewTruckModal';
 import useFleetState from '../store/useFleetState';
 
 const glass = {
-  background: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
   borderRadius: '16px',
 };
 
 const STATUS_META = {
-  critical_fuel: { label: 'Sem Autonomia', color: '#f87171', glow: 'rgba(248, 113, 113, 0.15)' },
-  ok: { label: 'Operacional', color: '#10b981', glow: 'rgba(16, 185, 129, 0.15)' },
-  low_fuel: { label: 'Comb. Baixo', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.15)' },
-  no_signal: { label: 'Sem Sinal', color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.15)' },
-  security_alert: { label: 'Alerta Segurança', color: '#fb7185', glow: 'rgba(251, 113, 133, 0.18)' },
-  arrived: { label: 'No Destino', color: '#4F8EF7', glow: 'rgba(79, 142, 247, 0.18)' },
+  critical_fuel: { label: 'Sem Autonomia', color: '#f87171', glow: 'rgba(248, 113, 113, 0.15)', border: 'rgba(248, 113, 113, 0.3)' },
+  ok: { label: 'Operacional', color: '#00F5A0', glow: 'rgba(0, 245, 160, 0.15)', border: 'rgba(0, 245, 160, 0.3)' },
+  low_fuel: { label: 'Comb. Baixo', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.3)' },
+  no_signal: { label: 'Sem Sinal', color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)' },
+  security_alert: { label: 'Alerta Segurança', color: '#fb7185', glow: 'rgba(251, 113, 133, 0.18)', border: 'rgba(251, 113, 133, 0.3)' },
+  arrived: { label: 'No Destino', color: '#00D4FF', glow: 'rgba(0, 212, 255, 0.18)', border: 'rgba(0, 212, 255, 0.3)' },
 };
 
 export default function FleetPage() {
@@ -90,24 +92,40 @@ export default function FleetPage() {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
       {/* ── Page Header ── */}
       <div style={{
         ...glass,
-        padding: '24px 32px',
+        padding: '26px 32px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 100%)',
-        border: '1px solid rgba(0, 196, 208, 0.2)',
+        background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+        border: '1px solid rgba(0, 212, 255, 0.22)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
       }}>
-        <div>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
-            <Truck size={28} color="#00C4D0" /> Gestão da Frota
-          </h1>
-          <p style={{ color: '#8899A6', fontSize: '13px', marginTop: '6px', margin: '6px 0 0' }}>
-            Monitoramento em tempo real de {counts.total} veículos cadastrados.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+            border: '1px solid rgba(0, 212, 255, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)',
+          }}>
+            <Truck size={26} color="#00D4FF" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
+              Gestão da Frota
+            </h1>
+            <p style={{ color: '#8899A6', fontSize: '13px', marginTop: '4px', margin: '4px 0 0' }}>
+              Monitoramento telemétrico contínuo de {counts.total} veículos conectados.
+            </p>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -116,9 +134,12 @@ export default function FleetPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px',
               borderRadius: '10px', fontSize: '13px', fontWeight: 700,
-              border: 'none', background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
-              color: '#FFFFFF', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0, 196, 208, 0.3)',
+              border: 'none', background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
+              color: '#FFFFFF', cursor: 'pointer', boxShadow: '0 0 20px rgba(0, 212, 255, 0.35)',
+              transition: 'all 0.2s',
             }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <PlusCircle size={16} /> Cadastrar Caminhão
           </button>
@@ -127,9 +148,11 @@ export default function FleetPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
               borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-              border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.05)',
-              color: '#94A3B8', cursor: 'pointer',
+              border: '1px solid rgba(0, 212, 255, 0.2)', background: 'rgba(11, 22, 40, 0.8)',
+              color: '#94A3B8', cursor: 'pointer', transition: 'all 0.2s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#FFFFFF'; e.currentTarget.style.borderColor = '#00D4FF'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.2)'; }}
           >
             <RefreshCw size={14} /> Atualizar
           </button>
@@ -139,23 +162,32 @@ export default function FleetPage() {
       {/* ── Summary KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         {[
-          { label: 'Total de Veículos', val: counts.total, sub: 'frota cadastrada', color: '#00C4D0' },
-          { label: 'Veículos Operacionais', val: counts.ok, sub: 'sem anomalias', color: '#10B981' },
-          { label: 'Em Deslocamento', val: counts.enRoute, sub: 'velocidade > 0 km/h', color: '#38BDF8' },
-          { label: 'Tanques em Alerta', val: counts.low, sub: 'nível abaixo do limite', color: '#F59E0B' },
+          { label: 'Total de Veículos', val: counts.total, sub: 'frota conectada', color: '#00D4FF', icon: Truck, bg: 'rgba(0, 212, 255, 0.08)' },
+          { label: 'Operacionais (OK)', val: counts.ok, sub: 'sem pendências', color: '#00F5A0', icon: Radio, bg: 'rgba(0, 245, 160, 0.08)' },
+          { label: 'Em Deslocamento', val: counts.enRoute, sub: 'velocidade > 0 km/h', color: '#38BDF8', icon: Gauge, bg: 'rgba(56, 189, 248, 0.08)' },
+          { label: 'Tanques em Alerta', val: counts.low, sub: 'nível abaixo do limite', color: '#F59E0B', icon: Droplets, bg: 'rgba(245, 158, 11, 0.08)' },
         ].map(kpi => (
           <div key={kpi.label} style={{
             ...glass,
-            padding: '16px 20px',
+            padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px',
-            background: 'rgba(11, 20, 32, 0.65)',
-          }}>
-            <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
-              {kpi.label}
-            </span>
-            <div style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px' }}>
+            gap: '6px',
+            background: kpi.bg,
+            border: `1px solid ${kpi.color}33`,
+            boxShadow: `0 4px 20px ${kpi.color}15`,
+            transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
+                {kpi.label}
+              </span>
+              <kpi.icon size={16} color={kpi.color} />
+            </div>
+            <div style={{ fontSize: '28px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: "'IBM Plex Mono', monospace" }}>
               {kpi.val}
             </div>
             <span style={{ fontSize: '11px', color: kpi.color, fontWeight: 600 }}>
@@ -174,10 +206,10 @@ export default function FleetPage() {
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '12px',
-        background: 'rgba(11, 20, 32, 0.65)',
+        background: 'rgba(11, 22, 40, 0.75)',
       }}>
         {/* Search */}
-        <div style={{ position: 'relative', width: '320px' }}>
+        <div style={{ position: 'relative', width: '340px' }}>
           <Search size={15} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748B' }} />
           <input
             type="text"
@@ -186,13 +218,14 @@ export default function FleetPage() {
             onChange={e => setSearch(e.target.value)}
             style={{
               width: '100%',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(6, 11, 19, 0.7)',
+              border: '1px solid rgba(0, 212, 255, 0.2)',
               borderRadius: '10px',
               padding: '9px 14px 9px 38px',
               color: '#FFFFFF',
               fontSize: '13px',
               outline: 'none',
+              fontFamily: 'Inter, sans-serif',
             }}
           />
         </div>
@@ -214,9 +247,11 @@ export default function FleetPage() {
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                border: statusFilter === f.id ? '1px solid rgba(0, 196, 208, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: statusFilter === f.id ? 'rgba(0, 196, 208, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                color: statusFilter === f.id ? '#00C4D0' : '#8899A6',
+                border: statusFilter === f.id ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: statusFilter === f.id ? 'rgba(0, 212, 255, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                color: statusFilter === f.id ? '#00D4FF' : '#8899A6',
+                boxShadow: statusFilter === f.id ? '0 0 12px rgba(0, 212, 255, 0.2)' : 'none',
+                transition: 'all 0.2s',
               }}
             >
               {f.label}
@@ -243,7 +278,7 @@ export default function FleetPage() {
           ) : (
             filteredTrucks.map(truck => {
               const levelPct = pct(truck);
-              const levelColor = levelPct < 20 ? '#EF4444' : levelPct < 50 ? '#F59E0B' : '#00C4D0';
+              const levelColor = levelPct < 20 ? '#EF4444' : levelPct < 50 ? '#F59E0B' : '#00D4FF';
               const s = STATUS_META[truck.status] || STATUS_META.ok;
               const drivers = truck.current_drivers?.length > 0
                 ? truck.current_drivers.map(d => d.name).join(', ')
@@ -258,31 +293,59 @@ export default function FleetPage() {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '14px',
-                    background: 'rgba(11, 20, 32, 0.8)',
-                    transition: 'border-color 0.2s',
+                    background: 'rgba(11, 22, 40, 0.82)',
+                    transition: 'border-color 0.2s, transform 0.2s',
                   }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.14)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
                   {/* Card Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '1px' }}>
-                          {truck.plate}
-                        </span>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          padding: '3px 10px',
-                          borderRadius: '12px',
-                          background: s.glow,
-                          color: s.color,
-                          border: `1px solid ${s.color}33`,
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {/* Mercosul / Cyber Plate */}
+                      <div style={{
+                        display: 'inline-flex',
+                        flexDirection: 'column',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        border: '1.5px solid rgba(0, 212, 255, 0.5)',
+                        boxShadow: '0 0 10px rgba(0, 212, 255, 0.2)',
+                        background: '#070D18',
+                      }}>
+                        <div style={{
+                          background: 'linear-gradient(90deg, #0052CC, #00D4FF)',
+                          height: '5px',
+                        }} />
+                        <div style={{
+                          padding: '2px 8px',
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontWeight: 800,
+                          fontSize: '14px',
+                          color: '#FFFFFF',
+                          letterSpacing: '1px',
+                          textAlign: 'center',
                         }}>
-                          {s.label}
-                        </span>
+                          {truck.plate}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#8899A6', marginTop: '3px', fontWeight: 500 }}>
-                        {truck.model}
+
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            background: s.glow,
+                            color: s.color,
+                            border: `1px solid ${s.color}44`,
+                          }}>
+                            {s.label}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#8899A6', marginTop: '3px', fontWeight: 500 }}>
+                          {truck.model}
+                        </div>
                       </div>
                     </div>
 
@@ -291,13 +354,13 @@ export default function FleetPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      background: parseFloat(truck.speed_kmh) > 0 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                      background: parseFloat(truck.speed_kmh) > 0 ? 'rgba(0, 245, 160, 0.12)' : 'rgba(255, 255, 255, 0.05)',
                       padding: '4px 10px',
                       borderRadius: '8px',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      border: parseFloat(truck.speed_kmh) > 0 ? '1px solid rgba(0, 245, 160, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
                     }}>
-                      <Gauge size={13} color={parseFloat(truck.speed_kmh) > 0 ? '#38BDF8' : '#8899A6'} />
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: parseFloat(truck.speed_kmh) > 0 ? '#38BDF8' : '#8899A6' }}>
+                      <Gauge size={13} color={parseFloat(truck.speed_kmh) > 0 ? '#00F5A0' : '#8899A6'} />
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: parseFloat(truck.speed_kmh) > 0 ? '#00F5A0' : '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>
                         {truck.speed_kmh} km/h
                       </span>
                     </div>
@@ -307,9 +370,9 @@ export default function FleetPage() {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8899A6', fontWeight: 500 }}>
-                        <Droplets size={12} color="#00C4D0" /> Nível do Tanque
+                        <Droplets size={12} color="#00D4FF" /> Nível do Tanque
                       </span>
-                      <span style={{ fontWeight: 800, color: levelColor }}>
+                      <span style={{ fontWeight: 800, color: levelColor, fontFamily: "'IBM Plex Mono', monospace" }}>
                         {levelPct}% ({truck.current_level_liters} L / {truck.capacity_liters} L)
                       </span>
                     </div>
@@ -317,8 +380,8 @@ export default function FleetPage() {
                       <div style={{
                         width: `${levelPct}%`,
                         height: '100%',
-                        background: levelColor,
-                        boxShadow: `0 0 10px ${levelColor}66`,
+                        background: `linear-gradient(90deg, ${levelColor}88, ${levelColor})`,
+                        boxShadow: `0 0 10px ${levelColor}88`,
                         borderRadius: '4px',
                         transition: 'width 0.4s',
                       }} />
@@ -332,17 +395,17 @@ export default function FleetPage() {
                     alignItems: 'center',
                     padding: '10px 12px',
                     borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.04)',
+                    background: 'rgba(6, 11, 19, 0.5)',
+                    border: '1px solid rgba(0, 212, 255, 0.08)',
                     fontSize: '12px',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1' }}>
-                      <Users size={13} color="#00C4D0" />
+                      <Users size={13} color="#00D4FF" />
                       <span>{drivers}</span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8899A6' }}>
-                      <MapPin size={12} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8899A6', fontFamily: "'IBM Plex Mono', monospace" }}>
+                      <MapPin size={12} color="#00D4FF" />
                       <span>{parseFloat(truck.lat || 0).toFixed(4)}, {parseFloat(truck.lng || 0).toFixed(4)}</span>
                     </div>
                   </div>
@@ -354,13 +417,16 @@ export default function FleetPage() {
                       style={{
                         fontSize: '12px',
                         fontWeight: 700,
-                        color: '#00C4D0',
+                        color: '#00D4FF',
                         textDecoration: 'none',
                         padding: '7px 12px',
                         borderRadius: '8px',
-                        background: 'rgba(0, 196, 208, 0.08)',
-                        border: '1px solid rgba(0, 196, 208, 0.2)',
+                        background: 'rgba(0, 212, 255, 0.1)',
+                        border: '1px solid rgba(0, 212, 255, 0.25)',
+                        transition: 'all 0.2s',
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0, 212, 255, 0.2)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(0, 212, 255, 0.25)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0, 212, 255, 0.1)'; e.currentTarget.style.boxShadow = 'none'; }}
                     >
                       Ver Detalhes do Veículo →
                     </Link>
@@ -374,11 +440,12 @@ export default function FleetPage() {
                             padding: '7px 12px',
                             borderRadius: '8px',
                             border: '1px solid rgba(248, 113, 113, 0.4)',
-                            background: 'rgba(248, 113, 113, 0.1)',
+                            background: 'rgba(248, 113, 113, 0.12)',
                             color: '#F87171',
                             cursor: 'pointer',
                             fontSize: '12px',
                             fontWeight: 700,
+                            transition: 'all 0.2s',
                           }}
                         >
                           Cancelar Rota
@@ -398,22 +465,22 @@ export default function FleetPage() {
                           gap: '6px',
                           padding: '8px 16px',
                           borderRadius: '10px',
-                          border: '1px solid rgba(0, 196, 208, 0.4)',
-                          background: 'linear-gradient(135deg, #00C4D0 0%, #0284C7 100%)',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #00D4FF 0%, #0072FF 100%)',
                           color: '#FFFFFF',
                           cursor: 'pointer',
                           fontSize: '12px',
                           fontWeight: 800,
-                          boxShadow: '0 4px 14px rgba(0, 196, 208, 0.35)',
+                          boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
                           transition: 'all 0.2s ease',
                         }}
                         onMouseEnter={e => {
                           e.currentTarget.style.transform = 'translateY(-1px)';
-                          e.currentTarget.style.boxShadow = '0 6px 18px rgba(0, 196, 208, 0.45)';
+                          e.currentTarget.style.boxShadow = '0 0 22px rgba(0, 212, 255, 0.5)';
                         }}
                         onMouseLeave={e => {
                           e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 196, 208, 0.35)';
+                          e.currentTarget.style.boxShadow = '0 0 16px rgba(0, 212, 255, 0.35)';
                         }}
                       >
                         <Navigation size={13} color="#FFFFFF" />
@@ -435,19 +502,21 @@ export default function FleetPage() {
           flexDirection: 'column',
           position: 'sticky',
           top: '20px',
-          background: 'rgba(11, 20, 32, 0.85)',
+          background: 'rgba(11, 22, 40, 0.85)',
           overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         }}>
           <div style={{
             padding: '16px 20px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            borderBottom: '1px solid rgba(0, 212, 255, 0.12)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            background: 'rgba(6, 11, 19, 0.6)',
           }}>
             <div>
               <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>Mapa em Tempo Real</div>
-              <div style={{ fontSize: '11px', color: '#8899A6', marginTop: '2px' }}>Geolocalização via satélite dos veículos</div>
+              <div style={{ fontSize: '11px', color: '#8899A6', marginTop: '2px' }}>Geolocalização telemétrica via satélite</div>
             </div>
             <div style={{
               display: 'flex',
@@ -455,11 +524,12 @@ export default function FleetPage() {
               gap: '6px',
               padding: '4px 10px',
               borderRadius: '20px',
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              background: 'rgba(0, 245, 160, 0.12)',
+              border: '1px solid rgba(0, 245, 160, 0.35)',
+              boxShadow: '0 0 10px rgba(0, 245, 160, 0.2)',
             }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '3px', background: '#10B981' }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>Live GPS</span>
+              <span style={{ width: '6px', height: '6px', borderRadius: '3px', background: '#00F5A0', boxShadow: '0 0 6px #00F5A0' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#00F5A0' }}>Live GPS</span>
             </div>
           </div>
 

@@ -21,14 +21,16 @@ import {
 import toast from 'react-hot-toast';
 
 const glass = {
-  background: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'rgba(11, 22, 40, 0.75)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
   borderRadius: '16px',
 };
 
 const inputStyle = {
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.09)',
+  background: 'rgba(6, 11, 19, 0.7)',
+  border: '1px solid rgba(0, 212, 255, 0.2)',
   color: '#FFFFFF',
   padding: '9px 12px',
   borderRadius: '10px',
@@ -72,7 +74,6 @@ export default function FuelingPage() {
     fetchFleet();
   }, [fetchFleet]);
 
-  // When truck is selected, check for active session
   useEffect(() => {
     if (!truckId) {
       setSession(null);
@@ -162,42 +163,43 @@ export default function FuelingPage() {
 
   const isAwaitingAuth = activeTruck?.route_phase === 'awaiting_fueling_authorization';
 
-  // KPI calculations
   const totalVolume = logs.reduce((acc, l) => acc + (parseFloat(l.tank_liters_delta || l.pump_liters || 0) || 0), 0);
   const divergenceLogs = logs.filter(l => l.divergence_pct && Math.abs(parseFloat(l.divergence_pct)) > 5);
   const hardwareLogs = logs.filter(l => l.data_source === 'hardware');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
       {/* ── Page Header ── */}
       <div
         style={{
           ...glass,
-          padding: '24px 32px',
+          padding: '26px 32px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'linear-gradient(135deg, rgba(7, 16, 27, 0.95) 0%, rgba(15, 27, 44, 0.95) 100%)',
-          border: '1px solid rgba(0, 196, 208, 0.2)',
+          background: 'linear-gradient(135deg, rgba(6, 11, 19, 0.95) 0%, rgba(13, 25, 43, 0.95) 100%)',
+          border: '1px solid rgba(0, 212, 255, 0.22)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div
             style={{
               width: '52px',
               height: '52px',
               borderRadius: '14px',
-              background: 'rgba(0, 196, 208, 0.1)',
-              border: '1px solid rgba(0, 196, 208, 0.3)',
+              background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+              border: '1px solid rgba(0, 212, 255, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(0, 212, 255, 0.25)',
             }}
           >
-            <Fuel size={26} color="#00C4D0" />
+            <Fuel size={26} color="#00D4FF" />
           </div>
           <div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
               Sessão e Auditoria de Abastecimento
             </h1>
             <p style={{ margin: '4px 0 0', color: '#8899A6', fontSize: '13px' }}>
@@ -214,15 +216,18 @@ export default function FuelingPage() {
             gap: '8px',
             padding: '10px 18px',
             borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(0, 212, 255, 0.2)',
+            background: 'rgba(11, 22, 40, 0.8)',
             color: '#FFFFFF',
             fontWeight: 700,
             fontSize: '13px',
             cursor: 'pointer',
+            transition: 'all 0.2s',
           }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#00D4FF'; e.currentTarget.style.boxShadow = '0 0 14px rgba(0, 212, 255, 0.25)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <RotateCcw size={15} /> Sincronizar Logs
+          <RotateCcw size={15} color="#00D4FF" /> Sincronizar Logs
         </button>
       </div>
 
@@ -233,24 +238,27 @@ export default function FuelingPage() {
             label: 'Total Reconciliado',
             val: `${Math.round(totalVolume).toLocaleString('pt-BR')} L`,
             sub: `${logs.length} abastecimentos registrados`,
-            color: '#00C4D0',
+            color: '#00D4FF',
             icon: Droplets,
+            bg: 'rgba(0, 212, 255, 0.08)',
             isCritical: false,
           },
           {
             label: 'Origem IoT / Hardware',
             val: `${hardwareLogs.length}`,
             sub: 'telemetria de alta precisão',
-            color: '#10B981',
+            color: '#00F5A0',
             icon: Radio,
+            bg: 'rgba(0, 245, 160, 0.08)',
             isCritical: false,
           },
           {
             label: 'Divergências Críticas',
             val: `${divergenceLogs.length}`,
             sub: '> 5% desvio bomba vs tanque',
-            color: divergenceLogs.length > 0 ? '#EF4444' : '#10B981',
+            color: divergenceLogs.length > 0 ? '#EF4444' : '#00F5A0',
             icon: AlertTriangle,
+            bg: divergenceLogs.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0, 245, 160, 0.08)',
             isCritical: divergenceLogs.length > 0,
           },
           {
@@ -259,6 +267,7 @@ export default function FuelingPage() {
             sub: activeTruck ? `Veículo ${activeTruck.plate}` : 'Nenhum veículo selecionado',
             color: session ? '#38BDF8' : '#8899A6',
             icon: LockKeyhole,
+            bg: 'rgba(56, 189, 248, 0.08)',
             isCritical: false,
           },
         ].map(kpi => (
@@ -266,25 +275,27 @@ export default function FuelingPage() {
             key={kpi.label}
             style={{
               ...glass,
-              padding: '16px 20px',
+              padding: '18px 20px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
-              background: kpi.isCritical ? 'rgba(239, 68, 68, 0.09)' : 'rgba(11, 20, 32, 0.65)',
-              border: kpi.isCritical ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: kpi.isCritical ? '0 0 16px rgba(239, 68, 68, 0.25)' : 'none',
-              transition: 'all 0.2s ease',
+              gap: '6px',
+              background: kpi.bg,
+              border: `1px solid ${kpi.color}33`,
+              boxShadow: `0 4px 20px ${kpi.color}15`,
+              transition: 'transform 0.2s',
             }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', color: kpi.isCritical ? '#FCA5A5' : '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
                 {kpi.label}
               </span>
               <div style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '8px',
-                background: kpi.isCritical ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                background: `${kpi.color}22`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -292,7 +303,7 @@ export default function FuelingPage() {
                 <kpi.icon size={16} color={kpi.color} />
               </div>
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono, monospace)' }}>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: "'IBM Plex Mono', monospace" }}>
               {kpi.val}
             </div>
             <span style={{ fontSize: '11px', color: kpi.color, fontWeight: 600 }}>
@@ -307,27 +318,29 @@ export default function FuelingPage() {
         style={{
           ...glass,
           padding: '24px 28px',
-          background: 'rgba(11, 20, 32, 0.8)',
-          border: '1px solid rgba(0, 196, 208, 0.25)',
+          background: 'rgba(11, 22, 40, 0.85)',
+          border: '1px solid rgba(0, 212, 255, 0.25)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
           display: 'flex',
           flexDirection: 'column',
           gap: '20px',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: session ? 'rgba(56, 189, 248, 0.15)' : 'rgba(0, 196, 208, 0.1)',
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: session ? 'rgba(56, 189, 248, 0.15)' : 'rgba(0, 212, 255, 0.15)',
+                border: '1px solid rgba(0, 212, 255, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <LockKeyhole size={18} color={session ? '#38BDF8' : '#00C4D0'} />
+              <LockKeyhole size={18} color={session ? '#38BDF8' : '#00D4FF'} />
             </div>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
@@ -370,8 +383,8 @@ export default function FuelingPage() {
             style={{
               padding: '24px',
               borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px dashed rgba(255, 255, 255, 0.08)',
+              background: 'rgba(6, 11, 19, 0.4)',
+              border: '1px dashed rgba(0, 212, 255, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -380,7 +393,7 @@ export default function FuelingPage() {
               fontSize: '13px',
             }}
           >
-            <Truck size={18} style={{ opacity: 0.5 }} />
+            <Truck size={18} color="#00D4FF" style={{ opacity: 0.6 }} />
             Selecione um veículo no seletor acima para verificar o status de abastecimento ou forçar liberação de trava.
           </div>
         )}
@@ -390,8 +403,8 @@ export default function FuelingPage() {
             style={{
               padding: '20px 24px',
               borderRadius: '14px',
-              background: isAwaitingAuth ? 'rgba(0, 196, 208, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-              border: isAwaitingAuth ? '1px solid rgba(0, 196, 208, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: isAwaitingAuth ? 'rgba(0, 212, 255, 0.08)' : 'rgba(6, 11, 19, 0.5)',
+              border: isAwaitingAuth ? '1px solid rgba(0, 212, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -407,14 +420,14 @@ export default function FuelingPage() {
                     fontWeight: 800,
                     padding: '3px 8px',
                     borderRadius: '6px',
-                    background: isAwaitingAuth ? 'rgba(0, 196, 208, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-                    color: isAwaitingAuth ? '#00C4D0' : '#94A3B8',
+                    background: isAwaitingAuth ? 'rgba(0, 212, 255, 0.2)' : 'rgba(100, 116, 139, 0.2)',
+                    color: isAwaitingAuth ? '#00D4FF' : '#94A3B8',
                     textTransform: 'uppercase',
                   }}
                 >
                   {isAwaitingAuth ? 'Parada Detectada' : 'Sem Parada em Posto'}
                 </span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                <span style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', fontFamily: "'IBM Plex Mono', monospace" }}>
                   {activeTruck?.plate} — {activeTruck?.model}
                 </span>
               </div>
@@ -443,12 +456,12 @@ export default function FuelingPage() {
                 border: 'none',
                 cursor: sessionBusy ? 'not-allowed' : 'pointer',
                 background: isAwaitingAuth
-                  ? 'linear-gradient(135deg, #00C4D0, #0284C7)'
+                  ? 'linear-gradient(135deg, #00D4FF, #0072FF)'
                   : 'rgba(255, 255, 255, 0.08)',
                 color: '#FFFFFF',
                 fontWeight: 700,
                 fontSize: '13px',
-                boxShadow: isAwaitingAuth ? '0 4px 14px rgba(0, 196, 208, 0.3)' : 'none',
+                boxShadow: isAwaitingAuth ? '0 0 16px rgba(0, 212, 255, 0.35)' : 'none',
               }}
             >
               <ShieldCheck size={16} />
@@ -462,8 +475,8 @@ export default function FuelingPage() {
             style={{
               padding: '20px 24px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, rgba(7, 24, 40, 0.9) 0%, rgba(13, 34, 56, 0.9) 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
+              background: 'linear-gradient(135deg, rgba(6, 14, 26, 0.95) 0%, rgba(13, 27, 46, 0.95) 100%)',
+              border: '1px solid rgba(0, 212, 255, 0.35)',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
@@ -471,9 +484,9 @@ export default function FuelingPage() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8', boxShadow: '0 0 10px #38BDF8' }} />
-                <span style={{ fontSize: '14px', fontWeight: 800, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Sessão Ativa: {session.id}
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00D4FF', boxShadow: '0 0 10px #00D4FF' }} />
+                <span style={{ fontSize: '14px', fontWeight: 800, color: '#00D4FF', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Sessão Ativa: #{session.id}
                 </span>
               </div>
               <span
@@ -482,9 +495,9 @@ export default function FuelingPage() {
                   fontWeight: 800,
                   padding: '4px 10px',
                   borderRadius: '999px',
-                  background: session.status === 'requested' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                  color: session.status === 'requested' ? '#F59E0B' : '#10B981',
-                  border: session.status === 'requested' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                  background: session.status === 'requested' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(0, 245, 160, 0.15)',
+                  color: session.status === 'requested' ? '#F59E0B' : '#00F5A0',
+                  border: session.status === 'requested' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(0, 245, 160, 0.3)',
                   textTransform: 'uppercase',
                 }}
               >
@@ -493,27 +506,27 @@ export default function FuelingPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '10px' }}>
+              <div style={{ background: 'rgba(6, 11, 19, 0.5)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(0, 212, 255, 0.1)' }}>
                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase' }}>Motorista</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px' }}>
                   {session.driver_name || activeTruck?.current_drivers?.[0]?.name || 'Não identificado'}
                 </div>
               </div>
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '10px' }}>
+              <div style={{ background: 'rgba(6, 11, 19, 0.5)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(0, 212, 255, 0.1)' }}>
                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase' }}>Posto</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px' }}>
                   {session.station_name || activeTruck?.station_name || 'Desconhecido'}
                 </div>
               </div>
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '10px' }}>
+              <div style={{ background: 'rgba(6, 11, 19, 0.5)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(0, 212, 255, 0.1)' }}>
                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase' }}>Método</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px' }}>
                   {session.release_method === 'facial' ? 'Reconhecimento Facial' : 'BLE Fallback'}
                 </div>
               </div>
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '10px' }}>
+              <div style={{ background: 'rgba(6, 11, 19, 0.5)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(0, 212, 255, 0.1)' }}>
                 <div style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase' }}>Veículo</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', marginTop: '4px', fontFamily: 'var(--font-mono, monospace)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#00D4FF', marginTop: '4px', fontFamily: "'IBM Plex Mono', monospace" }}>
                   {activeTruck?.plate || '—'}
                 </div>
               </div>
@@ -532,11 +545,11 @@ export default function FuelingPage() {
                     borderRadius: '10px',
                     border: 'none',
                     cursor: sessionBusy ? 'not-allowed' : 'pointer',
-                    background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+                    background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
                     color: '#FFFFFF',
                     fontWeight: 700,
                     fontSize: '13px',
-                    boxShadow: '0 4px 14px rgba(0, 196, 208, 0.3)',
+                    boxShadow: '0 0 16px rgba(0, 212, 255, 0.35)',
                   }}
                 >
                   <LockKeyhole size={16} /> Autorizar Destravamento
@@ -555,11 +568,11 @@ export default function FuelingPage() {
                     borderRadius: '10px',
                     border: 'none',
                     cursor: sessionBusy ? 'not-allowed' : 'pointer',
-                    background: 'linear-gradient(135deg, #10B981, #059669)',
-                    color: '#FFFFFF',
-                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #00F5A0, #00A86B)',
+                    color: '#060B13',
+                    fontWeight: 800,
                     fontSize: '13px',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+                    boxShadow: '0 0 16px rgba(0, 245, 160, 0.35)',
                   }}
                 >
                   <CheckCircle2 size={16} /> Encerrar Abastecimento
@@ -575,7 +588,7 @@ export default function FuelingPage() {
         style={{
           ...glass,
           padding: '24px 28px',
-          background: 'rgba(11, 20, 32, 0.65)',
+          background: 'rgba(11, 22, 40, 0.75)',
           display: 'flex',
           flexDirection: 'column',
           gap: '20px',
@@ -584,7 +597,7 @@ export default function FuelingPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Filter size={18} color="#00C4D0" /> Filtros e Auditoria de Registros
+              <Filter size={18} color="#00D4FF" /> Filtros e Auditoria de Registros
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#8899A6' }}>
               Filtre o log por caminhão, condutor, canal de telemetria ou período de auditoria.
@@ -592,7 +605,7 @@ export default function FuelingPage() {
           </div>
         </div>
 
-        {/* Filters Toolbar (Grid Horizontal Compacto) */}
+        {/* Filters Toolbar */}
         <div
           style={{
             display: 'grid',
@@ -600,8 +613,8 @@ export default function FuelingPage() {
             gap: '12px',
             alignItems: 'end',
             padding: '16px 20px',
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            background: 'rgba(6, 11, 19, 0.5)',
+            border: '1px solid rgba(0, 212, 255, 0.1)',
             borderRadius: '12px',
           }}
         >
@@ -688,7 +701,7 @@ export default function FuelingPage() {
                 type="checkbox"
                 checked={filters.onlyDivergence || false}
                 onChange={e => setFilters({ ...filters, onlyDivergence: e.target.checked })}
-                style={{ width: '16px', height: '16px', accentColor: '#00C4D0', cursor: 'pointer' }}
+                style={{ width: '16px', height: '16px', accentColor: '#00D4FF', cursor: 'pointer' }}
               />
               Com Divergência
             </label>
@@ -703,14 +716,14 @@ export default function FuelingPage() {
               padding: '10px 18px',
               borderRadius: '10px',
               border: 'none',
-              background: 'linear-gradient(135deg, #00C4D0, #0284C7)',
+              background: 'linear-gradient(135deg, #00D4FF, #0072FF)',
               color: '#FFFFFF',
               fontWeight: 700,
               fontSize: '12px',
               cursor: 'pointer',
               height: '40px',
               whiteSpace: 'nowrap',
-              boxShadow: '0 4px 12px rgba(0, 196, 208, 0.25)',
+              boxShadow: '0 0 14px rgba(0, 212, 255, 0.3)',
             }}
           >
             <Filter size={14} /> Filtrar
