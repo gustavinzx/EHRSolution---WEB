@@ -15,7 +15,14 @@ async function setItem(key: string, value: string): Promise<void> {
     console.warn(`[secureStorage fallback] Usando AsyncStorage para salvar ${key} (Apenas DEV Web)`);
     await AsyncStorage.setItem(key, value);
   } else {
-    await SecureStore.setItemAsync(key, value);
+    const options = SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
+      ? { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
+      : undefined;
+    if (options) {
+      await SecureStore.setItemAsync(key, value, options);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
   }
 }
 
@@ -51,7 +58,13 @@ export const secureStorage = {
   },
   async getDriver(): Promise<Driver | null> {
     const data = await getItem(DRIVER_KEY);
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      await removeItem(DRIVER_KEY);
+      return null;
+    }
   },
 
   async saveVehicle(vehicle: Vehicle): Promise<void> {
@@ -59,7 +72,13 @@ export const secureStorage = {
   },
   async getVehicle(): Promise<Vehicle | null> {
     const data = await getItem(VEHICLE_KEY);
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      await removeItem(VEHICLE_KEY);
+      return null;
+    }
   },
 
   async clearAll(): Promise<void> {

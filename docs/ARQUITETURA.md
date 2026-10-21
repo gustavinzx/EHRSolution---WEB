@@ -143,6 +143,7 @@ O painel valida o papel do usuário **no banco a cada requisição**, então des
 | **Posto não reconhecido** (`unrecognized_station`) | A posição do caminhão no abastecimento não tem nenhum posto autorizado da ANP num raio de 150 m |
 | **Posto não autorizado** (`unauthorized_station`) | O posto está marcado como não autorizado ou interditado |
 | **Tentativa não autorizada** (`unauthorized_fueling_attempt`) | Tentativa de liberação fora das regras (ex.: fora do geofence) |
+| **Divergência de GPS app × caminhão** (`security_gps_position_divergence`) | A posição GPS enviada pelo celular no momento da autorização diverge acima do limite (`GPS_DIVERGENCE_KM`, padrão 500 m) da posição do caminhão |
 | **Eventos de segurança da placa** (`security_alert`) | Violação (`tamper`), movimento sem sessão, botão de emergência, sinal de furto |
 
 O casamento com o **cadastro nacional da ANP** usa a API oficial de Revendedores (45.762 postos sincronizados em outubro/2026), com caixa de busca pelas coordenadas e raio configurável (`STATION_MATCH_RADIUS_M`, 30 a 1000 m).
@@ -188,7 +189,7 @@ Tabelas: `users`, `drivers`, `trucks`, `driver_trucks`, `fueling_sessions`, `fue
 
 ## 9. Qualidade e processo
 
-- **Testes automatizados:** backend com **267 testes**, painel com **47** e app com **150** (todos executados a cada PR).
+- **Testes automatizados:** backend com **265+ testes**, painel com **45** e app com **150** (todos executados a cada PR).
 - **Testes de contrato:** a documentação da API (`docs/API_MOBILE.md`) é comparada com o código; uma rota ou erro sem documentação derruba o CI.
 - **Testes de vazamento:** varrem recursivamente as respostas atrás de campos e valores internos (chaves, hashes, dados da bomba).
 - **CI (GitHub Actions):** três jobs (`backend`, `frontend`, `mobile`) em Node 20, com PostgreSQL de verdade; a `main` só recebe merge com os três verdes.
@@ -208,5 +209,4 @@ Tabelas: `users`, `drivers`, `trucks`, `driver_trucks`, `fueling_sessions`, `fue
 
 - Contratar o provedor facial com prova de vida e substituir o `mock`.
 - Integrar a placa real seguindo o guia (`docs/GUIA_INTEGRACAO_HARDWARE.md`), com o fornecedor.
-- Avisar o gestor quando a posição informada pelo app divergir muito da posição do caminhão.
 - Cookies `httpOnly` e HTTPS de ponta a ponta no ambiente de produção.

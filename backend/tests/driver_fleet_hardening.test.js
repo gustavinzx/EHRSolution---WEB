@@ -550,4 +550,55 @@ describe('BLOCO D5 — Virtual Hardware Unit Tests', () => {
     expect(rTruck[0].sim_state).toBe('idle');
     expect(parseFloat(rTruck[0].current_level_liters)).toBeGreaterThan(50);
   });
+
+  it('Autorização sob demanda: preenche lat/lng quando o caminhão ainda não tem posição e gera alerta se divergir > 500m', async () => {
+    const drv = await db.query(
+      "INSERT INTO drivers (name, is_active, face_enrolled, face_template_ref) VALUES ('Driver GPS OnDemand', true, true, 'mock_tpl_gps') RETURNING id"
+    );
+    const dId = drv.rows[0].id;
+
+    const trk = await db.query(
+      "INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, status) VALUES ('GPS1A01', 'Truck Sem Posicao', 500, 200, 'ok') RETURNING id"
+    );
+    const tId = trk.rows[0].id;
+    await db.query("INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2)", [dId, tId]);
+
+    const tokenDrv = jwt.sign({ id: dId, role: 'driver', truck_id: tId }, process.env.JWT_SECRET);
+
+    // 1) Caminhão sem lat/lng recebe a coordenada sob demanda no ato do authorize
+    const sess1 = await db.query(
+      "INSERT INTO fueling_sessions (driver_id, truck_id, status, release_method, facial_verified_at) VALUES ($1, $2, 'requested', 'facial', NOW()) RETURNING id",
+      [dId, tId]
+    );
+    const rAuth1 = await request(app)
+      .post(`/api/fueling/sessions/${sess1.rows[0].id}/authorize`)
+      .set('Authorization', 'Bearer ' + tokenDrv)
+      .send({ lat: -23.5505, lng: -46.6333 });
+    expect(rAuth1.status).toBe(200);
+
+    const { rows: trkAfter1 } = await db.query("SELECT lat, lng FROM trucks WHERE id = $1", [tId]);
+    expect(Number(trkAfter1[0].lat)).toBeCloseTo(-23.5505, 4);
+    expect(Number(trkAfter1[0].lng)).toBeCloseTo(-46.6333, 4);
+
+    // 2) Agora que o caminhão tem posição (-23.5505, -46.6333), se o celular autorizar a > 500m de distância (ex.: -23.58, -46.66), gera alerta security_gps_position_divergence
+    await db.query("UPDATE fueling_sessions SET status = 'cancelled' WHERE id = $1", [sess1.rows[0].id]);
+    const sess2 = await db.query(
+      "INSERT INTO fueling_sessions (driver_id, truck_id, status, release_method, facial_verified_at) VALUES ($1, $2, 'requested', 'facial', NOW()) RETURNING id",
+      [dId, tId]
+    );
+    const rAuth2 = await request(app)
+      .post(`/api/fueling/sessions/${sess2.rows[0].id}/authorize`)
+      .set('Authorization', 'Bearer ' + tokenDrv)
+      .send({ lat: -23.5800, lng: -46.6600 });
+    expect(rAuth2.status).toBe(200);
+
+    const { rows: divAlerts } = await db.query(
+      "SELECT type, severity, message FROM fleet_alerts WHERE truck_id = $1 AND type = 'security_gps_position_divergence'",
+      [tId]
+    );
+    expect(divAlerts.length).toBe(1);
+    expect(divAlerts[0].severity).toBe('medium');
+    expect(divAlerts[0].message).toContain('Posição GPS do celular do motorista divergiu');
+  });
 });
+

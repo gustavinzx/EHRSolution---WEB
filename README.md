@@ -91,4 +91,21 @@ npx tsc --noEmit
 npm test
 ```
 
-Para mais detalhes sobre as rotas mobile e a integração com a placa IoT, consulte a [Documentação da API Mobile (API_MOBILE.md)](docs/API_MOBILE.md).
+## Estrutura do Repositório e Documentação Oficial
+
+```text
+EHR-Solutions-Web/
+├── backend/       # API Node.js + Express, PostgreSQL (17 migrations), Socket.IO, ANP e Motor de Fraudes
+├── frontend/      # Painel Web do Gestor (React 18 + Vite + Leaflet + Recharts + RBAC)
+├── mobile/        # Aplicativo do Motorista (React Native / Expo + Câmera Facial + SecureStore)
+├── docs/          # Documentação técnica, arquitetura, integração de hardware e relatórios de auditoria
+└── .github/       # Pipeline de CI (GitHub Actions: backend, frontend e mobile)
+```
+
+### Índice de Documentos (`docs/`)
+- **[Arquitetura do Sistema (`docs/ARQUITETURA.md`)](docs/ARQUITETURA.md)** — Visão geral dos componentes, diagramas de fluxo e banco de dados, camadas de segurança, LGPD e regras de detecção de fraude.
+- **[Guia de Integração do Hardware (`docs/GUIA_INTEGRACAO_HARDWARE.md`)](docs/GUIA_INTEGRACAO_HARDWARE.md)** — Contrato completo para o fornecedor da placa IoT (`x-api-key`, ciclo de vida da sessão, telemetria, eventos de segurança e testes).
+- **[Documentação da API Mobile (`docs/API_MOBILE.md`)](docs/API_MOBILE.md)** — Referência de rotas, payloads e códigos de erro do aplicativo do motorista e do hardware.
+- **[Roteiro de Apresentação (`docs/ROTEIRO_APRESENTACAO.md`)](docs/ROTEIRO_APRESENTACAO.md)** — Passo a passo de demonstração para a banca (o que preparar, clicar e falar em cada tela).
+- **[Relatórios de Auditoria e Entregas (`docs/relatorios/`)](docs/relatorios/)** — Histórico de verificações técnicas, testes de contrato e provas de cada etapa do projeto.
+

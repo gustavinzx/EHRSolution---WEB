@@ -430,7 +430,7 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
     const clientModule = await import('./api/client');
     const toastModule = await import('react-hot-toast');
 
-    const getSpy = vi.spyOn(clientModule.default, 'get');
+    const getSpy = vi.spyOn(clientModule.default, 'get').mockResolvedValue({ data: [] });
     const toastErrorSpy = vi.spyOn(toastModule.default, 'error').mockImplementation(() => {});
 
     let hookApi;

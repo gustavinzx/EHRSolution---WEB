@@ -208,15 +208,18 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 
   useEffect(() => {
     if (state.status === 'AUTHORIZING') {
+      let active = true;
       const authorize = async () => {
         try {
           if (state.releaseMethod === 'ble_fallback') {
             const bleLock = getBleLock();
             if (!bleLock.isAvailable()) {
-              dispatch({ 
-                type: 'AUTHORIZE_ERROR', 
-                error: 'Esta sessão foi iniciada por Bluetooth, que não está disponível. Procure o gestor.' 
-              });
+              if (active) {
+                dispatch({ 
+                  type: 'AUTHORIZE_ERROR', 
+                  error: 'Esta sessão foi iniciada por Bluetooth, que não está disponível. Procure o gestor.' 
+                });
+              }
               return;
             }
             await bleLock.connect();
@@ -225,13 +228,28 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
           let coords;
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status === 'granted') {
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+            try {
+              const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+              if (loc?.coords) {
+                coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+              }
+            } catch {
+              if (typeof (Location as any).getLastKnownPositionAsync === 'function') {
+                const lastLoc = await (Location as any).getLastKnownPositionAsync().catch(() => null);
+                if (lastLoc?.coords) {
+                  coords = { lat: lastLoc.coords.latitude, lng: lastLoc.coords.longitude };
+                }
+              }
+            }
           }
           
+          if (!active) return;
           await apiClient.authorizeSession(sessionId, coords);
-          dispatch({ type: 'AUTHORIZE_SUCCESS' });
+          if (active) {
+            dispatch({ type: 'AUTHORIZE_SUCCESS' });
+          }
         } catch (error: any) {
+          if (!active) return;
           const status = error.status;
           const code = error.code;
           const msg = typeof error.message === 'string' ? error.message : '';
@@ -259,6 +277,9 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
         }
       };
       authorize();
+      return () => {
+        active = false;
+      };
     }
   }, [state.status, sessionId, state.releaseMethod]);
 

@@ -46,7 +46,7 @@ async function checkAndProcessSessions(io) {
 
     // 2. Sessões em andamento há mais de 8s -> Finalizar com medição de combustível
     const { rows: activeSessions } = await db.query(`
-      SELECT s.id, s.truck_id, s.driver_id, s.status, s.station_id, s.release_method, s.authorized_at, s.started_at,
+      SELECT s.id, s.truck_id, s.driver_id, s.status, s.station_id, s.release_method, s.authorized_at, s.started_at, s.metadata,
              s.anp_station_id, s.station_match_status, s.station_match_distance_m, s.station_match_source,
              t.capacity_liters, t.current_level_liters, t.plate, t.model, t.lat, t.lng, t.fuel_station_id,
              fs.name AS station_name
@@ -67,6 +67,8 @@ async function checkAndProcessSessions(io) {
       const volume = Math.min(space, 250);
       const levelAfter = Math.min(currentLevel + volume, capacity);
       const durationMin = Math.max(((Date.now() - new Date(sess.started_at).getTime()) / 60000), 0.2).toFixed(1);
+      const logLat = sess.lat ?? sess.metadata?.authorized_lat ?? null;
+      const logLng = sess.lng ?? sess.metadata?.authorized_lng ?? null;
 
       const { rows: insertedLogs } = await db.query(`
         INSERT INTO fueling_logs
@@ -77,7 +79,7 @@ async function checkAndProcessSessions(io) {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, 'simulated', $16, $17, $18, $19)
         RETURNING id
       `, [
-        sess.id, sess.driver_id, sess.truck_id, sess.lat, sess.lng,
+        sess.id, sess.driver_id, sess.truck_id, logLat, logLng,
         currentLevel, levelAfter, sess.release_method || 'facial',
         sess.station_id || sess.fuel_station_id, sess.station_name,
         sess.started_at, durationMin, volume, volume, volume,
