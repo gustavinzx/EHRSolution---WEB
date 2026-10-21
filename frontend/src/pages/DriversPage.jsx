@@ -615,6 +615,7 @@ export default function DriversPage() {
         }}
         onSave={handleSave}
         driver={editingDriver}
+        trucks={trucks}
       />
 
       <EnrollmentModal
