@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Truck, Fuel, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,19 @@ export default function NewTruckModal({ isOpen, onClose, onSave }) {
     current_level_liters: '500',
   });
   const [loading, setLoading] = useState(false);
+
+  const prevIsOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      setFormData({
+        plate: '',
+        model: '',
+        capacity_liters: '500',
+        current_level_liters: '500',
+      });
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -103,7 +116,10 @@ export default function NewTruckModal({ isOpen, onClose, onSave }) {
               required
               placeholder="Ex: ABC1D23 ou BRA2E19"
               value={formData.plate}
-              onChange={e => setFormData({ ...formData, plate: e.target.value.toUpperCase() })}
+              onChange={e => {
+                const val = e.target.value.toUpperCase();
+                setFormData(prev => ({ ...prev, plate: val }));
+              }}
               style={inputStyle}
               onFocus={focus}
               onBlur={blur}
@@ -120,7 +136,10 @@ export default function NewTruckModal({ isOpen, onClose, onSave }) {
               required
               placeholder="Ex: Scania R450, Volvo FH 540..."
               value={formData.model}
-              onChange={e => setFormData({ ...formData, model: e.target.value })}
+              onChange={e => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, model: val }));
+              }}
               style={inputStyle}
               onFocus={focus}
               onBlur={blur}
@@ -138,7 +157,10 @@ export default function NewTruckModal({ isOpen, onClose, onSave }) {
                 required
                 placeholder="500"
                 value={formData.capacity_liters}
-                onChange={e => setFormData({ ...formData, capacity_liters: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, capacity_liters: val }));
+                }}
                 style={inputStyle}
                 onFocus={focus}
                 onBlur={blur}
@@ -153,7 +175,10 @@ export default function NewTruckModal({ isOpen, onClose, onSave }) {
                 type="number"
                 placeholder="500"
                 value={formData.current_level_liters}
-                onChange={e => setFormData({ ...formData, current_level_liters: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, current_level_liters: val }));
+                }}
                 style={inputStyle}
                 onFocus={focus}
                 onBlur={blur}

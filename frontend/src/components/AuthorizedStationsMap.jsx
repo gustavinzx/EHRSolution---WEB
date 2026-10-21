@@ -60,8 +60,10 @@ function MapController({ stations, selectedStationId }) {
   return null;
 }
 
+const EMPTY_STATIONS = [];
+
 export default function AuthorizedStationsMap({
-  stations = [],
+  stations = EMPTY_STATIONS,
   selectedStationId = null,
   onSelectStation,
   onToggleStation,

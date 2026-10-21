@@ -94,7 +94,9 @@ export function renderAnpMatchCell(log) {
   );
 }
 
-export default function FuelingTable({ logs = [] }) {
+const EMPTY_LOGS = [];
+
+export default function FuelingTable({ logs = EMPTY_LOGS }) {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {

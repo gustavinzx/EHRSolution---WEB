@@ -88,7 +88,7 @@ export default function FuelingPage() {
     };
   }, [truckId, getActiveSession]);
 
-  const activeTruck = trucks.find(t => t.id === parseInt(truckId));
+  const activeTruck = trucks.find(t => t.id === parseInt(truckId, 10));
 
   const startSession = async () => {
     if (!truckId) return toast.error('Selecione um caminhão');

@@ -71,21 +71,37 @@ export default function SettingsPage() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     let val = value;
-    if (type === 'checkbox') val = checked ? 1 : 0;
-    else if (type === 'number') val = parseFloat(value);
+    if (type === 'checkbox') {
+      val = checked ? 1 : 0;
+    } else if (type === 'number') {
+      val = value === '' ? '' : value;
+    }
     setSettings(prev => ({ ...prev, [name]: val }));
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (settings.divergence_critical_pct <= settings.divergence_pct) {
+    const divPct = parseFloat(settings.divergence_pct) || 0;
+    const divCritPct = parseFloat(settings.divergence_critical_pct) || 0;
+
+    if (divCritPct <= divPct) {
       toast.error('Divergência crítica deve ser MAIOR que a aceitável.');
       return;
     }
+
+    const payload = {
+      ...settings,
+      divergence_pct: divPct,
+      divergence_critical_pct: divCritPct,
+      offhours_start_hour: parseInt(settings.offhours_start_hour, 10) || 0,
+      offhours_end_hour: parseInt(settings.offhours_end_hour, 10) || 0,
+    };
+
     try {
       setSaving(true);
-      await client.put('/settings/alerts', settings);
+      await client.put('/settings/alerts', payload);
       toast.success('Configurações salvas com sucesso!');
+      setSettings(payload);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao salvar configurações');
     } finally {
