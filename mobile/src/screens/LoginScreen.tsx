@@ -13,7 +13,12 @@ import {
   Switch,
   TouchableOpacity,
 } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
+let LocalAuthModule: typeof import('expo-local-authentication') | null = null;
+try {
+  LocalAuthModule = require('expo-local-authentication');
+} catch {
+  LocalAuthModule = null;
+}
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { getBaseUrl } from '../services/api/apiClient';
@@ -36,18 +41,20 @@ export const LoginScreen: React.FC = () => {
 
     async function initBiometricsAndCreds() {
       try {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (LocalAuthModule) {
+          const hasHardware = await LocalAuthModule.hasHardwareAsync();
+          const isEnrolled = await LocalAuthModule.isEnrolledAsync();
 
-        if (isMounted && hasHardware && isEnrolled) {
-          setBiometricAvailable(true);
-          const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-          if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-            setBiometricType('Face ID');
-          } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-            setBiometricType('Digital');
-          } else {
-            setBiometricType('Biometria');
+          if (isMounted && hasHardware && isEnrolled) {
+            setBiometricAvailable(true);
+            const supportedTypes = await LocalAuthModule.supportedAuthenticationTypesAsync();
+            if (supportedTypes.includes(2)) {
+              setBiometricType('Face ID');
+            } else if (supportedTypes.includes(1)) {
+              setBiometricType('Digital');
+            } else {
+              setBiometricType('Biometria');
+            }
           }
         }
 
@@ -80,14 +87,19 @@ export const LoginScreen: React.FC = () => {
         return;
       }
 
-      const result = await LocalAuthentication.authenticateAsync({
+      if (!LocalAuthModule) {
+        Alert.alert('Aviso', 'Autenticação biométrica indisponível.');
+        return;
+      }
+
+      const result = await LocalAuthModule.authenticateAsync({
         promptMessage: `Autentique com ${biometricType} para entrar no EHR Frota`,
         fallbackLabel: 'Usar Senha',
         cancelLabel: 'Cancelar',
         disableDeviceFallback: false,
       });
 
-      if (result.success) {
+      if (result?.success) {
         setLoading(true);
         await signIn(savedCreds.email, savedCreds.pass);
       }
