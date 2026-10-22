@@ -218,4 +218,62 @@ describe('BLOCO E — Exclusão que preserva auditoria e trilha antifraude', () 
       .set('Authorization', `Bearer ${adminToken}`);
     expect(getRes.status).toBe(404);
   });
+
+  it('3. Placa liberada após exclusão: criar caminhão, excluir, criar outro com mesma placa (sucesso) e impedir duplicidade de ativos', async () => {
+    const testPlate = 'REC-2026';
+
+    // 1. Cria primeiro caminhão com testPlate
+    const createRes1 = await request(app)
+      .post('/api/fleet')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ plate: testPlate, model: 'Scania R450', capacity_liters: 500, current_level_liters: 300 });
+    expect(createRes1.status).toBe(201);
+    const firstTruckId = createRes1.body.id;
+
+    // 2. Tentar criar outro caminhão ativo com a mesma placa deve falhar (409)
+    const dupRes = await request(app)
+      .post('/api/fleet')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ plate: testPlate, model: 'Volvo FH', capacity_liters: 600 });
+    expect(dupRes.status).toBe(409);
+    expect(dupRes.body.error).toContain('Já existe um caminhão cadastrado com esta placa');
+
+    // 3. Adiciona log de abastecimento ao primeiro caminhão
+    await db.query(
+      `INSERT INTO fueling_logs (truck_id, driver_id, level_before, level_after, release_method, volume_liters)
+       VALUES ($1, $2, 100, 300, 'facial', 200)`,
+      [firstTruckId, driverId]
+    );
+
+    // 4. Exclui o primeiro caminhão (soft-delete)
+    const delRes = await request(app)
+      .delete(`/api/fleet/${firstTruckId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(delRes.status).toBe(200);
+
+    // 5. Cria NOVO caminhão com a MESMA placa => DEVE TER SUCESSO agora que o anterior está com status='deleted'
+    const createRes2 = await request(app)
+      .post('/api/fleet')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ plate: testPlate, model: 'Mercedes-Benz Actros', capacity_liters: 550, current_level_liters: 400 });
+    expect(createRes2.status).toBe(201);
+    const secondTruckId = createRes2.body.id;
+    expect(secondTruckId).not.toBe(firstTruckId);
+
+    // 6. Tentar criar um 3º caminhão ativo com a mesma placa deve falhar novamente (409)
+    const dupRes2 = await request(app)
+      .post('/api/fleet')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ plate: testPlate, model: 'DAF XF', capacity_liters: 500 });
+    expect(dupRes2.status).toBe(409);
+
+    // 7. Auditoria preservada: os logs do primeiro caminhão continuam vinculados a firstTruckId
+    const { rows: oldLogs } = await db.query('SELECT * FROM fueling_logs WHERE truck_id = $1', [firstTruckId]);
+    expect(oldLogs.length).toBe(1);
+    expect(oldLogs[0].truck_id).toBe(firstTruckId);
+
+    // Cleanup
+    await db.query('DELETE FROM fueling_logs WHERE truck_id = $1 OR truck_id = $2', [firstTruckId, secondTruckId]);
+    await db.query('DELETE FROM trucks WHERE id = $1 OR id = $2', [firstTruckId, secondTruckId]);
+  });
 });
