@@ -180,7 +180,7 @@ Tabelas: `users`, `drivers`, `trucks`, `driver_trucks`, `fueling_sessions`, `fue
 | `FACE_PROVIDER` | `mock` | provedor real (ainda não implementado) |
 | `FACE_MOCK_MODE` | `always_match` (qualquer foto passa) ou `marker` (todas falham) | proibido |
 | `VIRTUAL_HARDWARE_ENABLED` | `true` (simula bomba e trava) | `false` (o servidor recusa subir com `true`) |
-| `SIMULATOR_ENABLED` | `true` (caminhões se movem no mapa) | `false` |
+| `DATA_SOURCE` | `mock` (caminhões se movem no mapa) | `real` (telemetria do hardware físico) |
 | `CORS_ORIGINS` | vazio (libera tudo) | lista de origens permitidas |
 | `TRUST_PROXY` | vazio ou `1` (túnel HTTPS) | configurado conforme proxy reverso/CDN |
 | `JWT_SECRET` | qualquer valor | segredo forte e único |
@@ -193,7 +193,7 @@ Tabelas: `users`, `drivers`, `trucks`, `driver_trucks`, `fueling_sessions`, `fue
 - **Testes de contrato:** a documentação da API (`docs/API_MOBILE.md`) é comparada com o código; uma rota ou erro sem documentação derruba o CI.
 - **Testes de vazamento:** varrem recursivamente as respostas atrás de campos e valores internos (chaves, hashes, dados da bomba).
 - **CI (GitHub Actions):** três jobs (`backend`, `frontend`, `mobile`) em Node 20, com PostgreSQL de verdade; a `main` só recebe merge com os três verdes.
-- **Revisão por relatório:** cada entrega tem um relatório em `docs/relatorios/` com a tabela de itens, provas e pendências.
+- **Revisão por relatório:** cada entrega tem um relatório em `docs/historico/` com a tabela de itens, provas e pendências.
 
 ---
 

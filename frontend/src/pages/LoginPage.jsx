@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowRight, Shield, Gauge, Bell, Lock, Mail, Radio } from 'lucide-react';
+import { ArrowRight, Shield, Gauge, Bell, Radio } from 'lucide-react';
 
 const features = [
   { icon: Gauge,  label: 'Telemetria telemática contínua e rastreamento em tempo real' },
@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const { login }  = useAuth();
   const navigate   = useNavigate();
 
@@ -143,7 +142,7 @@ export default function LoginPage() {
               E-mail
             </label>
             <input
-              type="email" required autoComplete="email" placeholder="gestor@ehr.com"
+              type="email" required autoComplete="email" placeholder="seu.email@empresa.com"
               value={email} onChange={e => setEmail(e.target.value)}
               style={inputStyle}
               onFocus={e => { e.target.style.borderColor='#00D4FF'; e.target.style.boxShadow='0 0 16px rgba(0, 212, 255, 0.25)'; }}
@@ -180,32 +179,6 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : <><span>Entrar</span><ArrowRight size={16}/></>}
           </button>
         </form>
-
-        {/* Demo hint - apenas em desenvolvimento */}
-        {import.meta.env.DEV && (
-          <div style={{ marginTop: '24px', textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setShowDemo(!showDemo)}
-              style={{ background: 'none', border: 'none', color: '#8899A6', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              {showDemo ? 'Ocultar credenciais de teste' : 'Mostrar credenciais de teste'}
-            </button>
-            {showDemo && (
-              <div style={{
-                marginTop: '12px', padding: '14px 18px',
-                background: 'rgba(0, 212, 255, 0.08)',
-                border: '1px solid rgba(0, 212, 255, 0.3)',
-                borderRadius: '12px', fontSize: '12px', color: '#cbd5e1', lineHeight: 1.6, textAlign: 'left',
-                boxShadow: '0 0 16px rgba(0, 212, 255, 0.15)',
-              }}>
-                <div style={{ fontWeight: 800, color: '#00D4FF', marginBottom: '4px' }}>🔑 Acesso Demo (Desenvolvimento)</div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace" }}>E-mail: gestor@ehr.com</div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace" }}>Senha: Demo@1234</div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

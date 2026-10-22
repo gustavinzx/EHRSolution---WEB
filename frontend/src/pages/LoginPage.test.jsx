@@ -11,13 +11,13 @@ vi.mock('../hooks/useAuth', () => ({
   }),
 }));
 
-describe('LoginPage - Credenciais de teste', () => {
+describe('LoginPage - Remocao de credenciais demo', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllEnvs();
   });
 
-  it('com DEV=false (vi.stubEnv) o botão não aparece', () => {
+  it('botao ou dica de credenciais de teste NUNCA aparece (com DEV=false)', () => {
     vi.stubEnv('DEV', false);
     render(
       <BrowserRouter>
@@ -26,9 +26,10 @@ describe('LoginPage - Credenciais de teste', () => {
     );
 
     expect(screen.queryByRole('button', { name: /credenciais de teste/i })).toBeNull();
+    expect(screen.queryByText(/Demo@1234/i)).toBeNull();
   });
 
-  it('com DEV=true o botão aparece', () => {
+  it('botao ou dica de credenciais de teste NUNCA aparece mesmo com DEV=true', () => {
     vi.stubEnv('DEV', true);
     render(
       <BrowserRouter>
@@ -36,7 +37,8 @@ describe('LoginPage - Credenciais de teste', () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByRole('button', { name: /credenciais de teste/i })).toBeDefined();
-    expect(screen.queryByRole('button', { name: /credenciais de teste/i })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /credenciais de teste/i })).toBeNull();
+    expect(screen.queryByText(/Demo@1234/i)).toBeNull();
+    expect(screen.queryByText(/gestor@ehr.com/i)).toBeNull();
   });
 });

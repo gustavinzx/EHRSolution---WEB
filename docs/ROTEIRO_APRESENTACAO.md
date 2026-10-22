@@ -12,11 +12,11 @@
      - `FACE_PROVIDER=mock`
      - `FACE_MOCK_MODE=always_match`
      - `VIRTUAL_HARDWARE_ENABLED=true`
-     - `SIMULATOR_ENABLED=true`
+
 2. **Painel Web aberto (`http://localhost:5173`):**
-   - Faça login com o gestor:
-     - **E-mail:** `gestor@ehr.com`
-     - **Senha:** `Demo@1234`
+   - Faça login com as credenciais administrativas criadas com `npm run create-admin` (ou cadastradas no ambiente de testes).
+     - Para criar o primeiro gestor em produção: execute `npm run create-admin` informando e-mail e senha.
+     - O seed (`npm run seed`) é restrito somente a desenvolvimento, exigindo ALLOW_SEED_WIPE=true e NODE_ENV != production.
 3. **App Mobile no celular (Expo Go via Túnel HTTPS):**
    - Túnel Cloudflare ativo apontando para `http://localhost:3001`.
    - `npx expo start --tunnel` rodando na pasta `mobile/`.

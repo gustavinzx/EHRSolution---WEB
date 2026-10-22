@@ -191,11 +191,11 @@ if (process.env.NODE_ENV !== 'test') {
       process.exit(1);
     }
 
-    if (process.env.SIMULATOR_ENABLED === 'true') {
-      console.log('[SIM] SIMULATOR_ENABLED=true — dados de telemetria serão simulados.');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[SIM] Ambiente de desenvolvimento — iniciando simulador de frota.');
       startSimulator(io);
     } else {
-      console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
+      console.log('[SIM] Ambiente de produção — simulador desativado, aguardando telemetria real do hardware.');
     }
     startAnomalyEngine(io);
     // Virtual Hardware Runner (simulação de bomba/trava física)
