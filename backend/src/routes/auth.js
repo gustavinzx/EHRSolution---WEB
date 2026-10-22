@@ -7,9 +7,18 @@ const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
+// keyGenerator combinando IP e e-mail normalizado: um IP compartilhado não bloqueia outros usuários
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // limite de 10 requisições por IP na janela de tempo
+  max: 10, // limite de 10 requisições por (IP + e-mail) na janela de tempo
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    return `${ip}:${email}`;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
   message: { error: 'Muitas tentativas de login. Tente novamente após 15 minutos.' }
 });
 
