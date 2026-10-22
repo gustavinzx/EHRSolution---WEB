@@ -501,6 +501,64 @@ exports.assignTruck = async (req, res) => {
   }
 };
 
+exports.unassignTruck = async (req, res) => {
+  try {
+    const { id, truck_id } = req.params;
+    await db.query(
+      'DELETE FROM driver_trucks WHERE driver_id = $1 AND truck_id = $2',
+      [id, truck_id]
+    );
+    res.json({ message: 'Truck unassigned successfully' });
+  } catch (error) {
+    console.error('Unassign truck error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.deleteDriver = async (req, res) => {
+  const client = await db.pool.connect();
+  let inTransaction = false;
+  try {
+    const { id } = req.params;
+    const { rows: drvs } = await client.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
+    if (drvs.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    const templateRef = drvs[0].face_template_ref;
+
+    await client.query('BEGIN');
+    inTransaction = true;
+
+    await client.query('DELETE FROM driver_trucks WHERE driver_id = $1', [id]);
+    await client.query('DELETE FROM driver_cards WHERE driver_id = $1', [id]);
+    await client.query('DELETE FROM facial_attempts WHERE driver_id = $1', [id]);
+    await client.query('UPDATE fueling_sessions SET driver_id = NULL WHERE driver_id = $1', [id]);
+    await client.query('UPDATE fueling_logs SET driver_id = NULL WHERE driver_id = $1', [id]);
+    await client.query('DELETE FROM drivers WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    inTransaction = false;
+
+    if (templateRef) {
+      try {
+        await faceProvider.remove(templateRef);
+      } catch (e) {
+        console.error('Failed to remove face template on provider:', e);
+      }
+    }
+
+    res.json({ message: 'Driver deleted successfully' });
+  } catch (error) {
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    console.error('Delete driver error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
 exports.ranking = async (req, res) => {
   try {
     const ranking = await dataProvider.getDriverRanking();

@@ -36,6 +36,8 @@ router.patch('/:id/activate', requireRole, driversController.activate);
 
 router.post('/:id/face/enroll', requireRole, driversController.enrollFace);
 router.delete('/:id/face', requireRole, driversController.removeFace);
+router.delete('/:id', requireRole, driversController.deleteDriver);
+router.delete('/:id/trucks/:truck_id', requireRole, driversController.unassignTruck);
 
 router.post('/:id/trucks', requireRole, [
   body('truck_id').notEmpty().withMessage('truck_id is required')
