@@ -28,7 +28,26 @@ if (process.env.TRUST_PROXY !== undefined && process.env.TRUST_PROXY !== '') {
 }
 
 // SECURITY NOTE 2.4: Em produção defina CORS_ORIGINS (lista separada por vírgula). Sem ela, libera tudo (dev / app mobile).
-const allowedOrigin = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()) : '*';
+const configuredOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : [];
+
+const corsOriginValidator = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (configuredOrigins.length > 0) {
+    if (configuredOrigins.includes(origin) || configuredOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Bloqueio CORS: A origem ${origin} não está autorizada.`));
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    return callback(null, true);
+  }
+  console.warn(`[CORS REJEITADO] Origem web não autorizada em produção: ${origin}. Defina CORS_ORIGINS no .env.`);
+  return callback(new Error('Origem não autorizada por política de segurança CORS em produção.'));
+};
+
+const allowedOrigin = corsOriginValidator;
 
 const io = new Server(server, {
   cors: {
@@ -38,8 +57,32 @@ const io = new Server(server, {
 });
 
 // FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
-app.use(helmet());
-app.use(cors({ origin: allowedOrigin }));
+// Redirecionamento HTTPS forçado em produção (atrás de proxy reverso/load balancer ou direto)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    if (proto !== 'https' && !req.ip?.includes('127.0.0.1') && req.ip !== '::1') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
+
+// FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(helmet({
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  contentSecurityPolicy: false,
+}));
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+}));
 // High limit ONLY for facial endpoints
 app.post('/api/drivers/:id/face/enroll', express.json({ limit: '3mb' }));
 app.post('/api/fueling/sessions/:id/verify-face', express.json({ limit: '3mb' }));
