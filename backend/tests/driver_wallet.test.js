@@ -113,7 +113,7 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
     expect(res.body.bank.code).toBe('756');
     expect(res.body.bank.institution).toContain('Sicoob');
     expect(res.body.bank.developerPortalUrl).toBe('https://developers.sicoob.com.br/portal/apis');
-    // Sem SICOOB_CLIENT_ID configurado, não reporta conexão bancária falsa
+    // Status do banco é sempre not_configured até existir integração bancária real
     expect(res.body.bank.status).toBe('not_configured');
 
     expect(res.body.wallet.monthlyCreditLimit).toBe(5000.0);
@@ -126,24 +126,24 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
     expect(res.body.cards).toEqual([]);
 
     expect(res.body.transactions.length).toBe(3);
-    expect(res.body.transactions[0].status).toBe('registered');
-    expect(res.body.transactions[0].authProtocol).toMatch(/^SCB-\d+$/);
+    expect(res.body.transactions[0].status).toBe('estimated');
+    expect(res.body.transactions[0].authProtocol).toBeUndefined();
   });
 
-  it('cadastra cartão, persiste apenas os 4 últimos dígitos e define como padrão', async () => {
+  it('cadastra cartão, persiste apenas os 4 últimos dígitos e define como padrão (limite definido pelo servidor)', async () => {
     const res = await addCard(driverToken, {
       cardHolder: 'joao silva frota',
       cardNumber: '4111 1111 1111 1111',
       expirationMonth: 12,
       expirationYear: 2035,
-      monthlyLimit: 7500.0,
+      monthlyLimit: 7500.0, // motorista tenta passar limite, mas servidor ignora
     });
 
     expect(res.status).toBe(201);
     expect(res.body.cardHolder).toBe('JOAO SILVA FROTA');
     expect(res.body.lastFour).toBe('1111');
     expect(res.body.cardBrand).toBe('Visa Frota');
-    expect(res.body.monthlyLimit).toBe(7500.0);
+    expect(res.body.monthlyLimit).toBe(5000.0); // limite padrão do servidor
     expect(res.body.isDefault).toBe(true);
     expect(res.body.cardNumber).toBeUndefined();
 
@@ -154,8 +154,8 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
       .get('/api/fueling/wallet')
       .set('Authorization', `Bearer ${driverToken}`);
     expect(wallet.body.activeCard.lastFour).toBe('1111');
-    expect(wallet.body.wallet.monthlyCreditLimit).toBe(7500.0);
-    expect(wallet.body.wallet.balanceAvailable).toBe(6592.5);
+    expect(wallet.body.wallet.monthlyCreditLimit).toBe(5000.0);
+    expect(wallet.body.wallet.balanceAvailable).toBe(4092.5);
   });
 
   it('usa o limite padrão quando o limite não é informado', async () => {
@@ -193,7 +193,7 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
     expect(badLuhn.status).toBe(400);
   });
 
-  it('rejeita cartão vencido, titular inválido e limite fora da faixa', async () => {
+  it('rejeita cartão vencido e titular inválido', async () => {
     const expired = await addCard(driverToken, {
       cardHolder: 'JOAO SILVA', cardNumber: '4012888888881881', expirationMonth: 1, expirationYear: 2020,
     });
@@ -204,11 +204,6 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
       cardHolder: '12', cardNumber: '4012888888881881', expirationMonth: 1, expirationYear: 2035,
     });
     expect(holder.status).toBe(400);
-
-    const limit = await addCard(driverToken, {
-      cardHolder: 'JOAO SILVA', cardNumber: '4012888888881881', expirationMonth: 1, expirationYear: 2035, monthlyLimit: 10,
-    });
-    expect(limit.status).toBe(400);
   });
 
   it('define outro cartão como padrão e impede alterar cartão de outro motorista', async () => {
@@ -269,5 +264,29 @@ describe('Driver Wallet API (GET /api/fueling/wallet - Sicoob Open Banking)', ()
       .delete('/api/fueling/wallet/cards/abc')
       .set('Authorization', `Bearer ${driverToken}`);
     expect(res.status).toBe(400);
+  });
+
+  it('garante status estimated em todas as transações e banco not_configured', async () => {
+    const res = await request(app)
+      .get('/api/fueling/wallet')
+      .set('Authorization', `Bearer ${driverToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.bank.status).toBe('not_configured');
+    for (const tx of res.body.transactions) {
+      expect(tx.status).toBe('estimated');
+      expect(tx.authProtocol).toBeUndefined();
+    }
+  });
+
+  it('ignora monthlyLimit enviado pelo motorista e aplica o limite padrão do servidor', async () => {
+    const res = await addCard(driverToken, {
+      cardHolder: 'MOTORISTA TESTE LIMITE',
+      cardNumber: '4012888888881881',
+      expirationMonth: 5,
+      expirationYear: 2033,
+      monthlyLimit: 12000.0,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.monthlyLimit).toBe(5000.0);
   });
 });

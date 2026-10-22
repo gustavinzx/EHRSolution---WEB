@@ -6,10 +6,9 @@ const db = require("../config/db");
 // Portal: https://developers.sicoob.com.br/portal/apis
 //
 // Todos os dados institucionais vêm de variáveis de ambiente (ver .env.example).
-// A conexão com a conta só é reportada como "connected" quando as credenciais
-// da API Sicoob (SICOOB_CLIENT_ID) estiverem configuradas. Sem elas, os valores
-// da carteira são calculados a partir dos abastecimentos registrados e do preço
-// de referência do combustível (FUEL_REFERENCE_PRICE).
+// O status da conexão com a API Sicoob permanece "not_configured" até que
+// uma chamada real à API bancária exista. Os valores da carteira são calculados
+// a partir dos abastecimentos registrados e do preço de referência do combustível (FUEL_REFERENCE_PRICE).
 const toNumber = (value, fallback) => {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -112,7 +111,6 @@ async function getDriverWallet(driverId) {
 
   const cards = cardRows.map(mapCard);
   const activeCard = cards[0] || null;
-  const bankConnected = Boolean(cfg.clientId);
 
   let monthLiters = 0;
   let monthSpent = 0;
@@ -139,8 +137,7 @@ async function getDriverWallet(driverId) {
       pricePerLiter: unitPrice,
       totalAmount: amount,
       paymentMethod: activeCard ? `${activeCard.cardBrand} •••• ${activeCard.lastFour}` : "Sicoob",
-      status: bankConnected ? "liquidated" : "registered",
-      authProtocol: `SCB-${log.id.toString().padStart(6, "0")}`,
+      status: "estimated",
     };
   });
 
@@ -154,7 +151,7 @@ async function getDriverWallet(driverId) {
       cooperative: cfg.cooperativeUnit,
       accountNumber: cfg.accountNumber,
       corporateName: cfg.companyLegalName,
-      status: bankConnected ? "connected" : "not_configured",
+      status: "not_configured",
       protocol: "Open Finance Brasil / OAuth2 mTLS",
       developerPortalUrl: DEVELOPER_PORTAL_URL,
       lastSync: new Date().toISOString(),
@@ -177,10 +174,11 @@ async function getDriverWallet(driverId) {
 /**
  * Cadastra um novo cartão frota para o motorista.
  * Apenas os 4 últimos dígitos são persistidos — número completo e CVV nunca são armazenados.
+ * O limite mensal é definido exclusivamente pelo servidor (o motorista não define seu próprio limite).
  */
 async function addDriverCard(driverId, cardData) {
   const cfg = getConfig();
-  const { cardHolder, cardNumber, expirationMonth, expirationYear, monthlyLimit } = cardData;
+  const { cardHolder, cardNumber, expirationMonth, expirationYear } = cardData;
   const isDefault = cardData.isDefault !== false;
 
   const holder = String(cardHolder || "").trim().replace(/\s+/g, " ").toUpperCase();
@@ -213,14 +211,9 @@ async function addDriverCard(driverId, cardData) {
     throw { status: 400, message: "Ano de validade inválido." };
   }
 
-  let limit = cfg.defaultMonthlyLimit;
-  if (monthlyLimit !== undefined && monthlyLimit !== null && monthlyLimit !== "") {
-    const requested = Number(monthlyLimit);
-    if (!Number.isFinite(requested) || requested < 100 || requested > cfg.maxMonthlyLimit) {
-      throw { status: 400, message: `Limite mensal deve estar entre R$ 100 e R$ ${cfg.maxMonthlyLimit}.` };
-    }
-    limit = Number(requested.toFixed(2));
-  }
+  // O motorista NÃO define o próprio limite: ignora qualquer monthlyLimit vindo do corpo
+  // e utiliza sempre o limite padrão configurado no servidor.
+  const limit = cfg.defaultMonthlyLimit;
 
   const lastFour = cleanNumber.slice(-4);
   const brand = detectCardBrand(cleanNumber);

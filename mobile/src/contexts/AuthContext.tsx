@@ -10,7 +10,8 @@ interface AuthContextData {
   driver: Driver | null;
   vehicle: Vehicle | null;
   loading: boolean;
-  signIn: (email: string, pass: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  unlockSession: (driver: Driver, vehicle?: Vehicle | null) => void;
   signOut: () => Promise<void>;
   onUnauthorized: (message?: string) => void;
   refreshProfile: () => Promise<void>;
@@ -24,9 +25,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const signOut = useCallback(async () => {
+    // Apaga token, dados e opt-in de biometria ao deslogar
     await secureStorage.clearAll();
     setDriver(null);
     setVehicle(null);
+  }, []);
+
+  const unlockSession = useCallback((unlockedDriver: Driver, unlockedVehicle?: Vehicle | null) => {
+    setDriver(unlockedDriver);
+    setVehicle(unlockedVehicle || null);
   }, []);
 
   const onUnauthorized = useCallback((message?: string) => {
@@ -42,9 +49,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     async function loadStorageData() {
+      // Migração na inicialização: limpa credenciais legadas em texto puro
+      await secureStorage.cleanupLegacyCredentials();
+
+      const optIn = await secureStorage.getBiometricOptIn();
       const storedToken = await secureStorage.getToken();
       const storedDriver = await secureStorage.getDriver();
       const storedVehicle = await secureStorage.getVehicle();
+
+      // Se o opt-in de biometria estiver ativo, a sessão não é auto-restaurada diretamente;
+      // o motorista desbloqueia explicitamente via biometria na tela de login
+      if (optIn) {
+        setLoading(false);
+        return;
+      }
 
       if (storedToken && storedDriver) {
         setDriver(storedDriver);
@@ -57,10 +75,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadStorageData();
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
+  const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await apiClient.login(email, pass);
+      const response = await apiClient.login(email, password);
       await secureStorage.saveToken(response.token);
       await secureStorage.saveDriver(response.driver);
       
@@ -103,6 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         vehicle,
         loading,
         signIn,
+        unlockSession,
         signOut,
         onUnauthorized,
         refreshProfile,

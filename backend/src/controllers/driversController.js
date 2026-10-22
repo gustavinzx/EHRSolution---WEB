@@ -42,11 +42,12 @@ exports.list = async (req, res) => {
       FROM drivers d
       LEFT JOIN driver_trucks dt ON d.id = dt.driver_id
       LEFT JOIN trucks t ON dt.truck_id = t.id
+      WHERE (d.status IS NULL OR d.status != 'deleted')
     `;
     const params = [];
     
     if (active !== undefined) {
-      query += ` WHERE d.is_active = $1`;
+      query += ` AND d.is_active = $1`;
       params.push(active === 'true');
     }
     
@@ -319,8 +320,8 @@ exports.deactivate = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const { rows: drvs } = await client.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
-    if (drvs.length === 0) {
+    const { rows: drvs } = await client.query('SELECT face_template_ref, status FROM drivers WHERE id = $1', [id]);
+    if (drvs.length === 0 || drvs[0].status === 'deleted') {
       release();
       return res.status(404).json({ error: 'Driver not found' });
     }
@@ -523,8 +524,8 @@ exports.deleteDriver = async (req, res) => {
   let inTransaction = false;
   try {
     const { id } = req.params;
-    const { rows: drvs } = await client.query('SELECT face_template_ref FROM drivers WHERE id = $1', [id]);
-    if (drvs.length === 0) {
+    const { rows: drvs } = await client.query('SELECT face_template_ref, status FROM drivers WHERE id = $1', [id]);
+    if (drvs.length === 0 || drvs[0].status === 'deleted') {
       return res.status(404).json({ error: 'Driver not found' });
     }
     const templateRef = drvs[0].face_template_ref;
@@ -533,11 +534,30 @@ exports.deleteDriver = async (req, res) => {
     inTransaction = true;
 
     await client.query('DELETE FROM driver_trucks WHERE driver_id = $1', [id]);
-    await client.query('DELETE FROM driver_cards WHERE driver_id = $1', [id]);
-    await client.query('DELETE FROM facial_attempts WHERE driver_id = $1', [id]);
-    await client.query('UPDATE fueling_sessions SET driver_id = NULL WHERE driver_id = $1', [id]);
-    await client.query('UPDATE fueling_logs SET driver_id = NULL WHERE driver_id = $1', [id]);
-    await client.query('DELETE FROM drivers WHERE id = $1', [id]);
+    await client.query("UPDATE driver_cards SET status = 'cancelled', card_holder = 'ANONIMIZADO' WHERE driver_id = $1", [id]);
+
+
+
+    const anonymizedName = `Motorista Anonimizado #${id}`;
+    const anonymizedEmail = `anonimizado_${id}@removido.local`;
+    const scrambledPasswordHash = `DELETED_${crypto.randomBytes(32).toString('hex')}`;
+
+    await client.query(`
+      UPDATE drivers
+      SET name = $1,
+          email = $2,
+          phone = NULL,
+          password_hash = $3,
+          face_photo = NULL,
+          face_template_ref = NULL,
+          face_enrolled = false,
+          face_consent_at = NULL,
+          face_consent_version = NULL,
+          is_active = false,
+          status = 'deleted',
+          deleted_at = NOW()
+      WHERE id = $4
+    `, [anonymizedName, anonymizedEmail, scrambledPasswordHash, id]);
 
     await client.query('COMMIT');
     inTransaction = false;

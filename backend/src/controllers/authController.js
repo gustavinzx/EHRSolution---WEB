@@ -53,7 +53,7 @@ exports.login = async (req, res) => {
 exports.driverMe = async (req, res) => {
   try {
     const driverId = req.driver.id;
-    const result = await db.query('SELECT id, name, email, phone, is_active FROM drivers WHERE id = $1', [driverId]);
+    const result = await db.query("SELECT id, name, email, phone, is_active, status FROM drivers WHERE id = $1 AND (status IS NULL OR status != 'deleted')", [driverId]);
     if (result.rows.length === 0 || !result.rows[0].is_active) {
       return res.status(403).json({ error: 'driver_inactive' });
     }
@@ -95,7 +95,7 @@ exports.driverLogin = async (req, res) => {
     
     const emailNorm = email.toLowerCase().trim();
     // Find driver
-    const result = await db.query('SELECT * FROM drivers WHERE email = $1 AND is_active = true', [emailNorm]);
+    const result = await db.query("SELECT * FROM drivers WHERE email = $1 AND is_active = true AND (status IS NULL OR status != 'deleted')", [emailNorm]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }

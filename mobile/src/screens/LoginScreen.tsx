@@ -21,27 +21,30 @@ try {
 }
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
-import { getBaseUrl } from '../services/api/apiClient';
+import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
 
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
-  const [pass, setPass] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometria');
-  const [, setHasSavedCredentials] = useState(false);
   const [biometricLoginReady, setBiometricLoginReady] = useState(false);
-  const { signIn } = useAuth();
+  const [biometricOptInChecked, setBiometricOptInChecked] = useState(false);
+  const { signIn, unlockSession } = useAuth();
 
   useEffect(() => {
     let isMounted = true;
 
-    async function initBiometricsAndCreds() {
+    async function initBiometricsAndSession() {
       try {
+        // Limpa credenciais legadas na inicialização (migração de segurança)
+        await secureStorage.cleanupLegacyCredentials();
+
         let deviceReady = false;
         if (LocalAuthModule) {
           const hasHardware = await LocalAuthModule.hasHardwareAsync();
@@ -61,32 +64,69 @@ export const LoginScreen: React.FC = () => {
           }
         }
 
-        const savedCreds = await secureStorage.getSavedCredentials();
+        const rememberedEmail = await secureStorage.getRememberedEmail();
         const optIn = await secureStorage.getBiometricOptIn();
-        if (isMounted && savedCreds?.email) {
-          setIdentifier(savedCreds.email);
-          setHasSavedCredentials(true);
-        }
+        const storedToken = await secureStorage.getToken();
+        const storedDriver = await secureStorage.getDriver();
+
         if (isMounted) {
-          setBiometricLoginReady(Boolean(deviceReady && optIn && savedCreds?.email && savedCreds?.pass));
+          if (rememberedEmail) {
+            setIdentifier(rememberedEmail);
+            setRememberMe(true);
+          }
+          setBiometricOptInChecked(Boolean(optIn));
+          // Desbloqueio biométrico disponível apenas com hardware + opt-in aceito + sessão em cache
+          setBiometricLoginReady(Boolean(deviceReady && optIn && storedToken && storedDriver));
         }
       } catch (err) {
-        // Fallback gracioso caso não suporte no ambiente de execução
+        // Fallback gracioso
       }
     }
 
-    initBiometricsAndCreds();
+    initBiometricsAndSession();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
+  const handleToggleBiometricOptIn = async (value: boolean) => {
+    if (value) {
+      Alert.alert(
+        `Ativar ${biometricType}?`,
+        `Ao ativar, você autoriza o uso de ${biometricType} para desbloquear sua sessão salva neste aparelho. Deseja continuar?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Ativar',
+            onPress: async () => {
+              if (LocalAuthModule) {
+                const check = await LocalAuthModule.authenticateAsync({
+                  promptMessage: `Confirme sua ${biometricType} para autorizar o desbloqueio`,
+                  fallbackLabel: 'Usar Senha',
+                  cancelLabel: 'Cancelar',
+                });
+                if (!check.success) return;
+              }
+              await secureStorage.setBiometricOptIn(true);
+              setBiometricOptInChecked(true);
+            },
+          },
+        ]
+      );
+    } else {
+      await secureStorage.setBiometricOptIn(false);
+      setBiometricOptInChecked(false);
+      setBiometricLoginReady(false);
+    }
+  };
+
   const handleBiometricAuth = async () => {
     setErrorMessage('');
     try {
-      const savedCreds = await secureStorage.getSavedCredentials();
-      if (!savedCreds?.email || !savedCreds?.pass) {
+      const storedToken = await secureStorage.getToken({ requireAuthentication: true });
+      const storedDriver = await secureStorage.getDriver();
+      if (!storedToken || !storedDriver) {
         Alert.alert(
           'Biometria do Dispositivo',
           'Faça login com seu e-mail e senha uma vez para associar este aparelho à sua conta.'
@@ -109,19 +149,26 @@ export const LoginScreen: React.FC = () => {
       if (result?.success) {
         setLoading(true);
         try {
-          await signIn(savedCreds.email, savedCreds.pass);
-        } catch (signInError: any) {
-          // Senha alterada/conta desativada: invalida o acesso biométrico salvo
-          if (signInError?.status === 401 || signInError?.status === 403) {
-            await secureStorage.removeSavedCredentials();
-            await secureStorage.setBiometricOptIn(false);
-            setBiometricLoginReady(false);
-            setPass('');
-            throw {
-              message: 'Sua senha foi alterada ou o acesso expirou. Entre com e-mail e senha para reativar a biometria.',
-            };
+          // Desbloqueia sessão existente validando o token JWT
+          const profile = await apiClient.getMe();
+          if (profile?.driver) {
+            unlockSession(profile.driver, profile.vehicle);
+          } else {
+            throw { status: 401, message: 'Sessão inválida' };
           }
-          throw signInError;
+        } catch (sessionError: any) {
+          // Token expirado ou credenciais inválidas: exige login tradicional
+          if (sessionError?.status === 401 || sessionError?.status === 403 || sessionError?.message?.includes('token')) {
+            await secureStorage.removeToken();
+            setBiometricLoginReady(false);
+            setPassword('');
+            Alert.alert(
+              'Sessão Expirada',
+              'Sua sessão expirou. Por favor, entre com seu e-mail e senha normalmente.'
+            );
+          } else {
+            throw sessionError;
+          }
         }
       } else if (result && result.error && result.error !== 'user_cancel' && result.error !== 'system_cancel' && result.error !== 'app_cancel') {
         setErrorMessage('Biometria não reconhecida. Tente novamente ou use sua senha.');
@@ -137,7 +184,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleLogin = async () => {
     setErrorMessage('');
-    if (!identifier || !pass) {
+    if (!identifier || !password) {
       const msg = 'Informe o e-mail e a senha.';
       setErrorMessage(msg);
       Alert.alert('Atenção', msg);
@@ -146,13 +193,18 @@ export const LoginScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      await signIn(identifier.trim(), pass);
+      await signIn(identifier.trim(), password);
+
+      // "Lembrar de mim" persiste APENAS o e-mail (nunca a senha e NÃO ativa biometria sozinho)
       if (rememberMe) {
-        await secureStorage.saveCredentials(identifier.trim(), pass);
-        await secureStorage.setBiometricOptIn(true);
+        await secureStorage.saveRememberedEmail(identifier.trim());
       } else {
-        await secureStorage.removeSavedCredentials();
-        await secureStorage.setBiometricOptIn(false);
+        await secureStorage.removeRememberedEmail();
+      }
+
+      // Se o usuário marcou opt-in biométrico explicitamente na tela de login
+      if (biometricOptInChecked) {
+        await secureStorage.setBiometricOptIn(true);
       }
     } catch (error: any) {
       const msg = error.message || 'Falha ao autenticar.';
@@ -229,8 +281,8 @@ export const LoginScreen: React.FC = () => {
                   <View style={styles.inputContainer}>
                     <TextInput
                       style={[styles.textInput, { flex: 1 }]}
-                      value={pass}
-                      onChangeText={setPass}
+                      value={password}
+                      onChangeText={setPassword}
                       placeholder="Digite sua senha"
                       placeholderTextColor="#64748B"
                       secureTextEntry={!showPassword}
@@ -247,7 +299,7 @@ export const LoginScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Lembrar de mim Switch */}
+                {/* Lembrar de mim Switch (apenas salva o e-mail) */}
                 <View style={styles.rememberRow}>
                   <Switch
                     value={rememberMe}
@@ -258,15 +310,24 @@ export const LoginScreen: React.FC = () => {
                   <Text style={styles.rememberText}>Lembrar de mim</Text>
                 </View>
 
-                {errorMessage ? (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{errorMessage}</Text>
+                {/* Opt-in explícito para biometria */}
+                {biometricAvailable && (
+                  <View style={styles.biometricOptInRow}>
+                    <Switch
+                      value={biometricOptInChecked}
+                      onValueChange={handleToggleBiometricOptIn}
+                      trackColor={{ false: '#1E293B', true: '#22C55E' }}
+                      thumbColor={biometricOptInChecked ? '#FFFFFF' : '#94A3B8'}
+                    />
+                    <Text style={styles.biometricOptInText}>
+                      Desbloqueio com {biometricType}
+                    </Text>
                   </View>
-                ) : null}
+                )}
 
-                {/* Botão Entrar Cyan Pill */}
+                {/* Botão de Entrar Normal */}
                 <Button
-                  title={loading ? "Entrando..." : "Entrar"}
+                  title={loading ? 'Autenticando...' : 'Entrar'}
                   variant="primary"
                   onPress={handleLogin}
                   loading={loading}
@@ -301,7 +362,7 @@ export const LoginScreen: React.FC = () => {
 
                 {!biometricLoginReady && biometricAvailable && (
                   <Text style={styles.biometricHint}>
-                    Ative "Lembrar de mim" para entrar com {biometricType} nos próximos acessos.
+                    Ative o acesso biométrico para desbloquear sua sessão com {biometricType} nos próximos acessos.
                   </Text>
                 )}
 
@@ -324,16 +385,10 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: '#060B13',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#050A14',
   },
   container: {
     flex: 1,
-    width: '100%',
-    maxWidth: 440,
-    backgroundColor: '#060B13',
-    overflow: 'hidden',
   },
   backgroundImage: {
     flex: 1,
@@ -342,85 +397,82 @@ const styles = StyleSheet.create({
   },
   imageDarkOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(6, 11, 19, 0.35)',
+    backgroundColor: 'rgba(5, 10, 20, 0.72)',
   },
   scroll: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    minHeight: '100%',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 56 : 36,
+    paddingBottom: 24,
   },
   brandSection: {
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
+    marginTop: 8,
   },
   logoBadgeContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
-    backgroundColor: 'rgba(11, 22, 40, 0.85)',
+    width: 68,
+    height: 68,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 212, 255, 0.12)',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 212, 255, 0.5)',
+    borderColor: 'rgba(0, 212, 255, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 8,
   },
   logoImage: {
-    width: 52,
-    height: 52,
+    width: 44,
+    height: 44,
   },
   heroTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#00D4FF',
-    letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.9)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    color: '#FFFFFF',
+    letterSpacing: 2.5,
   },
   heroSubtitle: {
-    fontSize: 13,
-    color: '#E2E8F0',
-    marginTop: 4,
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    color: '#00D4FF',
+    letterSpacing: 1.2,
+    marginTop: 3,
+    textTransform: 'uppercase',
   },
   truckSpacer: {
-    flex: 1,
-    minHeight: 110,
+    height: 30,
   },
   card: {
-    backgroundColor: 'rgba(11, 22, 40, 0.96)',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 22,
-    borderWidth: 1.5,
-    borderBottomWidth: 0,
-    borderColor: 'rgba(0, 212, 255, 0.35)',
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
+    backgroundColor: 'rgba(11, 22, 40, 0.88)',
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
     shadowRadius: 20,
     elevation: 12,
   },
   cardGlowPill: {
-    width: 44,
-    height: 4,
+    position: 'absolute',
+    top: 0,
+    left: '35%',
+    right: '35%',
+    height: 3,
+    backgroundColor: '#00D4FF',
     borderRadius: 2,
-    backgroundColor: 'rgba(0, 212, 255, 0.4)',
-    alignSelf: 'center',
-    marginBottom: 16,
+    shadowColor: '#00D4FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
   inputGroup: {
     marginBottom: 14,
@@ -428,37 +480,35 @@ const styles = StyleSheet.create({
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     marginBottom: 6,
   },
   inputLabelIcon: {
     fontSize: 13,
+    marginRight: 6,
   },
   inputLabel: {
+    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '700',
-    color: '#8899A6',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#060B13',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.2)',
-    paddingHorizontal: 14,
-    height: 50,
+    borderColor: '#1E293B',
+    paddingHorizontal: 12,
   },
   textInput: {
     color: '#FFFFFF',
-    fontSize: 14,
-    width: '100%',
-    padding: 0,
+    fontSize: 15,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
   },
   togglePasswordBtn: {
-    padding: 6,
+    padding: 8,
   },
   togglePasswordIcon: {
     fontSize: 16,
@@ -466,43 +516,39 @@ const styles = StyleSheet.create({
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginVertical: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
   rememberText: {
-    fontSize: 13,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 10,
   },
-  errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 12,
+  biometricOptInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
+  biometricOptInText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 10,
   },
   loginBtn: {
     marginTop: 6,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   biometricSection: {
-    marginTop: 8,
-    marginBottom: 10,
+    marginTop: 14,
     alignItems: 'center',
-    width: '100%',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   dividerLine: {
     flex: 1,
@@ -510,52 +556,62 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   dividerText: {
-    fontSize: 10,
     color: '#64748B',
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
-    paddingHorizontal: 8,
+    marginHorizontal: 10,
   },
   biometricBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: 48,
-    borderRadius: 14,
     backgroundColor: 'rgba(0, 212, 255, 0.08)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(0, 212, 255, 0.45)',
-    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#00D4FF',
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    width: '100%',
+    shadowColor: '#00D4FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   biometricIcon: {
-    fontSize: 18,
+    fontSize: 20,
+    marginRight: 10,
   },
   biometricBtnText: {
     color: '#00D4FF',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   biometricHint: {
-    fontSize: 10,
     color: '#64748B',
-    marginTop: 6,
+    fontSize: 11,
     textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 15,
   },
   footerInfo: {
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 12,
   },
   footerText: {
+    color: '#475569',
     fontSize: 11,
-    color: '#64748B',
     fontWeight: '600',
   },
   devEnvironmentTag: {
-    fontSize: 10,
-    color: '#475569',
-    marginTop: 2,
+    color: '#334155',
+    fontSize: 9,
+    marginTop: 4,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });

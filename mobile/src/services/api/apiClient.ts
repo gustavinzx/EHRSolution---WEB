@@ -141,10 +141,10 @@ export const apiClient = {
     onUnauthorizedCb = cb;
   },
 
-  async login(email: string, pass: string): Promise<LoginResponse> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     return await request<LoginResponse>('/auth/driver/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password: pass })
+      body: JSON.stringify({ email, password })
     });
   },
 

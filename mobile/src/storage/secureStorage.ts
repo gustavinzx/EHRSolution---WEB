@@ -7,32 +7,44 @@ import { Vehicle } from '../types/vehicle';
 const TOKEN_KEY = 'ehr_auth_token';
 const DRIVER_KEY = 'ehr_driver_data';
 const VEHICLE_KEY = 'ehr_vehicle_data';
-const CREDENTIALS_KEY = 'ehr_saved_credentials';
+const REMEMBERED_EMAIL_KEY = 'ehr_remembered_email';
 const BIOMETRIC_KEY = 'ehr_biometric_opt_in';
+const LEGACY_CREDENTIALS_KEY = 'ehr_saved_credentials';
 
 const isWeb = Platform.OS === 'web';
 
-async function setItem(key: string, value: string): Promise<void> {
+export interface StorageOptions {
+  requireAuthentication?: boolean;
+}
+
+async function setItem(key: string, value: string, options?: StorageOptions): Promise<void> {
   if (isWeb) {
-    console.warn(`[secureStorage fallback] Usando AsyncStorage para salvar ${key} (Apenas DEV Web)`);
     await AsyncStorage.setItem(key, value);
   } else {
-    const options = SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
-      ? { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
-      : undefined;
-    if (options) {
-      await SecureStore.setItemAsync(key, value, options);
-    } else {
+    const secureOptions: SecureStore.SecureStoreOptions = {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      ...(options?.requireAuthentication ? { requireAuthentication: true } : {}),
+    };
+    try {
+      await SecureStore.setItemAsync(key, value, secureOptions);
+    } catch {
       await SecureStore.setItemAsync(key, value);
     }
   }
 }
 
-async function getItem(key: string): Promise<string | null> {
+async function getItem(key: string, options?: StorageOptions): Promise<string | null> {
   if (isWeb) {
     return await AsyncStorage.getItem(key);
   } else {
-    return await SecureStore.getItemAsync(key);
+    const secureOptions: SecureStore.SecureStoreOptions = {
+      ...(options?.requireAuthentication ? { requireAuthentication: true } : {}),
+    };
+    try {
+      return await SecureStore.getItemAsync(key, secureOptions);
+    } catch {
+      return await SecureStore.getItemAsync(key);
+    }
   }
 }
 
@@ -45,16 +57,17 @@ async function removeItem(key: string): Promise<void> {
 }
 
 export const secureStorage = {
-  async saveToken(token: string): Promise<void> {
-    await setItem(TOKEN_KEY, token);
+  // Token da sessão do motorista (pode exigir autenticação biométrica via SecureStore)
+  async saveToken(token: string, options?: StorageOptions): Promise<void> {
+    await setItem(TOKEN_KEY, token, options);
   },
-  async getToken(): Promise<string | null> {
-    return await getItem(TOKEN_KEY);
+  async getToken(options?: StorageOptions): Promise<string | null> {
+    return await getItem(TOKEN_KEY, options);
   },
   async removeToken(): Promise<void> {
     await removeItem(TOKEN_KEY);
   },
-  
+
   async saveDriver(driver: Driver): Promise<void> {
     await setItem(DRIVER_KEY, JSON.stringify(driver));
   },
@@ -83,23 +96,18 @@ export const secureStorage = {
     }
   },
 
-  async saveCredentials(email: string, pass: string): Promise<void> {
-    await setItem(CREDENTIALS_KEY, JSON.stringify({ email, pass }));
+  // "Lembrar de mim": persiste SOMENTE o e-mail (nunca a senha!)
+  async saveRememberedEmail(email: string): Promise<void> {
+    await setItem(REMEMBERED_EMAIL_KEY, email);
   },
-  async getSavedCredentials(): Promise<{ email: string; pass: string } | null> {
-    const data = await getItem(CREDENTIALS_KEY);
-    if (!data) return null;
-    try {
-      return JSON.parse(data);
-    } catch {
-      await removeItem(CREDENTIALS_KEY);
-      return null;
-    }
+  async getRememberedEmail(): Promise<string | null> {
+    return await getItem(REMEMBERED_EMAIL_KEY);
   },
-  async removeSavedCredentials(): Promise<void> {
-    await removeItem(CREDENTIALS_KEY);
+  async removeRememberedEmail(): Promise<void> {
+    await removeItem(REMEMBERED_EMAIL_KEY);
   },
 
+  // Preferência explícita do motorista para desbloquear sessão com biometria
   async setBiometricOptIn(enabled: boolean): Promise<void> {
     await setItem(BIOMETRIC_KEY, enabled ? 'true' : 'false');
   },
@@ -108,9 +116,19 @@ export const secureStorage = {
     return val === 'true';
   },
 
+  // Migração segura: remove a chave antiga 'ehr_saved_credentials' que armazenava senha
+  async cleanupLegacyCredentials(): Promise<void> {
+    try {
+      await removeItem(LEGACY_CREDENTIALS_KEY);
+    } catch (_) {}
+  },
+
+  // Logout completo: apaga token, dados de motorista, veículo e opt-in de biometria
   async clearAll(): Promise<void> {
     await removeItem(TOKEN_KEY);
     await removeItem(DRIVER_KEY);
     await removeItem(VEHICLE_KEY);
+    await removeItem(BIOMETRIC_KEY);
+    await removeItem(LEGACY_CREDENTIALS_KEY);
   },
 };

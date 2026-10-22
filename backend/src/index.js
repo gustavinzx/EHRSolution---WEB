@@ -25,6 +25,15 @@ if (process.env.TRUST_PROXY !== undefined && process.env.TRUST_PROXY !== '') {
   const rawTp = String(process.env.TRUST_PROXY).trim();
   const parsedTp = rawTp === 'true' ? true : rawTp === 'false' ? false : /^\d+$/.test(rawTp) ? Number(rawTp) : rawTp;
   app.set('trust proxy', parsedTp);
+} else if (process.env.NODE_ENV === 'production') {
+  console.warn(
+    '\n====================================================================\n' +
+    '[AVISO DE SEGURANÇA EM PRODUÇÃO] TRUST_PROXY não está definido!\n' +
+    'Se o servidor estiver atrás de proxy reverso (Nginx, Cloudflare, Traefik, etc.),\n' +
+    'req.ip poderá refletir o IP do proxy em vez do cliente real,\n' +
+    'impactando o rate limiting e auditorias. Defina TRUST_PROXY=true ou quantidade de hops.\n' +
+    '====================================================================\n'
+  );
 }
 
 // SECURITY NOTE 2.4: Em produção defina CORS_ORIGINS (lista separada por vírgula). Sem ela, libera tudo (dev / app mobile).
@@ -56,12 +65,15 @@ const io = new Server(server, {
   }
 });
 
-// FIX 2.1: Apply helmet for essential HTTP security headers (CSP, HSTS, X-Frame-Options, etc.)
 // Redirecionamento HTTPS forçado em produção (atrás de proxy reverso/load balancer ou direto)
+// Exceção mantida exclusivamente para GET /api/health
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path === '/api/health') {
+      return next();
+    }
     const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-    if (proto !== 'https' && !req.ip?.includes('127.0.0.1') && req.ip !== '::1') {
+    if (proto !== 'https') {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
     }
     next();
@@ -77,35 +89,30 @@ app.use(helmet({
   },
   contentSecurityPolicy: false,
 }));
+
 app.use(cors({
   origin: allowedOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  // CORS justificado: 'x-api-key' é necessário para comunicação dos bocais IoT/hardware com a telemetria
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
 }));
+
 // High limit ONLY for facial endpoints
 app.post('/api/drivers/:id/face/enroll', express.json({ limit: '3mb' }));
 app.post('/api/fueling/sessions/:id/verify-face', express.json({ limit: '3mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(compression());
 
-// FIX 2.2: General rate limiter for all protected API routes (1000 req/min in prod, 3000 in dev).
-// Hardware requests carrying x-api-key use per-device and brute-force rate limiting in authHardware.
-// SECURITY NOTE 2.3: JWT is stored in localStorage, which is readable by any JS on the page (XSS risk).
-// Migrating to httpOnly cookies would eliminate this risk but requires significant refactor.
-// Acceptable for an academic/demo project — document and revisit before any public deployment.
+// General rate limiter para rotas de API da aplicação
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: process.env.NODE_ENV === 'production' ? 1000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) =>
-    Boolean(req.headers['x-api-key']) ||
+  skip: () =>
     process.env.NODE_ENV !== 'production' ||
-    process.env.DISABLE_RATE_LIMIT === 'true' ||
-    req.ip === '127.0.0.1' ||
-    req.ip === '::1' ||
-    req.ip?.includes('127.0.0.1'),
+    process.env.DISABLE_RATE_LIMIT === 'true',
   message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' }
 });
 
@@ -122,6 +129,12 @@ app.use('/api/auth', authRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Rotas de hardware isoladas (montadas antes do generalLimiter e protegidas por authHardware com limite próprio)
+const fleetController = require('./controllers/fleetController');
+const authHardware = require('./middleware/authHardware');
+app.post('/api/fleet/:id/security-events', authHardware, fleetController.securityEvent);
+app.post('/api/fleet/:id/telemetry', authHardware, fleetController.ingestTelemetry);
 
 // Protected routes (JWT auth + general rate limit)
 app.use('/api/drivers', generalLimiter, authMiddleware, driversRoutes);
@@ -178,11 +191,11 @@ if (process.env.NODE_ENV !== 'test') {
       process.exit(1);
     }
 
-    if (process.env.SIMULATOR_ENABLED === 'true') {
-      console.log('[SIM] SIMULATOR_ENABLED=true — dados de telemetria serão simulados.');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[SIM] Ambiente de desenvolvimento — iniciando simulador de frota.');
       startSimulator(io);
     } else {
-      console.log('[SIM] Simulador desativado — aguardando telemetria real do hardware.');
+      console.log('[SIM] Ambiente de produção — simulador desativado, aguardando telemetria real do hardware.');
     }
     startAnomalyEngine(io);
     // Virtual Hardware Runner (simulação de bomba/trava física)
@@ -191,8 +204,6 @@ if (process.env.NODE_ENV !== 'test') {
     const { startRetentionRoutine } = require('./services/retentionService');
     startRetentionRoutine();
   });
-
 }
 
 module.exports = { app, server, io };
-

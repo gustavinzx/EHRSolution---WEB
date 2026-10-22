@@ -148,7 +148,7 @@ npm install
 npm run dev
 ```
 * O painel web estará acessível em `http://localhost:5173`.
-* Credenciais do gestor: `gestor@ehr.com` | `Demo@1234`.
+* Acesse com as credenciais do administrador. Em produção, execute `npm run create-admin` no backend para criar o primeiro gestor (e-mail e senha informados na execução, sem senha padrão). O seed (`npm run seed`) é exclusivo para desenvolvimento (somente desenvolvimento, exige ALLOW_SEED_WIPE=true e NODE_ENV != production).
 
 ### 4. Aplicativo Mobile do Motorista
 ```bash
@@ -157,7 +157,7 @@ npm install
 npx expo start
 ```
 * Abra o app no **Expo Go** (Android/iOS) lendo o QR code ou abrindo no emulador.
-* Credenciais do motorista de teste: `motorista@ehr.com` | `Demo@1234`.
+* Utilize as credenciais do motorista previamente cadastrado pelo gestor no painel administrativo.
 
 ---
 
