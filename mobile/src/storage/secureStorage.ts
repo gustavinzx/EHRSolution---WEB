@@ -20,10 +20,36 @@ export interface StorageOptions {
 async function setItem(key: string, value: string, options?: StorageOptions): Promise<void> {
   if (isWeb) {
     await AsyncStorage.setItem(key, value);
-  } else {
+    return;
+  }
+
+  if (options?.requireAuthentication) {
     const secureOptions: SecureStore.SecureStoreOptions = {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      ...(options?.requireAuthentication ? { requireAuthentication: true } : {}),
+      requireAuthentication: true,
+    };
+    try {
+      await SecureStore.setItemAsync(key, value, secureOptions);
+    } catch (err: any) {
+      // Quando o chamador pedir requireAuthentication e a gravação protegida falhar:
+      // NÃO grave o token sem proteção como se fosse protegido.
+      // Desative o opt-in de biometria (setBiometricOptIn(false)),
+      // apague qualquer token gravado por essa tentativa e devolva erro claro.
+      try {
+        await SecureStore.deleteItemAsync(key);
+      } catch (_) {}
+      try {
+        await SecureStore.deleteItemAsync(BIOMETRIC_KEY);
+      } catch (_) {}
+
+      const customError = new Error('Biometria indisponível neste aparelho. Use e-mail e senha.');
+      (customError as any).code = 'BIOMETRIC_UNAVAILABLE';
+      throw customError;
+    }
+  } else {
+    // Gravação normal (sem requireAuthentication) continua funcionando como hoje
+    const secureOptions: SecureStore.SecureStoreOptions = {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     };
     try {
       await SecureStore.setItemAsync(key, value, secureOptions);
@@ -36,14 +62,21 @@ async function setItem(key: string, value: string, options?: StorageOptions): Pr
 async function getItem(key: string, options?: StorageOptions): Promise<string | null> {
   if (isWeb) {
     return await AsyncStorage.getItem(key);
-  } else {
-    const secureOptions: SecureStore.SecureStoreOptions = {
-      ...(options?.requireAuthentication ? { requireAuthentication: true } : {}),
-    };
+  }
+
+  if (options?.requireAuthentication) {
+    // Na leitura com biometria: se falhar ou o usuário cancelar, volta para e-mail e senha,
+    // sem fallback para leitura desprotegida do mesmo token.
     try {
-      return await SecureStore.getItemAsync(key, secureOptions);
+      return await SecureStore.getItemAsync(key, { requireAuthentication: true });
     } catch {
+      return null;
+    }
+  } else {
+    try {
       return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
     }
   }
 }
