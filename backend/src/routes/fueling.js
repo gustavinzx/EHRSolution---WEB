@@ -29,6 +29,9 @@ router.param('truckId', (req, res, next, truckId) => {
 router.get("/", authMiddleware, fuelingController.list);
 router.get("/history", driverOnly, fuelingController.getHistory);
 router.get("/wallet", driverOnly, fuelingController.getDriverWallet);
+router.post("/wallet/cards", driverOnly, fuelingController.createDriverCard);
+router.delete("/wallet/cards/:cardId", driverOnly, fuelingController.deleteDriverCard);
+router.patch("/wallet/cards/:cardId/default", driverOnly, fuelingController.setDefaultCard);
 
 // Fuel stations (Manager) — declaradas antes de /sessions/:id para não colidir
 router.get("/stations", authMiddleware, stationsController.list);

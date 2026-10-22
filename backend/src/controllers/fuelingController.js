@@ -237,6 +237,53 @@ exports.getDriverWallet = async (req, res) => {
   }
 };
 
+exports.createDriverCard = async (req, res) => {
+  try {
+    const driverId = req.actor?.id;
+    if (!driverId) {
+      return res.status(401).json({ error: "Authorization token missing or invalid" });
+    }
+    const card = await sicoobService.addDriverCard(driverId, req.body || {});
+    return res.status(201).json(card);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("Create driver card error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.deleteDriverCard = async (req, res) => {
+  try {
+    const driverId = req.actor?.id;
+    const { cardId } = req.params;
+    if (!driverId) {
+      return res.status(401).json({ error: "Authorization token missing or invalid" });
+    }
+    await sicoobService.removeDriverCard(driverId, parseInt(cardId, 10));
+    return res.json({ success: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("Delete driver card error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.setDefaultCard = async (req, res) => {
+  try {
+    const driverId = req.actor?.id;
+    const { cardId } = req.params;
+    if (!driverId) {
+      return res.status(401).json({ error: "Authorization token missing or invalid" });
+    }
+    await sicoobService.setDefaultDriverCard(driverId, parseInt(cardId, 10));
+    return res.json({ success: true });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error("Set default card error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 exports.requestSession = async (req, res) => {
   try {

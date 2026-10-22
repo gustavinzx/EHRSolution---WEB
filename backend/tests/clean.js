@@ -9,6 +9,7 @@ module.exports = async () => {
   authHardware.resetRateLimits();
   
   await db.query('DELETE FROM driver_trucks');
+  await db.query('DELETE FROM driver_cards');
   await db.query('DELETE FROM fueling_logs');
   await db.query('DELETE FROM facial_attempts');
   await db.query('DELETE FROM security_events');
@@ -20,4 +21,3 @@ module.exports = async () => {
   await db.query('DELETE FROM drivers');
   await db.query('DELETE FROM users');
 };
-

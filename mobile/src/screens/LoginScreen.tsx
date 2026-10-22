@@ -34,6 +34,7 @@ export const LoginScreen: React.FC = () => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometria');
   const [, setHasSavedCredentials] = useState(false);
+  const [biometricLoginReady, setBiometricLoginReady] = useState(false);
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -41,11 +42,13 @@ export const LoginScreen: React.FC = () => {
 
     async function initBiometricsAndCreds() {
       try {
+        let deviceReady = false;
         if (LocalAuthModule) {
           const hasHardware = await LocalAuthModule.hasHardwareAsync();
           const isEnrolled = await LocalAuthModule.isEnrolledAsync();
 
           if (isMounted && hasHardware && isEnrolled) {
+            deviceReady = true;
             setBiometricAvailable(true);
             const supportedTypes = await LocalAuthModule.supportedAuthenticationTypesAsync();
             if (supportedTypes.includes(2)) {
@@ -59,9 +62,13 @@ export const LoginScreen: React.FC = () => {
         }
 
         const savedCreds = await secureStorage.getSavedCredentials();
+        const optIn = await secureStorage.getBiometricOptIn();
         if (isMounted && savedCreds?.email) {
           setIdentifier(savedCreds.email);
           setHasSavedCredentials(true);
+        }
+        if (isMounted) {
+          setBiometricLoginReady(Boolean(deviceReady && optIn && savedCreds?.email && savedCreds?.pass));
         }
       } catch (err) {
         // Fallback gracioso caso não suporte no ambiente de execução
@@ -101,7 +108,23 @@ export const LoginScreen: React.FC = () => {
 
       if (result?.success) {
         setLoading(true);
-        await signIn(savedCreds.email, savedCreds.pass);
+        try {
+          await signIn(savedCreds.email, savedCreds.pass);
+        } catch (signInError: any) {
+          // Senha alterada/conta desativada: invalida o acesso biométrico salvo
+          if (signInError?.status === 401 || signInError?.status === 403) {
+            await secureStorage.removeSavedCredentials();
+            await secureStorage.setBiometricOptIn(false);
+            setBiometricLoginReady(false);
+            setPass('');
+            throw {
+              message: 'Sua senha foi alterada ou o acesso expirou. Entre com e-mail e senha para reativar a biometria.',
+            };
+          }
+          throw signInError;
+        }
+      } else if (result && result.error && result.error !== 'user_cancel' && result.error !== 'system_cancel' && result.error !== 'app_cancel') {
+        setErrorMessage('Biometria não reconhecida. Tente novamente ou use sua senha.');
       }
     } catch (error: any) {
       const msg = error.message || 'Falha na autenticação biométrica.';
@@ -251,7 +274,7 @@ export const LoginScreen: React.FC = () => {
                 />
 
                 {/* Acesso Biométrico Nativo (Face ID / Impressão Digital) */}
-                {biometricAvailable && (
+                {biometricLoginReady && (
                   <View style={styles.biometricSection}>
                     <View style={styles.dividerRow}>
                       <View style={styles.dividerLine} />
@@ -263,6 +286,8 @@ export const LoginScreen: React.FC = () => {
                       onPress={handleBiometricAuth}
                       disabled={loading}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Entrar com ${biometricType}`}
                     >
                       <Text style={styles.biometricIcon}>
                         {biometricType === 'Face ID' ? '📱' : '👆'}
@@ -271,10 +296,13 @@ export const LoginScreen: React.FC = () => {
                         Entrar com {biometricType}
                       </Text>
                     </TouchableOpacity>
-                    <Text style={styles.biometricHint}>
-                      Autenticação biométrica nativa do seu smartphone
-                    </Text>
                   </View>
+                )}
+
+                {!biometricLoginReady && biometricAvailable && (
+                  <Text style={styles.biometricHint}>
+                    Ative "Lembrar de mim" para entrar com {biometricType} nos próximos acessos.
+                  </Text>
                 )}
 
                 {/* Footer Corporativo */}

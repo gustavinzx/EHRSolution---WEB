@@ -972,6 +972,84 @@ describe('DashboardScreen', () => {
       expect(await findByText('Posto Shell Recanto das Emas')).toBeTruthy();
       expect(await findByText('✓ Compensado (SCB-000101)')).toBeTruthy();
     });
+
+    it('opens card registration modal, fills inputs and registers card', async () => {
+      (apiClient.addCard as jest.Mock) = jest.fn().mockResolvedValue({
+        id: 10,
+        cardHolder: 'CARLOS SILVA',
+        lastFour: '9988',
+        cardBrand: 'Visa Frota',
+        bankName: 'Sicoob Credifrotas (756)',
+        monthlyLimit: 6000,
+        isDefault: true,
+        status: 'active',
+      });
+
+      const { getByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      await act(async () => {
+        fireEvent.press(getByText('Carteira'));
+      });
+
+      await waitFor(() => {
+        expect(apiClient.getWallet).toHaveBeenCalled();
+      });
+
+      // Press Cadastrar Cartão
+      const addBtn = getByTestId('add-card-btn');
+      await act(async () => {
+        fireEvent.press(addBtn);
+      });
+
+      // Modal should be visible
+      expect(getByTestId('card-registration-modal')).toBeTruthy();
+
+      // Fill in card fields
+      await act(async () => {
+        fireEvent.changeText(getByTestId('input-card-number'), '4111222233339988');
+        fireEvent.changeText(getByTestId('input-card-holder'), 'CARLOS SILVA');
+        fireEvent.changeText(getByTestId('input-card-expiry'), '12/30');
+        fireEvent.changeText(getByTestId('input-card-cvv'), '789');
+        fireEvent.changeText(getByTestId('input-card-limit'), '6000');
+      });
+
+      // Submit
+      await act(async () => {
+        fireEvent.press(getByTestId('submit-card-btn'));
+      });
+
+      await waitFor(() => {
+        expect(apiClient.addCard).toHaveBeenCalledWith(
+          expect.objectContaining({
+            cardNumber: '4111222233339988',
+            cardHolder: 'CARLOS SILVA',
+            expirationMonth: 12,
+            expirationYear: 2030,
+            cardBrand: 'Visa Frota',
+            monthlyLimit: 6000,
+          })
+        );
+      });
+    });
+
+    it('switches to Perfil tab and displays device biometrics card with test button', async () => {
+      const { getByText, getByTestId, findByText } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      await act(async () => {
+        fireEvent.press(getByText('Perfil'));
+      });
+
+      expect(await findByText('Biometria do Smartphone')).toBeTruthy();
+      expect(getByTestId('test-biometrics-profile-btn')).toBeTruthy();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('test-biometrics-profile-btn'));
+      });
+    });
   });
 
 });

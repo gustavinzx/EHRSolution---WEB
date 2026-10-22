@@ -9,6 +9,7 @@
     "seed": "node src/seed/seed.js",
     "migrate": "node runMigration.js",
     "anp:sync": "node scripts/anpSync.js",
+    "generate:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     "test": "jest --detectOpenHandles --forceExit --runInBand"
   },
   "dependencies": {
