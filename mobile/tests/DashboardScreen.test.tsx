@@ -935,8 +935,8 @@ describe('DashboardScreen', () => {
             pricePerLiter: 6.05,
             totalAmount: 605.0,
             paymentMethod: 'Cartão Frota Sicoob Visa PJ',
-            status: 'liquidated',
-            authProtocol: 'SCB-000101',
+            status: 'estimated',
+
           },
         ],
       });
@@ -970,7 +970,8 @@ describe('DashboardScreen', () => {
 
       // Check Transaction item
       expect(await findByText('Posto Shell Recanto das Emas')).toBeTruthy();
-      expect(await findByText('✓ Compensado (SCB-000101)')).toBeTruthy();
+      expect(await findByText('Estimado')).toBeTruthy();
+      expect(await findByText('Valores estimados (litros × preço de referência). Não representam cobrança do cartão.')).toBeTruthy();
     });
 
     it('opens card registration modal, fills inputs and registers card', async () => {

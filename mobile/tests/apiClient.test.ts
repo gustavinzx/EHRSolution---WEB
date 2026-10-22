@@ -662,8 +662,8 @@ describe('apiClient', () => {
             pricePerLiter: 6.05,
             totalAmount: 605.0,
             paymentMethod: 'Cartão Frota Sicoob Visa PJ',
-            status: 'liquidated',
-            authProtocol: 'SCB-000101',
+            status: 'estimated',
+
           },
         ],
       };

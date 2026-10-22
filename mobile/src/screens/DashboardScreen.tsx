@@ -1130,6 +1130,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
                 {/* Extrato / Lançamentos */}
+                <View style={styles.walletDisclaimerBox}>
+                  <Text style={styles.walletDisclaimerText}>
+                    Valores estimados (litros × preço de referência). Não representam cobrança do cartão.
+                  </Text>
+                </View>
                 <View style={styles.walletTransactionsSection}>
                   <Text style={styles.cardSectionTitle}>Extrato de Abastecimentos (Sicoob)</Text>
 
@@ -1138,7 +1143,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                       <Text style={styles.walletEmptyIcon}>🧾</Text>
                       <Text style={styles.walletEmptyTitle}>Nenhum lançamento no período</Text>
                       <Text style={styles.walletEmptySub}>
-                        Seus abastecimentos liberados pelo aplicativo aparecerão aqui após a compensação no Sicoob.
+                        Seus abastecimentos registrados aparecerão aqui com o cálculo estimado de consumo.
                       </Text>
                     </View>
                   ) : (
@@ -1164,7 +1169,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                           </Text>
                           <View style={styles.transactionStatusBadge}>
                             <Text style={styles.transactionStatusText}>
-                              ✓ Compensado ({tx.authProtocol})
+                              Estimado
                             </Text>
                           </View>
                         </View>
@@ -2616,6 +2621,21 @@ const styles = StyleSheet.create({
     color: '#22C55E',
     fontSize: 11,
     fontWeight: '600',
+  },
+  walletDisclaimerBox: {
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.25)',
+    marginBottom: 16,
+  },
+  walletDisclaimerText: {
+    color: '#FBBF24',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   sicoobInfoBox: {
     backgroundColor: 'rgba(0, 85, 66, 0.15)',

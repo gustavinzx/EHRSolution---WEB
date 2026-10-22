@@ -55,7 +55,6 @@ export interface SicoobTransaction {
   totalAmount: number;
   paymentMethod: string;
   status: string;
-  authProtocol: string;
 }
 
 export interface WalletResponse {
