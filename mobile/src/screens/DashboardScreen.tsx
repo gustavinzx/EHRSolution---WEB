@@ -79,7 +79,8 @@ const getSummaryText = (summary: HistorySummary | null): string => {
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
-  const { driver, vehicle, signOut } = useAuth();
+  const { driver, vehicle, signOut, refreshProfile } = useAuth();
+  const [inicioRefreshing, setInicioRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'carteira' | 'perfil'>('inicio');
 
@@ -440,12 +441,15 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
+      if (typeof refreshProfile === 'function') {
+        refreshProfile();
+      }
       if (activeTab === 'historico') {
         loadHistory(1);
       } else if (activeTab === 'carteira') {
         loadWallet();
       }
-    }, [activeTab, loadHistory, loadWallet])
+    }, [activeTab, loadHistory, loadWallet, refreshProfile])
   );
 
   const handleTabPress = (tab: 'inicio' | 'historico' | 'carteira' | 'perfil') => {
@@ -605,14 +609,32 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          activeTab === 'historico' ? (
-            <RefreshControl
-              refreshing={activeTab === 'historico' ? historyRefreshing : activeTab === 'carteira' ? walletRefreshing : false}
-              onRefresh={() => loadHistory(1, true)}
-              tintColor="#00E5FF"
-              colors={['#00E5FF']}
-            />
-          ) : undefined
+          <RefreshControl
+            refreshing={
+              activeTab === 'inicio'
+                ? inicioRefreshing
+                : activeTab === 'historico'
+                ? historyRefreshing
+                : activeTab === 'carteira'
+                ? walletRefreshing
+                : false
+            }
+            onRefresh={async () => {
+              if (activeTab === 'inicio') {
+                setInicioRefreshing(true);
+                if (typeof refreshProfile === 'function') {
+                  await refreshProfile();
+                }
+                setInicioRefreshing(false);
+              } else if (activeTab === 'historico') {
+                await loadHistory(1, true);
+              } else if (activeTab === 'carteira') {
+                await loadWallet(true);
+              }
+            }}
+            tintColor="#00E5FF"
+            colors={['#00E5FF']}
+          />
         }
       >
         {/* ================= ABA 1: INÍCIO (ABASTECIMENTO) ================= */}

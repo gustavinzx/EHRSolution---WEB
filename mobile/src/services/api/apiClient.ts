@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { secureStorage } from '../../storage/secureStorage';
 import { ApiError, LoginResponse } from '../../types/auth';
+import { Driver } from '../../types/driver';
+import { Vehicle } from '../../types/vehicle';
 import { Session, ReleaseMethod } from '../../types/session';
 import { HistoryResponse } from '../../types/history';
 import { WalletResponse, DriverCard, CreateCardPayload } from '../../types/wallet';
@@ -143,6 +145,12 @@ export const apiClient = {
     return await request<LoginResponse>('/auth/driver/login', {
       method: 'POST',
       body: JSON.stringify({ email, password: pass })
+    });
+  },
+
+  async getMe(): Promise<{ driver: Driver; vehicle: Vehicle | null }> {
+    return await request<{ driver: Driver; vehicle: Vehicle | null }>('/auth/driver/me', {
+      method: 'GET'
     });
   },
 

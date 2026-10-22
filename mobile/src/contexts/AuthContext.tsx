@@ -13,6 +13,7 @@ interface AuthContextData {
   signIn: (email: string, pass: string) => Promise<void>;
   signOut: () => Promise<void>;
   onUnauthorized: (message?: string) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -75,6 +76,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const data = await apiClient.getMe();
+      if (data.driver) {
+        await secureStorage.saveDriver(data.driver);
+        setDriver(data.driver);
+      }
+      if (data.vehicle) {
+        await secureStorage.saveVehicle(data.vehicle);
+        setVehicle(data.vehicle);
+      } else {
+        await secureStorage.saveVehicle(null as any);
+        setVehicle(null);
+      }
+    } catch (err) {
+      // Falha de rede ou offline: mantém estado seguro em cache
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -85,6 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signIn,
         signOut,
         onUnauthorized,
+        refreshProfile,
       }}
     >
       {children}

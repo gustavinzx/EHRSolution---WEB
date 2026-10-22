@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import useFleetState from '../store/useFleetState';
 
 export function useFleet() {
-  const { fleet, loading, error, isConnected, fetchFleet, createTruck } = useFleetState();
+  const { fleet, loading, error, isConnected, fetchFleet, createTruck, deleteTruck } = useFleetState();
 
   useEffect(() => {
     fetchFleet();
@@ -57,6 +57,7 @@ export function useFleet() {
     refetch: fetchFleet,
     fetchTruckDetails,
     createTruck,
+    deleteTruck,
     getHardwareKeyStatus,
     generateHardwareKey,
     revokeHardwareKey,

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import { RefreshCw, MapPin, Users, Gauge, Droplets, Truck, PlusCircle, Search, Navigation, Radio } from 'lucide-react';
+import { RefreshCw, MapPin, Users, Gauge, Droplets, Truck, PlusCircle, Search, Navigation, Radio, Trash2 } from 'lucide-react';
 import MapView from '../components/MapView';
 import RouteModal from '../components/RouteModal';
 import NewTruckModal from '../components/NewTruckModal';
@@ -28,7 +28,7 @@ const STATUS_META = {
 };
 
 export default function FleetPage() {
-  const { trucks, loading, error, refetch, createTruck } = useFleet();
+  const { trucks, loading, error, refetch, createTruck, deleteTruck } = useFleet();
   const fetchTruckRoute = useFleetState(state => state.fetchTruckRoute);
   const cancelTruckRoute = useFleetState(state => state.cancelTruckRoute);
   const [routeTruckId, setRouteTruckId] = useState(null);
@@ -38,6 +38,14 @@ export default function FleetPage() {
 
   if (loading && trucks.length === 0) return <LoadingSpinner />;
   if (error && trucks.length === 0) return <ErrorMessage message={error} />;
+
+  const handleDeleteTruck = async (e, truck) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Tem certeza que deseja excluir permanentemente o caminhão ${truck.plate}? Esta ação removerá seus vínculos e dados associados.`)) {
+      await deleteTruck(truck.id);
+    }
+  };
 
   const handleCancelRoute = (e, id) => {
     e.preventDefault();
@@ -485,6 +493,29 @@ export default function FleetPage() {
                       >
                         <Navigation size={13} color="#FFFFFF" />
                         <span>Definir Viagem</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={e => handleDeleteTruck(e, truck)}
+                        title="Excluir caminhão"
+                        style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          color: '#EF4444',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; }}
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>

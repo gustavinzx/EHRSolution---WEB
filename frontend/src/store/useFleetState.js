@@ -247,6 +247,21 @@ const useFleetState = create((set, get) => ({
     }
   },
 
+  deleteTruck: async (truckId) => {
+    try {
+      await client.delete(`/fleet/${truckId}`);
+      toast.success('Caminhão excluído com sucesso!');
+      set(state => ({
+        fleet: state.fleet.filter(t => t.id !== truckId)
+      }));
+      return { ok: true };
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Erro ao excluir caminhão.';
+      toast.error(msg);
+      return { ok: false, error: msg };
+    }
+  },
+
   createTruck: async (truckData) => {
     try {
       const res = await client.post('/fleet', truckData);

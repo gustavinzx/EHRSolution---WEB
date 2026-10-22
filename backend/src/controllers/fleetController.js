@@ -448,6 +448,43 @@ exports.getHardwareKeyStatus = async (req, res) => {
   }
 };
 
+exports.deleteTruck = async (req, res) => {
+  const client = await db.pool.connect();
+  let inTransaction = false;
+  try {
+    const truckId = parseTruckIdParam(req.params.id);
+    if (!truckId) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+
+    const { rows } = await client.query('SELECT id, plate FROM trucks WHERE id = $1', [truckId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+    const truck = rows[0];
+
+    await client.query('BEGIN');
+    inTransaction = true;
+
+    await client.query('DELETE FROM driver_trucks WHERE truck_id = $1', [truckId]);
+    await client.query('DELETE FROM fueling_logs WHERE truck_id = $1', [truckId]);
+    await client.query('DELETE FROM trucks WHERE id = $1', [truckId]);
+
+    await client.query('COMMIT');
+    inTransaction = false;
+
+    return res.json({ success: true, message: 'Caminhão excluído com sucesso' });
+  } catch (error) {
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    console.error('Delete truck error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
 exports.revokeHardwareKey = async (req, res) => {
   try {
     const truckId = parseTruckIdParam(req.params.id);

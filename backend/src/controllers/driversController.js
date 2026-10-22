@@ -117,6 +117,8 @@ async function processDriverTruckLink(client, driverId, { truck_id, new_truck })
       [driverId, parsedTruckId]
     );
     assignedTrucks.push(trkRows[0]);
+  } else if (truck_id === null || truck_id === 0) {
+    await client.query('DELETE FROM driver_trucks WHERE driver_id = $1', [driverId]);
   }
 
   return assignedTrucks;
@@ -489,6 +491,7 @@ exports.assignTruck = async (req, res) => {
       return res.status(404).json({ error: 'Truck not found' });
     }
     
+    await db.query('DELETE FROM driver_trucks WHERE driver_id = $1', [id]);
     await db.query(
       'INSERT INTO driver_trucks (driver_id, truck_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING driver_id, truck_id, assigned_at',
       [id, truck_id]
