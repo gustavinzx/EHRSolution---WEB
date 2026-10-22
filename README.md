@@ -148,7 +148,7 @@ npm install
 npm run dev
 ```
 * O painel web estará acessível em `http://localhost:5173`.
-* Acesse com as credenciais do administrador. Em produção, execute `npm run create-admin` no backend para criar o primeiro gestor (e-mail e senha informados na execução, sem senha padrão). O seed (`npm run seed`) é exclusivo para desenvolvimento (somente desenvolvimento, exige ALLOW_SEED_WIPE=true e NODE_ENV != production).
+* Acesse com as credenciais do administrador. Em produção, execute `npm run create-admin` no backend para criar o primeiro gestor (senha mínima de 12 caracteres informada via variável de ambiente `ADMIN_PASSWORD` ou em prompt interativo sem eco; utilize `--reset` para redefinição de senha sem alterar o papel; o argumento `--password` é descontinuado por segurança). O seed (`npm run seed`) é exclusivo para desenvolvimento (somente desenvolvimento, exige ALLOW_SEED_WIPE=true e NODE_ENV != production).
 
 ### 4. Aplicativo Mobile do Motorista
 ```bash
