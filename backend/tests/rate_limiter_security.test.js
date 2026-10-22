@@ -97,4 +97,60 @@ describe('Rate Limiter, Proxy & Security Tests (Bloco C)', () => {
     const res3 = await request(testApp).post('/login').send({ email: 'Motorista@Ehr.Com', password: '123' });
     expect(res3.status).toBe(429);
   });
+
+  it('NODE_ENV=production + DISABLE_RATE_LIMIT=true continua limitando (trava de segurança em produção)', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalDisable = process.env.DISABLE_RATE_LIMIT;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.DISABLE_RATE_LIMIT = 'true';
+
+      if (process.env.NODE_ENV === 'production' && process.env.DISABLE_RATE_LIMIT === 'true') {
+        console.warn('[SECURITY WARNING] DISABLE_RATE_LIMIT=true é ignorado em produção. O rate limiter permanece ativo.');
+      }
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DISABLE_RATE_LIMIT=true é ignorado em produção')
+      );
+
+      const testApp = express();
+      testApp.use(express.json());
+
+      const skipFn = () => {
+        if (process.env.NODE_ENV === 'production') {
+          return false;
+        }
+        return process.env.DISABLE_RATE_LIMIT === 'true';
+      };
+
+      const limiter = rateLimit({
+        windowMs: 60 * 1000,
+        max: 2,
+        standardHeaders: true,
+        legacyHeaders: false,
+        skip: skipFn,
+        message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' },
+      });
+
+      testApp.get('/test-prod-route', limiter, (req, res) => {
+        res.json({ ok: true });
+      });
+
+      const r1 = await request(testApp).get('/test-prod-route');
+      expect(r1.status).toBe(200);
+
+      const r2 = await request(testApp).get('/test-prod-route');
+      expect(r2.status).toBe(200);
+
+      // 3ª requisição deve ser bloqueada mesmo com DISABLE_RATE_LIMIT=true em produção
+      const r3 = await request(testApp).get('/test-prod-route');
+      expect(r3.status).toBe(429);
+      expect(r3.body.error).toContain('Muitas requisições');
+    } finally {
+      warnSpy.mockRestore();
+      process.env.NODE_ENV = originalEnv;
+      process.env.DISABLE_RATE_LIMIT = originalDisable;
+    }
+  });
 });
