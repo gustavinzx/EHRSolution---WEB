@@ -18,6 +18,7 @@ import {
   Mail,
   CheckCircle2,
   XCircle,
+  X,
   ScanFace,
 } from 'lucide-react';
 
@@ -48,6 +49,8 @@ export default function DriversPage() {
     deactivateDriver,
     activateDriver,
     assignTruck,
+    unassignTruck,
+    deleteDriver,
     enrollFace,
     removeFace,
   } = useDrivers();
@@ -108,6 +111,18 @@ export default function DriversPage() {
     if (!truckId) return;
     await assignTruck(driverId, truckId);
     setAssigning(prev => ({ ...prev, [driverId]: '' }));
+  };
+
+  const handleUnassign = async (driverId, truckId) => {
+    if (window.confirm('Deseja realmente desvincular este caminhão do motorista?')) {
+      await unassignTruck(driverId, truckId);
+    }
+  };
+
+  const handleDeleteDriver = async driver => {
+    if (window.confirm(`Deseja realmente excluir permanentemente o cadastro de ${driver.name}?`)) {
+      await deleteDriver(driver.id);
+    }
   };
 
   if (loading && drivers.length === 0) return <LoadingSpinner />;
@@ -400,30 +415,53 @@ export default function DriversPage() {
                   </div>
 
                   {user?.role !== 'auditor' && (
-                    <button
-                      onClick={() => {
-                        setEditingDriver(d);
-                        setIsModalOpen(true);
-                      }}
-                      title="Editar motorista"
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '8px',
-                        color: '#64748B',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#00D4FF'; e.currentTarget.style.borderColor = '#00D4FF'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
-                    >
-                      <Edit2 size={13} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => {
+                          setEditingDriver(d);
+                          setIsModalOpen(true);
+                        }}
+                        title="Editar motorista"
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '8px',
+                          color: '#64748B',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#00D4FF'; e.currentTarget.style.borderColor = '#00D4FF'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDriver(d)}
+                        title="Excluir motorista"
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          borderRadius: '8px',
+                          color: '#EF4444',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -508,10 +546,33 @@ export default function DriversPage() {
                             color: '#00D4FF',
                             letterSpacing: '0.5px',
                             fontFamily: "'IBM Plex Mono', monospace",
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
                           }}
                         >
                           {t.plate && <span>{t.plate}</span>}
                           {t.model && <span style={{ opacity: 0.7, marginLeft: '4px', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>• {t.model}</span>}
+                          {user?.role !== 'auditor' && (
+                            <button
+                              type="button"
+                              title="Desvincular caminhão"
+                              onClick={() => handleUnassign(d.id, t.id)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#EF4444',
+                                cursor: 'pointer',
+                                padding: '0 2px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginLeft: '2px',
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
                         </span>
                       ))
                     ) : (
@@ -521,8 +582,8 @@ export default function DriversPage() {
                     )}
                   </div>
 
-                  {/* Vincular novo caminhão */}
-                  {user?.role !== 'auditor' && (
+                  {/* Vincular novo caminhão — apenas se o motorista não tiver nenhum caminhão vinculado */}
+                  {user?.role !== 'auditor' && assignedList.length === 0 && (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <select
                         value={assigning[d.id] || ''}

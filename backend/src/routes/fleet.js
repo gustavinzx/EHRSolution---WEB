@@ -10,6 +10,7 @@ const router = express.Router();
 router.get("/live-events", authMiddleware, fleetController.liveEvents);
 router.get("/", authMiddleware, fleetController.list);
 router.post("/", authMiddleware, requireRole, fleetController.createTruck);
+router.delete("/:id", authMiddleware, requireRole, fleetController.deleteTruck);
 router.get("/dashboard-stats", authMiddleware, fleetController.getDashboardStats);
 router.post("/:id/hardware-key", authMiddleware, requireRole, fleetController.generateHardwareKey);
 router.get("/:id/hardware-key", authMiddleware, requireRole, fleetController.getHardwareKeyStatus);

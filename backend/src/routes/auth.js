@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
 const authController = require('../controllers/authController');
+const authDriver = require('../middleware/authDriver');
 const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
@@ -21,5 +22,7 @@ router.post('/driver/login', loginLimiter, [
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').notEmpty().withMessage('Password is required')
 ], validate, authController.driverLogin);
+
+router.get('/driver/me', authDriver, authController.driverMe);
 
 module.exports = router;

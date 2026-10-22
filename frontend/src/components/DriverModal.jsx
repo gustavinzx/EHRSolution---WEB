@@ -130,6 +130,8 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
       }
     } else if (formData.truckMode === 'existing' && formData.truck_id) {
       payload.truck_id = parseInt(formData.truck_id, 10);
+    } else if (formData.truckMode === 'none') {
+      payload.truck_id = null;
     }
 
     const res = await onSave(payload);

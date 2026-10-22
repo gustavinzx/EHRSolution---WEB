@@ -50,6 +50,45 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.driverMe = async (req, res) => {
+  try {
+    const driverId = req.driver.id;
+    const result = await db.query('SELECT id, name, email, phone, is_active FROM drivers WHERE id = $1', [driverId]);
+    if (result.rows.length === 0 || !result.rows[0].is_active) {
+      return res.status(403).json({ error: 'driver_inactive' });
+    }
+    const driver = result.rows[0];
+
+    const truckRes = await db.query(`
+      SELECT t.id, t.plate, t.model, t.capacity_liters, t.current_level_liters, t.lat, t.lng, t.status, t.speed_kmh, t.fuel_station_id, t.sim_state FROM trucks t
+      JOIN driver_trucks dt ON dt.truck_id = t.id
+      WHERE dt.driver_id = $1
+      LIMIT 1
+    `, [driver.id]);
+
+    const vehicle = truckRes.rows.length > 0 ? truckRes.rows[0] : null;
+
+    res.json({
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        email: driver.email,
+        phone: driver.phone
+      },
+      vehicle: vehicle ? {
+        id: vehicle.id,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        brand: vehicle.model.split(' ')[0],
+        capacity: vehicle.capacity_liters
+      } : null
+    });
+  } catch (error) {
+    console.error('Driver Me error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 exports.driverLogin = async (req, res) => {
   try {
     const { email, password } = req.body;

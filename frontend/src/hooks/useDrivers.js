@@ -75,6 +75,30 @@ export function useDrivers() {
     }
   };
 
+  const unassignTruck = async (driverId, truckId) => {
+    try {
+      await client.delete(`/drivers/${driverId}/trucks/${truckId}`);
+      fetchDrivers();
+      toast.success('Caminhão desvinculado com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao desvincular caminhão');
+      return false;
+    }
+  };
+
+  const deleteDriver = async (id) => {
+    try {
+      await client.delete(`/drivers/${id}`);
+      setDrivers(prev => prev.filter(d => d.id !== id));
+      toast.success('Motorista excluído com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao excluir motorista');
+      return false;
+    }
+  };
+
   const assignTruck = async (driverId, truckId) => {
     try {
       await client.post(`/drivers/${driverId}/trucks`, { truck_id: truckId });
@@ -140,6 +164,8 @@ export function useDrivers() {
     updateDriver, 
     deactivateDriver, activateDriver,
     assignTruck,
+    unassignTruck,
+    deleteDriver,
     enrollFace,
     removeFace,
     fetchRanking,
