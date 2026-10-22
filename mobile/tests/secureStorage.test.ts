@@ -1,12 +1,12 @@
 import { secureStorage } from '../src/storage/secureStorage';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
 jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(),
   getItemAsync: jest.fn(),
   deleteItemAsync: jest.fn(),
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1,
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -15,33 +15,57 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn(),
 }));
 
-describe('secureStorage', () => {
+describe('secureStorage (Sem persistência de senhas e com proteção biométrica)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('uses SecureStore for token', async () => {
-    await secureStorage.saveToken('abc');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('ehr_auth_token', 'abc');
-  });
-
-  it('saves and retrieves credentials', async () => {
-    await secureStorage.saveCredentials('driver@ehr.com', 'secret123');
+  it('salva token da sessão com requireAuthentication quando solicitado', async () => {
+    await secureStorage.saveToken('jwt-token-123', { requireAuthentication: true });
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'ehr_saved_credentials',
-      JSON.stringify({ email: 'driver@ehr.com', pass: 'secret123' })
+      'ehr_auth_token',
+      'jwt-token-123',
+      expect.objectContaining({ requireAuthentication: true })
     );
-
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-      JSON.stringify({ email: 'driver@ehr.com', pass: 'secret123' })
-    );
-    const creds = await secureStorage.getSavedCredentials();
-    expect(creds).toEqual({ email: 'driver@ehr.com', pass: 'secret123' });
   });
 
-  it('handles biometric opt in preference', async () => {
+  it('salva e recupera apenas e-mail para "lembrar de mim" (nunca a senha)', async () => {
+    await secureStorage.saveRememberedEmail('motorista@ehr.com');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'ehr_remembered_email',
+      'motorista@ehr.com',
+      expect.any(Object)
+    );
+
+    (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce('motorista@ehr.com');
+    const email = await secureStorage.getRememberedEmail();
+    expect(email).toBe('motorista@ehr.com');
+
+    await secureStorage.removeRememberedEmail();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_remembered_email');
+  });
+
+  it('executa migração e apaga a chave legada de credenciais com senha', async () => {
+    await secureStorage.cleanupLegacyCredentials();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_saved_credentials');
+  });
+
+  it('apaga token, perfil e opt-in biométrico no logout (clearAll)', async () => {
+    await secureStorage.clearAll();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_auth_token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_biometric_opt_in');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_driver_data');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_vehicle_data');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_saved_credentials');
+  });
+
+  it('gerencia a preferência explícita de opt-in biométrico', async () => {
     await secureStorage.setBiometricOptIn(true);
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('ehr_biometric_opt_in', 'true');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'ehr_biometric_opt_in',
+      'true',
+      expect.any(Object)
+    );
 
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce('true');
     const enabled = await secureStorage.getBiometricOptIn();

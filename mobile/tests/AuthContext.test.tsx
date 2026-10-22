@@ -14,6 +14,8 @@ jest.mock('../src/storage/secureStorage', () => ({
     saveDriver: jest.fn(),
     saveVehicle: jest.fn(),
     clearAll: jest.fn(),
+    cleanupLegacyCredentials: jest.fn(),
+    getBiometricOptIn: jest.fn().mockResolvedValue(false),
   },
 }));
 
@@ -27,9 +29,11 @@ jest.mock('../src/services/api/apiClient', () => ({
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (secureStorage.cleanupLegacyCredentials as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
   });
 
-  it('restores vehicle and driver from storage', async () => {
+  it('restores vehicle and driver from storage when biometric opt-in is false', async () => {
     (secureStorage.getToken as jest.Mock).mockResolvedValue('token');
     (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva', email: 'motorista1@ehr.com', phone: '11999999999' });
     (secureStorage.getVehicle as jest.Mock).mockResolvedValue({ id: 10, plate: 'ABC-1234', model: 'Volvo FH 540', brand: 'Volvo', capacity: 500 });
@@ -51,9 +55,10 @@ describe('AuthContext', () => {
       expect(getByText('João Silva')).toBeTruthy();
       expect(getByText('ABC-1234')).toBeTruthy();
     });
+    expect(secureStorage.cleanupLegacyCredentials).toHaveBeenCalled();
   });
 
-  it('signIn with real backend format saves token, driver and vehicle in storage', async () => {
+  it('signIn saves token, driver and vehicle in storage without persisting password', async () => {
     (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
     (secureStorage.getDriver as jest.Mock).mockResolvedValue(null);
     (secureStorage.getVehicle as jest.Mock).mockResolvedValue(null);
@@ -167,7 +172,7 @@ describe('AuthContext', () => {
     expect(contextRef.vehicle).toBeNull();
   });
 
-  it('onUnauthorized clears storage', async () => {
+  it('onUnauthorized e signOut apagam token e opt-in via clearAll', async () => {
     (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
     (secureStorage.getDriver as jest.Mock).mockResolvedValue(null);
     (secureStorage.getVehicle as jest.Mock).mockResolvedValue(null);
@@ -194,5 +199,11 @@ describe('AuthContext', () => {
     });
 
     expect(secureStorage.clearAll).toHaveBeenCalled();
+
+    await act(async () => {
+      await contextRef.signOut();
+    });
+
+    expect(secureStorage.clearAll).toHaveBeenCalledTimes(2);
   });
 });

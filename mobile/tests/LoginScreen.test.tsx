@@ -4,10 +4,17 @@ import { Alert } from 'react-native';
 import { LoginScreen } from '../src/screens/LoginScreen';
 import { useAuth } from '../src/hooks/useAuth';
 import { secureStorage } from '../src/storage/secureStorage';
+import { apiClient } from '../src/services/api/apiClient';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 jest.mock('../src/hooks/useAuth');
 jest.mock('../src/storage/secureStorage');
+jest.mock('../src/services/api/apiClient', () => ({
+  getBaseUrl: jest.fn().mockReturnValue('http://localhost:3001'),
+  apiClient: {
+    getMe: jest.fn(),
+  },
+}));
 jest.mock('expo-local-authentication', () => ({
   hasHardwareAsync: jest.fn(),
   isEnrolledAsync: jest.fn(),
@@ -20,18 +27,24 @@ jest.mock('expo-local-authentication', () => ({
   },
 }));
 
-describe('LoginScreen', () => {
+describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
   const mockSignIn = jest.fn();
+  const mockUnlockSession = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useAuth as jest.Mock).mockReturnValue({
       signIn: mockSignIn,
+      unlockSession: mockUnlockSession,
     });
-    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue(null);
-    (secureStorage.saveCredentials as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.getRememberedEmail as jest.Mock).mockResolvedValue(null);
+    (secureStorage.saveRememberedEmail as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.removeRememberedEmail as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.cleanupLegacyCredentials as jest.Mock).mockResolvedValue(undefined);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue(null);
+    (secureStorage.removeToken as jest.Mock).mockResolvedValue(undefined);
     (secureStorage.setBiometricOptIn as jest.Mock).mockResolvedValue(undefined);
-    (secureStorage.removeSavedCredentials as jest.Mock).mockResolvedValue(undefined);
     (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(false);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(false);
@@ -39,15 +52,16 @@ describe('LoginScreen', () => {
     (LocalAuthentication.authenticateAsync as jest.Mock).mockResolvedValue({ success: true });
   });
 
-  it('renders login fields and brand title', async () => {
+  it('renderiza campos de login e limpa credenciais legadas na montagem', async () => {
     const { getByPlaceholderText, getByText } = render(<LoginScreen />);
     expect(getByText('EHR SOLUTIONS')).toBeTruthy();
     expect(getByPlaceholderText('Digite seu e-mail corporativo')).toBeTruthy();
     expect(getByPlaceholderText('Digite sua senha')).toBeTruthy();
     expect(getByText('Entrar')).toBeTruthy();
+    expect(secureStorage.cleanupLegacyCredentials).toHaveBeenCalled();
   });
 
-  it('shows alert when attempting login with empty fields', async () => {
+  it('exibe alerta ao tentar entrar com campos vazios', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { getByText } = render(<LoginScreen />);
 
@@ -57,7 +71,7 @@ describe('LoginScreen', () => {
     expect(mockSignIn).not.toHaveBeenCalled();
   });
 
-  it('performs standard login and saves credentials when rememberMe is active', async () => {
+  it('executa login padrão e salva APENAS e-mail quando "Lembrar de mim" ativo (sem salvar senha nem ativar biometria sozinho)', async () => {
     mockSignIn.mockResolvedValueOnce(undefined);
     const { getByPlaceholderText, getByText } = render(<LoginScreen />);
 
@@ -69,21 +83,25 @@ describe('LoginScreen', () => {
     });
 
     expect(mockSignIn).toHaveBeenCalledWith('motorista1@ehr.com', 'Demo@1234');
-    expect(secureStorage.saveCredentials).toHaveBeenCalledWith('motorista1@ehr.com', 'Demo@1234');
-    expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(true);
+    // Salva apenas e-mail
+    expect(secureStorage.saveRememberedEmail).toHaveBeenCalledWith('motorista1@ehr.com');
+    // "Lembrar de mim" NÃO ativa biometria sozinho
+    expect(secureStorage.setBiometricOptIn).not.toHaveBeenCalledWith(true);
   });
 
-  it('displays biometric unlock option when hardware and biometrics are enrolled', async () => {
+  it('desbloqueia sessão existente via biometria com token seguro', async () => {
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([
       LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
     ]);
-    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue({
-      email: 'motorista1@ehr.com',
-      pass: 'Demo@1234',
-    });
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-jwt-token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
     (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+    (apiClient.getMe as jest.Mock).mockResolvedValue({
+      driver: { id: 1, name: 'João Silva', email: 'motorista1@ehr.com' },
+      vehicle: { id: 10, plate: 'ABC-1234' },
+    });
 
     const { findByText } = render(<LoginScreen />);
 
@@ -95,36 +113,23 @@ describe('LoginScreen', () => {
     });
 
     expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled();
-    expect(mockSignIn).toHaveBeenCalledWith('motorista1@ehr.com', 'Demo@1234');
+    expect(apiClient.getMe).toHaveBeenCalled();
+    expect(mockUnlockSession).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'João Silva' }),
+      expect.objectContaining({ plate: 'ABC-1234' })
+    );
   });
 
-  it('hides biometric login when the user has not opted in', async () => {
+  it('trata token expirado no desbloqueio biométrico, remove token e pede login com senha', async () => {
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
-    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue({
-      email: 'motorista1@ehr.com',
-      pass: 'Demo@1234',
-    });
-    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
-
-    const { findByText, queryByText } = render(<LoginScreen />);
-
-    expect(await findByText(/Ative "Lembrar de mim" para entrar com Digital/)).toBeTruthy();
-    expect(queryByText('Entrar com Digital')).toBeNull();
-  });
-
-  it('clears saved biometric access when the stored password is rejected', async () => {
-    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
-    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
-    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
-    (secureStorage.getSavedCredentials as jest.Mock).mockResolvedValue({
-      email: 'motorista1@ehr.com',
-      pass: 'senha-antiga',
-    });
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('expired-jwt-token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
     (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
-    mockSignIn.mockRejectedValueOnce({ status: 401, message: 'Credenciais inválidas' });
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    (apiClient.getMe as jest.Mock).mockRejectedValueOnce({ status: 401, message: 'token_expired' });
+    const alertSpy = jest.spyOn(Alert, 'alert');
 
     const { findByText } = render(<LoginScreen />);
     const btn = await findByText('Entrar com Digital');
@@ -133,7 +138,10 @@ describe('LoginScreen', () => {
       fireEvent.press(btn);
     });
 
-    expect(secureStorage.removeSavedCredentials).toHaveBeenCalled();
-    expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(false);
+    expect(secureStorage.removeToken).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sessão Expirada',
+      expect.stringContaining('Sua sessão expirou')
+    );
   });
 });
