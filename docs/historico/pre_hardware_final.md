@@ -316,3 +316,31 @@ EXIT_CODE: 0 (branch enviada e sincronizada com origin)
 
 ---
 **Status Final:** Todos os blocos (0, A, B, C, D, E, F) implementados com máxima integridade de escopo, 1 commit por bloco, testes 100% verdes em backend (288 testes), mobile (166 testes) e frontend (45 testes), com TypeScript sem erros e lint impecável.
+
+---
+
+## 4. Bloco G — Hardening Adicional e Blindagem Operacional
+
+### 4.1 Matriz de Conformidade do Bloco G
+
+| Item | Arquivo:Linha | Prova | Resultado | Não resolvido |
+|---|---|---|---|---|
+| **G1: DISABLE_RATE_LIMIT só fora de produção** | `backend/src/index.js:108-124`, `backend/tests/rate_limiter_security.test.js:101-155` | Teste unitário comprovando que com `NODE_ENV=production` e `DISABLE_RATE_LIMIT=true` a 3ª requisição é bloqueada (429) e emite `console.warn`; variável ausente de docs de produção | Concluído | Nenhum |
+| **G2: Teto por IP no login (ipLoginLimiter)** | `backend/src/routes/auth.js:10-18, 34, 40`, `backend/tests/rate_limiter_security.test.js:157-246` | Teste de 101 requisições com e-mails diferentes do mesmo IP bloqueando a 101ª com 429; e-mails distintos abaixo do teto de 100 não se bloqueiam entre si | Concluído | Nenhum |
+| **G3: Placa liberada após exclusão (Migration 019)** | `backend/src/migrations/019_truck_plate_partial_unique.sql:1-25`, `backend/tests/soft_delete_audit.test.js:223-281` | Migration removeu constraint rígida e criou `uq_trucks_plate_active WHERE status IS DISTINCT FROM 'deleted'`; teste prova recriação de caminhão com mesma placa de deletado com sucesso, recusa de 2 ativos com mesma placa (409) e logs vinculados ao id antigo | Concluído | Nenhum |
+| **G4: createAdmin seguro** | `backend/scripts/createAdmin.js:1-180`, `backend/tests/createAdmin.test.js:1-120`, `docs/PRODUCAO.md:60-70`, `README.md:151` | `--password` removido de scripts (busca negativa vazia); senha mínima de 12 chars via env/prompt sem eco; e-mail existente sem `--reset` aborta; com `--reset` preserva o papel existente | Concluído | Nenhum |
+| **G5: Biometria sem degradação silenciosa** | `mobile/src/storage/secureStorage.ts:25-50, 60-75`, `mobile/src/screens/LoginScreen.tsx:110-125, 215-230`, `mobile/tests/secureStorage.test.ts:75-110`, `mobile/tests/LoginScreen.test.tsx:145-175` | Falha em gravação protegida por biometria não degrada para desprotegido, apaga token e opt-in, e exibe "Biometria indisponível neste aparelho. Use e-mail e senha."; leitura biométrica sem fallback para token desprotegido | Concluído | Nenhum |
+| **G6: README e contagem real medida de testes** | `README.md:6, 109, 115, 117, 119` | Execução real das 3 suítes totalizando 512 testes (Backend: 297, Mobile: 170, Frontend: 45); busca por "488" retorna zero | Concluído | Nenhum |
+
+### 4.2 Levantamento de Dependências da Constraint de Placa (Item G3.4)
+Uma inspeção estrutural em todo o backend (`git grep -n "ON CONFLICT" backend/`) confirmou que:
+- Não existe nenhuma cláusula `ON CONFLICT (plate)` na base de código.
+- A criação de caminhões em `fleetController.js` utiliza `INSERT INTO trucks (...)` e trata colisões capturando o erro `23505` (`unique_violation`) retornado pelo PostgreSQL quando o índice parcial `uq_trucks_plate_active` detecta placa duplicada em registro com status ativo (`status IS DISTINCT FROM 'deleted'`).
+- A exclusão via soft-delete marca `status = 'deleted'`, liberando imediatamente a placa para novo cadastramento, mantendo todos os históricos periciais de combustível, telemetria e alertas vinculados ao ID original.
+
+### 4.3 Total Real Medido de Testes Automatizados (Varredura 100% Green)
+- **Backend API:** 297 testes passando (25 suítes de teste)
+- **Mobile App:** 170 testes passando (12 suítes de teste)
+- **Frontend Web:** 45 testes passando (10 suítes de teste)
+- **Total Global Medido:** **512 testes passando (100% GREEN, 47 suítes)**
+

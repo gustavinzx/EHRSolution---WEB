@@ -60,11 +60,12 @@ Este documento consolida os requisitos operacionais, arquiteturais e de seguran�
 ## 8. Desativação de Seed e Criação do Primeiro Gestor
 - **Proteção do Seed:** O script `npm run seed` (`seed.js`) é restrito ao desenvolvimento: recusa execução em produção (`NODE_ENV=production`) e exige a flag explícita `ALLOW_SEED_WIPE=true`.
 - **Comando de Produção:** Para criar o primeiro usuário gestor administrador no ambiente de produção de forma segura:
+  A senha deve ter no **mínimo 12 caracteres** e **NUNCA** é informada via argumento de linha de comando `--password` (mitigando vazamentos na lista de processos do SO e histórico de shell). Defina via variável de ambiente `ADMIN_PASSWORD` ou informe no prompt interativo com digitação oculta (sem eco):
   ```bash
   cd backend
-  npm run create-admin -- --email "gestor.producao@empresa.com.br" --password "SenhaForte@2026#Segura" --name "Gestor Geral"
+  ADMIN_PASSWORD="SenhaForte@2026#Segura12" npm run create-admin -- --email "gestor.producao@empresa.com.br" --name "Gestor Geral"
   ```
-  *(Ou execute interativamente sem parâmetros para digitar a senha em prompt seguro, sem valores padrão no código).*
+  *(Ou execute interativamente `npm run create-admin` para digitar o e-mail e a senha em prompt com eco desativado. Para redefinir a senha de um usuário existente preservando integralmente seu papel de acesso, utilize a flag `--reset`).*
 
 ---
 

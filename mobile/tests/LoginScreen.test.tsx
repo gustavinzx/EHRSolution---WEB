@@ -144,4 +144,32 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
       expect.stringContaining('Sua sessão expirou')
     );
   });
+
+  it('exibe alerta e volta para e-mail e senha quando a proteção biométrica falha (sem degradação silenciosa)', async () => {
+    mockSignIn.mockResolvedValueOnce(undefined);
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
+    (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(
+      new Error('Biometria indisponível neste aparelho. Use e-mail e senha.')
+    );
+
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+
+    // Aguarda montagem assíncrona do useEffect
+    await act(async () => {});
+
+    fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
+    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+
+    await act(async () => {
+      fireEvent.press(getByText('Entrar'));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Aviso',
+      'Biometria indisponível neste aparelho. Use e-mail e senha.'
+    );
+    expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(false);
+  });
 });

@@ -105,14 +105,21 @@ app.use(express.json({ limit: '100kb' }));
 app.use(compression());
 
 // General rate limiter para rotas de API da aplicação
+if (process.env.NODE_ENV === 'production' && process.env.DISABLE_RATE_LIMIT === 'true') {
+  console.warn('[SECURITY WARNING] DISABLE_RATE_LIMIT=true é ignorado em produção. O rate limiter permanece ativo.');
+}
+
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: process.env.NODE_ENV === 'production' ? 1000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () =>
-    process.env.NODE_ENV !== 'production' ||
-    process.env.DISABLE_RATE_LIMIT === 'true',
+  skip: () => {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
+    return process.env.DISABLE_RATE_LIMIT === 'true';
+  },
   message: { error: 'Muitas requisições. Aguarde um momento e tente novamente.' }
 });
 

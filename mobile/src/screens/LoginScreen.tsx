@@ -108,8 +108,21 @@ export const LoginScreen: React.FC = () => {
                 });
                 if (!check.success) return;
               }
-              await secureStorage.setBiometricOptIn(true);
-              setBiometricOptInChecked(true);
+              try {
+                const currentToken = await secureStorage.getToken();
+                if (currentToken) {
+                  await secureStorage.saveToken(currentToken, { requireAuthentication: true });
+                }
+                await secureStorage.setBiometricOptIn(true);
+                setBiometricOptInChecked(true);
+              } catch (err: any) {
+                await secureStorage.setBiometricOptIn(false);
+                setBiometricOptInChecked(false);
+                setBiometricLoginReady(false);
+                const msg = err?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
+                setErrorMessage(msg);
+                Alert.alert('Aviso', msg);
+              }
             },
           },
         ]
@@ -204,7 +217,20 @@ export const LoginScreen: React.FC = () => {
 
       // Se o usuário marcou opt-in biométrico explicitamente na tela de login
       if (biometricOptInChecked) {
-        await secureStorage.setBiometricOptIn(true);
+        try {
+          const currentToken = await secureStorage.getToken();
+          if (currentToken) {
+            await secureStorage.saveToken(currentToken, { requireAuthentication: true });
+          }
+          await secureStorage.setBiometricOptIn(true);
+        } catch (biometricErr: any) {
+          await secureStorage.setBiometricOptIn(false);
+          setBiometricOptInChecked(false);
+          setBiometricLoginReady(false);
+          const msg = biometricErr?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
+          setErrorMessage(msg);
+          Alert.alert('Aviso', msg);
+        }
       }
     } catch (error: any) {
       const msg = error.message || 'Falha ao autenticar.';
