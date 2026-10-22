@@ -56,6 +56,7 @@ async function getFleetSnapshot() {
       LEFT JOIN fuel_stations fs ON t.fuel_station_id = fs.id
       LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
       LEFT JOIN drivers d ON dt.driver_id = d.id AND d.is_active = true
+      WHERE (t.status IS NULL OR t.status != 'deleted')
       GROUP BY t.id, fs.name, fs.lat, fs.lng
       ORDER BY t.created_at DESC
     `;
@@ -87,7 +88,7 @@ async function getTruckTelemetry(truckId) {
     FROM trucks t
     LEFT JOIN driver_trucks dt ON t.id = dt.truck_id
     LEFT JOIN drivers d ON dt.driver_id = d.id AND d.is_active = true
-    WHERE t.id = $1
+    WHERE t.id = $1 AND (t.status IS NULL OR t.status != 'deleted')
   `, [truckId]);
 
   if (result.rows.length === 0) return null;

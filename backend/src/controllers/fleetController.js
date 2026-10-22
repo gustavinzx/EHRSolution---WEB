@@ -177,7 +177,7 @@ exports.cancelRoute = async (req, res) => {
           sim_state = 'driving',
           fueling_ticks = 0,
           updated_at = NOW()
-        WHERE id = $1
+        WHERE id = $1 AND (status IS NULL OR status != 'deleted')
       `, [id, JSON.stringify(returnRoute)]);
       return res.json({ success: true, message: 'Viagem cancelada, retornando para a base' });
     } catch (e) {
@@ -189,7 +189,7 @@ exports.cancelRoute = async (req, res) => {
           route_phase = 'arrived',
           sim_state = 'idle',
           speed_kmh = 0
-        WHERE id = $1
+        WHERE id = $1 AND (status IS NULL OR status != 'deleted')
       `, [id]);
       return res.json({ success: true, message: 'Viagem parada imediatamente' });
     }
@@ -207,7 +207,7 @@ exports.getInvestigation = async (req, res) => {
        FROM trucks t
        LEFT JOIN driver_trucks dt ON dt.truck_id = t.id
        LEFT JOIN drivers d ON d.id = dt.driver_id AND d.is_active = true
-       WHERE t.id = $1 LIMIT 1`, [id]
+       WHERE t.id = $1 AND (t.status IS NULL OR t.status != 'deleted') LIMIT 1`, [id]
     );
     if (!truckRows.length) return res.status(404).json({ error: 'Truck not found' });
     const truck = truckRows[0];
@@ -376,7 +376,7 @@ exports.generateHardwareKey = async (req, res) => {
       `UPDATE trucks
        SET api_key = $2,
            api_key_last_used_at = NULL
-       WHERE id = $1
+       WHERE id = $1 AND (status IS NULL OR status != 'deleted')
        RETURNING id, api_key_prefix AS prefix, api_key_created_at AS created_at`,
       [truckId, rawKey]
     );
@@ -426,7 +426,7 @@ exports.getHardwareKeyStatus = async (req, res) => {
               api_key_created_at AS created_at,
               api_key_last_used_at AS last_used_at
        FROM trucks
-       WHERE id = $1`,
+       WHERE id = $1 AND (status IS NULL OR status != 'deleted')`,
       [truckId]
     );
 
@@ -457,7 +457,7 @@ exports.deleteTruck = async (req, res) => {
       return res.status(400).json({ error: 'id inválido' });
     }
 
-    const { rows } = await client.query('SELECT id, plate FROM trucks WHERE id = $1', [truckId]);
+    const { rows } = await client.query("SELECT id, plate FROM trucks WHERE id = $1 AND (status IS NULL OR status != 'deleted')", [truckId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
@@ -467,8 +467,19 @@ exports.deleteTruck = async (req, res) => {
     inTransaction = true;
 
     await client.query('DELETE FROM driver_trucks WHERE truck_id = $1', [truckId]);
-    await client.query('DELETE FROM fueling_logs WHERE truck_id = $1', [truckId]);
-    await client.query('DELETE FROM trucks WHERE id = $1', [truckId]);
+    // Soft delete: preserve row and keep logs, telemetry, alerts, and sessions intact for audit
+    await client.query(`
+      UPDATE trucks
+      SET status = 'deleted',
+          is_active = false,
+          deleted_at = NOW(),
+          api_key = NULL,
+          api_key_hash = NULL,
+          api_key_prefix = NULL,
+          api_key_created_at = NULL,
+          api_key_last_used_at = NULL
+      WHERE id = $1
+    `, [truckId]);
 
     await client.query('COMMIT');
     inTransaction = false;
@@ -499,7 +510,7 @@ exports.revokeHardwareKey = async (req, res) => {
            api_key_prefix = NULL,
            api_key_created_at = NULL,
            api_key_last_used_at = NULL
-       WHERE id = $1
+       WHERE id = $1 AND (status IS NULL OR status != 'deleted')
        RETURNING id`,
       [truckId]
     );
