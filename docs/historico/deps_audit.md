@@ -67,3 +67,11 @@ Node Runtime: `v24.11.0` (Docker: `node:20-alpine`)
 | **react-router-dom** | `frontend/package-lock.json` | Análise de código e navegação SPA | Mantido na 6.28.1 | Breaking change v7; SPA pura sem SSR |
 | **Dependências Mobile** | `mobile/package.json`, `mobile/package-lock.json` | `git status` (sem alterações) | Intocado | Dependências gerenciadas pelo Expo SDK 52 |
 | **Patch expo-auth** | `mobile/scripts/patch-expo-auth.js` | Inspeção estática de script | Documentado | Patch nativo no postinstall, risco com Expo upgrade |
+
+---
+
+## 5. Nota de Compatibilidade Multiplataforma (Lockfile)
+
+> [!NOTE]
+> Lockfile gerado no Windows omitia @emnapi; validar sempre com `npx -y npm@10 ci --dry-run` antes de abrir PR.
+
