@@ -3,7 +3,7 @@
 <div align="center">
 
 ![CI Status](https://img.shields.io/badge/CI%2FCD-passing-brightgreen?style=for-the-badge&logo=github-actions)
-![Testes](https://img.shields.io/badge/Testes-512%2F512%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
+![Testes](https://img.shields.io/badge/Testes-514%2F514%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
 ![Backend](https://img.shields.io/badge/Backend-Node.js%20%7C%20Express%20%7C%20PostgreSQL-339933?style=for-the-badge&logo=node.js)
 ![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20Leaflet-61DAFB?style=for-the-badge&logo=react)
 ![Mobile](https://img.shields.io/badge/Mobile-React%20Native%20%7C%20Expo-000020?style=for-the-badge&logo=expo)
@@ -106,17 +106,17 @@ flowchart LR
 
 ---
 
-## 🧪 4. Cobertura de Testes e Qualidade (512 Testes Automatizados)
+## 🧪 4. Cobertura de Testes e Qualidade (514 Testes Automatizados)
 
 O projeto conta com **100% de testes automatizados passando com sucesso** em todas as camadas da aplicação:
 
 | Módulo | Ferramenta | Escopo dos Testes | Status |
 |---|---|---|---|
-| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **297 passed** (25 suítes) |
+| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **299 passed** (26 suítes) |
 | **Frontend Web** | Vitest + Testing Library | Painel, Rotas, Modais protegidos, Detalhes do Caminhão, Mapas Leaflet, Máscaras e Tabela ANP | ✅ **45 passed** (10 suítes) |
 | **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **170 passed** (12 suítes) |
 | **Frontend Lint** | ESLint | Análise estática de código e integridade de tipos | ✅ **0 erros / 0 avisos** |
-| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **512 / 512 (100% GREEN)** |
+| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **514 / 514 (100% GREEN)** |
 
 ---
 
