@@ -30,7 +30,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
     }
 
     const justOpened = !prevIsOpenRef.current;
-    const driverChanged = (driver?.id ?? null) !== prevDriverIdRef.current;
+    const driverChanged = (driver?.id ?? '__new__') !== prevDriverIdRef.current;
 
     if (justOpened || driverChanged) {
       prevIsOpenRef.current = true;
