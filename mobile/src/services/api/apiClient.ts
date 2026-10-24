@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { secureStorage } from '../../storage/secureStorage';
+// secureStorage removed: in-memory session token is used instead
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Driver } from '../../types/driver';
 import { Vehicle } from '../../types/vehicle';
@@ -55,17 +55,18 @@ export const getBaseUrl = (): string => {
 export const API_URL = getBaseUrl();
 
 let onUnauthorizedCb: ((message?: string) => void) | null = null;
+let sessionToken: string | null = null;
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = await secureStorage.getToken();
+
   const baseUrl = getBaseUrl();
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (sessionToken) {
+    headers['Authorization'] = `Bearer ${sessionToken}`;
   }
 
   const controller = new AbortController();
@@ -117,10 +118,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
 
     if (response.status === 401) {
+      if (endpoint !== '/auth/driver/login') sessionToken = null;
       if (endpoint !== '/auth/driver/login' && onUnauthorizedCb) {
         onUnauthorizedCb();
       }
     } else if (response.status === 403 && errorMessage === 'driver_inactive') {
+      sessionToken = null;
       if (onUnauthorizedCb) onUnauthorizedCb('Seu acesso foi desativado. Procure o gestor.');
     }
 
@@ -137,6 +140,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const apiClient = {
+  setAuthToken(token: string | null) {
+    sessionToken = token;
+  },
+
+  getAuthToken(): string | null {
+    return sessionToken;
+  },
   setOnUnauthorized(cb: (message?: string) => void) {
     onUnauthorizedCb = cb;
   },

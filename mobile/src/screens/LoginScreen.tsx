@@ -66,7 +66,7 @@ export const LoginScreen: React.FC = () => {
 
         const rememberedEmail = await secureStorage.getRememberedEmail();
         const optIn = await secureStorage.getBiometricOptIn();
-        const storedToken = await secureStorage.getToken();
+
         const storedDriver = await secureStorage.getDriver();
 
         if (isMounted) {
@@ -76,7 +76,7 @@ export const LoginScreen: React.FC = () => {
           }
           setBiometricOptInChecked(Boolean(optIn));
           // Desbloqueio biométrico disponível apenas com hardware + opt-in aceito + sessão em cache
-          setBiometricLoginReady(Boolean(deviceReady && optIn && storedToken && storedDriver));
+          setBiometricLoginReady(Boolean(deviceReady && optIn && storedDriver));
         }
       } catch (err) {
         // Fallback gracioso
@@ -109,13 +109,15 @@ export const LoginScreen: React.FC = () => {
                 if (!check.success) return;
               }
               try {
-                const currentToken = await secureStorage.getToken();
+                const currentToken = apiClient.getAuthToken() || await secureStorage.getToken();
                 if (currentToken) {
                   await secureStorage.saveToken(currentToken, { requireAuthentication: true });
                 }
                 await secureStorage.setBiometricOptIn(true);
                 setBiometricOptInChecked(true);
               } catch (err: any) {
+                apiClient.setAuthToken(null);
+                await secureStorage.removeToken();
                 await secureStorage.setBiometricOptIn(false);
                 setBiometricOptInChecked(false);
                 setBiometricLoginReady(false);
@@ -162,16 +164,18 @@ export const LoginScreen: React.FC = () => {
       if (result?.success) {
         setLoading(true);
         try {
+          apiClient.setAuthToken(storedToken);
           // Desbloqueia sessão existente validando o token JWT
           const profile = await apiClient.getMe();
           if (profile?.driver) {
-            unlockSession(profile.driver, profile.vehicle);
+            unlockSession(profile.driver, profile.vehicle, storedToken);
           } else {
             throw { status: 401, message: 'Sessão inválida' };
           }
         } catch (sessionError: any) {
           // Token expirado ou credenciais inválidas: exige login tradicional
           if (sessionError?.status === 401 || sessionError?.status === 403 || sessionError?.message?.includes('token')) {
+            apiClient.setAuthToken(null);
             await secureStorage.removeToken();
             setBiometricLoginReady(false);
             setPassword('');
@@ -218,12 +222,14 @@ export const LoginScreen: React.FC = () => {
       // Se o usuário marcou opt-in biométrico explicitamente na tela de login
       if (biometricOptInChecked) {
         try {
-          const currentToken = await secureStorage.getToken();
+          const currentToken = apiClient.getAuthToken() || await secureStorage.getToken();
           if (currentToken) {
             await secureStorage.saveToken(currentToken, { requireAuthentication: true });
           }
           await secureStorage.setBiometricOptIn(true);
         } catch (biometricErr: any) {
+          apiClient.setAuthToken(null);
+          await secureStorage.removeToken();
           await secureStorage.setBiometricOptIn(false);
           setBiometricOptInChecked(false);
           setBiometricLoginReady(false);

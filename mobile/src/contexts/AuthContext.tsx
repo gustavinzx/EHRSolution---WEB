@@ -11,7 +11,7 @@ interface AuthContextData {
   vehicle: Vehicle | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  unlockSession: (driver: Driver, vehicle?: Vehicle | null) => void;
+  unlockSession: (driver: Driver, vehicle?: Vehicle | null, token?: string | null) => void;
   signOut: () => Promise<void>;
   onUnauthorized: (message?: string) => void;
   refreshProfile: () => Promise<void>;
@@ -25,18 +25,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const signOut = useCallback(async () => {
+    apiClient.setAuthToken(null);
     // Apaga token, dados e opt-in de biometria ao deslogar
     await secureStorage.clearAll();
     setDriver(null);
     setVehicle(null);
   }, []);
 
-  const unlockSession = useCallback((unlockedDriver: Driver, unlockedVehicle?: Vehicle | null) => {
+  const unlockSession = useCallback((unlockedDriver: Driver, unlockedVehicle?: Vehicle | null, token?: string | null) => {
+    if (token) {
+      apiClient.setAuthToken(token);
+    }
     setDriver(unlockedDriver);
     setVehicle(unlockedVehicle || null);
   }, []);
 
   const onUnauthorized = useCallback((message?: string) => {
+    apiClient.setAuthToken(null);
     if (message) {
       Alert.alert('Acesso Negado', message);
     }
@@ -53,7 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await secureStorage.cleanupLegacyCredentials();
 
       const optIn = await secureStorage.getBiometricOptIn();
-      const storedToken = await secureStorage.getToken();
+
       const storedDriver = await secureStorage.getDriver();
       const storedVehicle = await secureStorage.getVehicle();
 
@@ -64,7 +69,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
+      const storedToken = await secureStorage.getToken();
       if (storedToken && storedDriver) {
+        apiClient.setAuthToken(storedToken);
         setDriver(storedDriver);
         if (storedVehicle) {
           setVehicle(storedVehicle);
@@ -79,6 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       const response = await apiClient.login(email, password);
+      apiClient.setAuthToken(response.token);
       await secureStorage.saveToken(response.token);
       await secureStorage.saveDriver(response.driver);
       

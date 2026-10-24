@@ -13,6 +13,8 @@ jest.mock('../src/services/api/apiClient', () => ({
   getBaseUrl: jest.fn().mockReturnValue('http://localhost:3001'),
   apiClient: {
     getMe: jest.fn(),
+    setAuthToken: jest.fn(),
+    getAuthToken: jest.fn(),
   },
 }));
 jest.mock('expo-local-authentication', () => ({
@@ -116,7 +118,8 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     expect(apiClient.getMe).toHaveBeenCalled();
     expect(mockUnlockSession).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'João Silva' }),
-      expect.objectContaining({ plate: 'ABC-1234' })
+      expect.objectContaining({ plate: 'ABC-1234' }),
+      'valid-jwt-token'
     );
   });
 
