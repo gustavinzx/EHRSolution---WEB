@@ -608,13 +608,13 @@ exports.finishSession = async (req, res) => {
 
     if (returning?.route) {
       await db.query(`
-        UPDATE trucks SET current_level_liters=$1, speed_kmh=0, status='ok',
+        UPDATE trucks SET current_level_liters=$1, speed_kmh=0, status=CASE WHEN status='security_alert' THEN status ELSE 'ok' END,
           sim_state='driving', route_phase='returning_to_route', fueling_ticks=0,
           route_geometry=$2, route_index=0, route_resume_index=$3 WHERE id=$4
       `, [updatedLevel, JSON.stringify(returning.route), returning.index, session.truck_id]);
     } else {
       await db.query(
-        "UPDATE trucks SET current_level_liters=$1, status='ok', sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$2",
+        "UPDATE trucks SET current_level_liters=$1, status=CASE WHEN status='security_alert' THEN status ELSE 'ok' END, sim_state='idle', route_phase='planned', fueling_ticks=0 WHERE id=$2",
         [updatedLevel, session.truck_id]
       );
     }
