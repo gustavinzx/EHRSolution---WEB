@@ -898,6 +898,77 @@ describe('DashboardScreen', () => {
       expect(getByTestId('history-item-1')).toBeTruthy();
       expect(queryByTestId('history-error-card')).toBeNull();
     });
+
+    it('renderiza etiqueta Cancelado, não mostra litros para cancelado e não quebra com itens antigos sem status (Bloco K2)', async () => {
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { id: 1, name: 'João Motorista', email: 'joao@transportadora.com.br' },
+        signOut: jest.fn(),
+        refreshProfile: jest.fn(),
+      });
+
+      const mockMixedItems = [
+        {
+          id: 201,
+          kind: 'session',
+          status: 'cancelled',
+          timestamp: '2026-10-24T10:00:00.000Z',
+          truck_plate: 'CAN-1234',
+          volume_liters: null,
+          duration_minutes: null,
+          release_method: 'facial',
+          station_name: null,
+        },
+        {
+          id: 202,
+          kind: 'session',
+          status: 'expired',
+          timestamp: '2026-10-24T09:00:00.000Z',
+          truck_plate: 'EXP-5678',
+          volume_liters: null,
+          duration_minutes: null,
+          release_method: 'facial',
+          station_name: null,
+        },
+        {
+          id: 203,
+          timestamp: '2026-10-24T08:00:00.000Z',
+          truck_plate: 'LEG-9999',
+          volume_liters: 45.0,
+          duration_minutes: 12.0,
+          release_method: 'facial',
+          station_name: 'Posto Legacy',
+        },
+      ];
+
+      (apiClient.getHistory as jest.Mock).mockResolvedValueOnce({
+        items: mockMixedItems,
+        page: 1,
+        limit: 20,
+        total: 3,
+        summary: { count: 1, total_liters: 45.0 },
+      });
+
+      const { getByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      fireEvent.press(getByText('Histórico'));
+
+      await waitFor(() => {
+        expect(getByTestId('history-item-201')).toBeTruthy();
+        expect(getByTestId('history-item-202')).toBeTruthy();
+        expect(getByTestId('history-item-203')).toBeTruthy();
+      });
+
+      expect(getByText('Cancelado')).toBeTruthy();
+      expect(getByText('Expirado')).toBeTruthy();
+      expect(getByText('CAN-1234')).toBeTruthy();
+      expect(getByText('EXP-5678')).toBeTruthy();
+      expect(getByText('45 L')).toBeTruthy();
+      expect(getByText('Posto Legacy')).toBeTruthy();
+      expect(getByText('12 min')).toBeTruthy();
+      expect(getByText('LEG-9999')).toBeTruthy();
+    });
   });
 
   describe('Carteira Tab (Sicoob Open Banking)', () => {

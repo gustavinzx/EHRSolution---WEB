@@ -210,9 +210,17 @@ export const apiClient = {
   },
 
   async getHistory(page: number = 1, limit: number = 20): Promise<HistoryResponse> {
-    return await request<HistoryResponse>(`/fueling/history?page=${page}&limit=${limit}`, {
+    const res = await request<HistoryResponse>(`/fueling/history?page=${page}&limit=${limit}`, {
       method: 'GET'
     });
+    return {
+      ...res,
+      items: (res?.items || []).map((item) => ({
+        ...item,
+        kind: item.kind || 'log',
+        status: item.status || 'completed',
+      }))
+    };
   },
 
   async getWallet(): Promise<WalletResponse> {
