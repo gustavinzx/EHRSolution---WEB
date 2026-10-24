@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const { detectFuelAnomalies } = require('../services/anomalyDetector');
+const { CRITICAL_ALERT_TYPES } = require('../services/securityService');
+const fleetDataProvider = require('../services/fleetDataProvider');
 
 // GET /api/alerts — return recent alerts (last 24h)
 exports.list = async (req, res) => {
@@ -51,6 +53,7 @@ exports.list = async (req, res) => {
 };
 
 exports.resolve = async (req, res) => {
+  let client;
   try {
     const { id } = req.params;
     const { resolution_note } = req.body;
@@ -65,8 +68,28 @@ exports.resolve = async (req, res) => {
       return res.status(401).json({ error: "Usuário não autenticado." });
     }
     const resolved_by = req.user.name || req.user.email;
-    
-    const { rows } = await db.query(
+
+    // Resolução do alerta + restauração do status do caminhão na MESMA transação,
+    // para nunca existir janela com o alerta resolvido e o caminhão ainda em 'security_alert'.
+    client = await db.pool.connect();
+    await client.query('BEGIN');
+
+    // Trava a linha do caminhão antes de resolver: resoluções simultâneas de alertas do
+    // mesmo caminhão são serializadas e a checagem "resta alerta crítico aberto?" é confiável.
+    const { rows: target } = await client.query(
+      `SELECT truck_id, type FROM fleet_alerts WHERE id = $1 AND resolved_at IS NULL`,
+      [id]
+    );
+    if (target.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Alerta não encontrado ou já resolvido" });
+    }
+    const isCritical = CRITICAL_ALERT_TYPES.includes(target[0].type);
+    if (isCritical && target[0].truck_id) {
+      await client.query('SELECT id FROM trucks WHERE id = $1 FOR UPDATE', [target[0].truck_id]);
+    }
+
+    const { rows } = await client.query(
       `UPDATE fleet_alerts 
        SET resolved_at = NOW(), resolution_note = $1, resolved_by = $2
        WHERE id = $3 AND resolved_at IS NULL
@@ -75,12 +98,43 @@ exports.resolve = async (req, res) => {
     );
     
     if (rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: "Alerta não encontrado ou já resolvido" });
+    }
+
+    let truckRestored = false;
+    if (isCritical && rows[0].truck_id) {
+      const { rowCount } = await client.query(
+        `UPDATE trucks SET status = 'ok'
+          WHERE id = $1 AND status = 'security_alert'
+            AND NOT EXISTS (
+              SELECT 1 FROM fleet_alerts a
+               WHERE a.truck_id = trucks.id AND a.resolved_at IS NULL AND a.type = ANY($2::text[])
+            )`,
+        [rows[0].truck_id, CRITICAL_ALERT_TYPES]
+      );
+      truckRestored = rowCount > 0;
+    }
+
+    await client.query('COMMIT');
+
+    // Mesmo evento que o painel já usa para atualizar os caminhões (a etiqueta some sem recarregar)
+    if (truckRestored && req.io) {
+      try {
+        req.io.emit('fleetUpdate', await fleetDataProvider.getFleetSnapshot());
+      } catch (emitErr) {
+        console.error('Emit fleetUpdate after resolve error:', emitErr.message);
+      }
     }
     
     res.json(rows[0]);
   } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* transação já encerrada */ }
+    }
     console.error("Resolve alert error:", err);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    if (client) client.release();
   }
 };
