@@ -514,6 +514,8 @@ describe('apiClient', () => {
         items: [
           {
             id: 101,
+            kind: 'log',
+            status: 'completed',
             timestamp: '2026-10-15T12:00:00.000Z',
             truck_plate: 'ABC-1234',
             volume_liters: 45.5,
@@ -551,6 +553,34 @@ describe('apiClient', () => {
       );
       const callOptions = mockFetch.mock.calls[0][1];
       expect(callOptions.body).toBeUndefined();
+    });
+
+    it('parses legacy items without kind or status defaulting to log and completed', async () => {
+      apiClient.setAuthToken('valid_token_123');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({
+          items: [
+            {
+              id: 99,
+              timestamp: '2026-10-15T12:00:00.000Z',
+              truck_plate: 'OLD-9999',
+              volume_liters: 30.0,
+              duration_minutes: 10.0,
+              release_method: 'facial',
+              station_name: 'Posto Antigo',
+            },
+          ],
+          page: 1,
+          limit: 20,
+          total: 1,
+          summary: { count: 1, total_liters: 30.0 },
+        }),
+      });
+
+      const res = await apiClient.getHistory();
+      expect(res.items[0].kind).toBe('log');
+      expect(res.items[0].status).toBe('completed');
     });
 
     it('passes custom page and limit query parameters', async () => {

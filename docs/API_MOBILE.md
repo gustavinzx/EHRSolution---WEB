@@ -264,6 +264,8 @@ Consulta o histórico de abastecimentos do próprio motorista autenticado de for
   "items": [
     {
       "id": 105,
+      "kind": "log",
+      "status": "completed",
       "timestamp": "2026-10-14T19:30:00.000Z",
       "truck_plate": "ABC-1234",
       "volume_liters": 45.5,
@@ -283,8 +285,10 @@ Consulta o histórico de abastecimentos do próprio motorista autenticado de for
 ```
 
 *Regras de projeção e privacidade:*
-- `volume_liters`: Segue a mesma regra do resultado da sessão (`GET /sessions/:id`), sendo retornado como `null` quando o log for não verificado (`data_source === 'unverified'`).
-- `summary`: Cobre exclusivamente os últimos 30 dias do motorista autenticado (`count` de abastecimentos e soma dos `volume_liters` não nulos; `0` se não houver registros).
+- `kind`: `'log'` para abastecimentos concluídos (tabela `fueling_logs`) ou `'session'` para tentativas canceladas/expiradas (tabela `fueling_sessions`).
+- `status`: `'completed'` para abastecimentos concluídos, `'cancelled'` para sessões canceladas pelo motorista/gestor e `'expired'` para sessões autorizadas expiradas.
+- `volume_liters`, `duration_minutes` e `station_name`: Retornados como `null` em itens `'session'` (`cancelled` ou `expired`). Para logs, `volume_liters` segue a mesma regra do resultado da sessão (`GET /sessions/:id`), sendo retornado como `null` quando o log for não verificado (`data_source === 'unverified'`).
+- `summary`: Cobre exclusivamente os últimos 30 dias de abastecimentos concluídos (`fueling_logs`) do motorista autenticado (`count` e soma dos `volume_liters` não nulos; `0` se não houver registros), sem contabilizar sessões canceladas ou expiradas.
 - Nenhuma coluna sensível de telemetria interna, CNPJ de postos, coordenadas brutas, chaves de hardware ou dados de conciliação ANP é exposta na resposta.
 
 ---

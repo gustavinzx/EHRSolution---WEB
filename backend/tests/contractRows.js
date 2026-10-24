@@ -157,6 +157,8 @@ module.exports = [
     assertBody: (b) => {
       expect(Array.isArray(b.items)).toBe(true);
       expect(b.items.length).toBeGreaterThan(0);
+      expect(b.items[0].kind).toBe("log");
+      expect(b.items[0].status).toBe("completed");
       expect(b.page).toBe(1);
       expect(b.limit).toBe(20);
       expect(b.total).toBeGreaterThan(0);

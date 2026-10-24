@@ -817,60 +817,79 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
 
-                {historyItems.map((item) => (
-                  <View key={item.id} style={styles.historyItemCard} testID={`history-item-${item.id}`}>
-                    <View style={styles.historyItemHeader}>
-                      <Text style={styles.historyItemDate}>{formatDateTime(item.timestamp)}</Text>
-                      <View style={styles.historyMethodBadge}>
-                        <Text style={styles.historyMethodText}>{formatReleaseMethod(item.release_method)}</Text>
-                      </View>
-                    </View>
+                {historyItems.map((item) => {
+                  const itemStatus = item.status || 'completed';
+                  const isCancelledOrExpired = itemStatus === 'cancelled' || itemStatus === 'expired';
+                  const statusLabel = itemStatus === 'cancelled' ? 'Cancelado' : itemStatus === 'expired' ? 'Expirado' : 'Concluído';
+                  const itemKey = `${item.kind || 'log'}-${item.id}`;
 
-                    <View style={styles.historyItemDivider} />
-
-                    <View style={styles.historyItemRow}>
-                      <View style={styles.historyItemCol}>
-                        <View style={styles.historyFieldLabelRow}>
-                          <Text style={styles.historyFieldIcon}>🚛</Text>
-                          <Text style={styles.historyFieldLabel}>Veículo</Text>
-                        </View>
-                        <Text style={styles.historyFieldValue}>{item.truck_plate || '—'}</Text>
-                      </View>
-
-                      <View style={styles.historyItemCol}>
-                        <View style={styles.historyFieldLabelRow}>
-                          <Text style={styles.historyFieldIcon}>⛽</Text>
-                          <Text style={styles.historyFieldLabel}>Posto</Text>
-                        </View>
-                        <Text style={styles.historyFieldValue}>{item.station_name || 'Posto não informado'}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.historyItemDivider} />
-
-                    <View style={styles.historyItemRow}>
-                      <View style={styles.historyItemCol}>
-                        <View style={styles.historyFieldLabelRow}>
-                          <Text style={styles.historyFieldIcon}>💧</Text>
-                          <Text style={styles.historyFieldLabel}>Volume</Text>
-                        </View>
-                        <Text style={styles.historyFieldValueHighlight}>{formatVolume(item.volume_liters)}</Text>
+                  return (
+                    <View key={itemKey} style={styles.historyItemCard} testID={`history-item-${item.id}`}>
+                      <View style={styles.historyItemHeader}>
+                        <Text style={styles.historyItemDate}>{formatDateTime(item.timestamp)}</Text>
+                        {isCancelledOrExpired ? (
+                          <View style={styles.historyNeutralBadge} testID={`history-status-badge-${item.id}`}>
+                            <Text style={styles.historyNeutralText}>{statusLabel}</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.historyMethodBadge}>
+                            <Text style={styles.historyMethodText}>{formatReleaseMethod(item.release_method)}</Text>
+                          </View>
+                        )}
                       </View>
 
-                      {item.duration_minutes != null && (
+                      <View style={styles.historyItemDivider} />
+
+                      <View style={styles.historyItemRow}>
                         <View style={styles.historyItemCol}>
                           <View style={styles.historyFieldLabelRow}>
-                            <Text style={styles.historyFieldIcon}>⏱️</Text>
-                            <Text style={styles.historyFieldLabel}>Duração</Text>
+                            <Text style={styles.historyFieldIcon}>🚛</Text>
+                            <Text style={styles.historyFieldLabel}>Veículo</Text>
                           </View>
-                          <Text style={styles.historyFieldValue}>
-                            {new Intl.NumberFormat('pt-BR').format(item.duration_minutes)} min
-                          </Text>
+                          <Text style={styles.historyFieldValue}>{item.truck_plate || '—'}</Text>
                         </View>
+
+                        {!isCancelledOrExpired && (
+                          <View style={styles.historyItemCol}>
+                            <View style={styles.historyFieldLabelRow}>
+                              <Text style={styles.historyFieldIcon}>⛽</Text>
+                              <Text style={styles.historyFieldLabel}>Posto</Text>
+                            </View>
+                            <Text style={styles.historyFieldValue}>{item.station_name || 'Posto não informado'}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {!isCancelledOrExpired && (
+                        <>
+                          <View style={styles.historyItemDivider} />
+
+                          <View style={styles.historyItemRow}>
+                            <View style={styles.historyItemCol}>
+                              <View style={styles.historyFieldLabelRow}>
+                                <Text style={styles.historyFieldIcon}>💧</Text>
+                                <Text style={styles.historyFieldLabel}>Volume</Text>
+                              </View>
+                              <Text style={styles.historyFieldValueHighlight}>{formatVolume(item.volume_liters)}</Text>
+                            </View>
+
+                            {item.duration_minutes != null && (
+                              <View style={styles.historyItemCol}>
+                                <View style={styles.historyFieldLabelRow}>
+                                  <Text style={styles.historyFieldIcon}>⏱️</Text>
+                                  <Text style={styles.historyFieldLabel}>Duração</Text>
+                                </View>
+                                <Text style={styles.historyFieldValue}>
+                                  {new Intl.NumberFormat('pt-BR').format(item.duration_minutes)} min
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </>
                       )}
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
 
                 {historyInlineError && (
                   <View style={styles.historyInlineErrorBox} testID="history-inline-error">
@@ -2081,6 +2100,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#00E5FF',
+  },
+  historyNeutralBadge: {
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  historyNeutralText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
   },
   historyItemDivider: {
     height: 1,
