@@ -113,7 +113,7 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
       name: formData.name.trim(),
       phone: formData.phone.trim() || undefined,
       email: formData.email.trim() ? formData.email.trim().toLowerCase() : undefined,
-      auto_enroll_face: formData.autoEnrollFace,
+      auto_enroll_face: import.meta.env.DEV ? Boolean(formData.autoEnrollFace) : false,
     };
 
     if (formData.password && formData.password.trim()) {
@@ -493,7 +493,8 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
             )}
           </div>
 
-          {/* Biometria Facial Auto-Enroll */}
+          {/* Biometria Facial Auto-Enroll (somente desenvolvimento) */}
+          {import.meta.env.DEV && (
           <div style={{
             background: 'rgba(47,190,181,0.06)',
             border: '1px solid rgba(47,190,181,0.2)',
@@ -516,6 +517,8 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
                 </div>
               </div>
           </div>
+
+          )}
 
           {/* Botões */}
           <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
