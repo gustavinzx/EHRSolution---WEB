@@ -233,6 +233,15 @@ sequenceDiagram
 - **Resposta:** `201` com o resultado do registro.
 - **Erros:** `400 {"error":"O campo type é obrigatório"}`; `403 {"error":"API Key não pertence a este caminhão"}`.
 
+### 4.7 Repetição de envio e erro 409
+
+**[verificado]** Diretrizes de robustez para contingência de rede durante o abastecimento:
+
+- **Repetição com o mesmo corpo:** Se a conexão falhar ou houver timeout durante a chamada de `finish` (`POST /api/fueling/sessions/:id/finish`) ou `pump-reading` (`POST /api/fueling/sessions/:id/pump-reading`), a placa deve repetir a requisição com o **MESMO corpo** original.
+- **Tratamento do erro 409 "Sessão já foi processada":** Se o servidor responder HTTP 409 com `{"error": "Sessão já foi processada"}` (`fuelingController.js:470` e `fuelingController.js:761`), a placa deve tratar a resposta como **SUCESSO** (a operação já foi registrada no backend com êxito) e **não repetir** mais o envio para aquela sessão.
+- **Unidades de medida:** Todas as grandezas volumétricas são informadas em **litros (decimal)** (`fuelingController.js:462`, `fuelingController.js:512-514`, `migrations/003_web_hardening.sql:8`).
+- **Fail-safe da trava:** Em qualquer falha de rede, timeout ou erro na consulta de destrave (`GET /api/fueling/sessions/:truckId/active`), a trava solenoide permanece **FECHADA**. O destrave ocorre exclusivamente com resposta HTTP 200 contendo `unlock: true` (`fuelingController.js:789-820`).
+
 ---
 
 ## 5. Origem dos dados e detecção de furto
