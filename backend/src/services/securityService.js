@@ -5,6 +5,11 @@ const SESSION_RETURN_COLS = `id, truck_id, driver_id, status, release_method, st
 const SECURITY_EVENT_RETURN_COLS = `id, truck_id, type, severity, source, payload, lat, lng, created_at`;
 const ALERT_RETURN_COLS = `id, truck_id, type, severity, message, plate, model, resolved_at, resolved_by, resolution_note, created_at, fueling_log_id`;
 
+// Fonte única dos tipos críticos: o caminhão fica em 'security_alert' enquanto houver
+// ao menos um fleet_alerts não resolvido com um destes tipos (prefixo security_).
+const CRITICAL_SECURITY_TYPES = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
+const CRITICAL_ALERT_TYPES = Array.from(CRITICAL_SECURITY_TYPES).map((t) => `security_${t}`);
+
 async function getTruck(truckId) {
   const { rows } = await db.query('SELECT id, plate, model FROM trucks WHERE id = $1', [truckId]);
   return rows[0] || null;
@@ -49,7 +54,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
     truck = rows[0] || null;
   }
   
-  const criticalTypes = new Set(['tamper', 'unauthorized_movement', 'emergency_button', 'theft_signal', 'unauthorized_fueling_attempt']);
+  const criticalTypes = CRITICAL_SECURITY_TYPES;
   // Eventos que geram alerta visível ao gestor, mas não marcam o caminhão como em risco
   const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated', 'gps_position_divergence']);
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
@@ -89,5 +94,7 @@ module.exports = {
   requestFuelingSession,
   authorizeFuelingSession,
   finishFuelingSession,
-  recordSecurityEvent
+  recordSecurityEvent,
+  CRITICAL_SECURITY_TYPES,
+  CRITICAL_ALERT_TYPES
 };
