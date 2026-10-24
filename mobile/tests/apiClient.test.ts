@@ -15,6 +15,7 @@ describe('apiClient', () => {
   let onUnauthorizedMock: jest.Mock;
 
   beforeEach(() => {
+    apiClient.setAuthToken(null);
     jest.clearAllMocks();
     onUnauthorizedMock = jest.fn();
     apiClient.setOnUnauthorized(onUnauthorizedMock);
@@ -123,7 +124,7 @@ describe('apiClient', () => {
   });
 
   it('verifyFace sends correct data without data prefix', async () => {
-    (secureStorage.getToken as jest.Mock).mockResolvedValue('token123');
+    apiClient.setAuthToken('token123');
     mockFetch.mockResolvedValueOnce({
       ok: true,
       text: async () => JSON.stringify({ verified: true }),
@@ -145,7 +146,7 @@ describe('apiClient', () => {
   });
 
   it('authorizeSession sends coords only if available', async () => {
-    (secureStorage.getToken as jest.Mock).mockResolvedValue('token123');
+    apiClient.setAuthToken('token123');
     mockFetch.mockResolvedValueOnce({
       ok: true,
       text: async () => JSON.stringify({ id: 99, status: 'authorized' }),
@@ -206,7 +207,7 @@ describe('apiClient', () => {
 
   describe('cancelSession', () => {
     it('sends POST without body, includes Bearer token and returns success', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValue('token_cancel');
+      apiClient.setAuthToken('token_cancel');
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({ success: true, status: 'cancelled' }),
@@ -315,7 +316,7 @@ describe('apiClient', () => {
 
   describe('getSession', () => {
     it('sends GET without body, includes Bearer token and returns Session with result', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValue('token_get');
+      apiClient.setAuthToken('token_get');
       const sessionPayload = {
         id: 42,
         truck_id: 10,
@@ -508,7 +509,7 @@ describe('apiClient', () => {
 
   describe('getHistory (Bloco A)', () => {
     it('calls GET /fueling/history with default query parameters, headers, and no body', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('valid_token_123');
+      apiClient.setAuthToken('valid_token_123');
       const mockResponse = {
         items: [
           {
@@ -553,7 +554,7 @@ describe('apiClient', () => {
     });
 
     it('passes custom page and limit query parameters', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('token_abc');
+      apiClient.setAuthToken('token_abc');
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({ items: [], page: 3, limit: 10, total: 0, summary: { count: 0, total_liters: 0 } }),
@@ -629,7 +630,7 @@ describe('apiClient', () => {
 
   describe('getWallet', () => {
     it('successfully fetches wallet metrics and sicoob transactions', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      apiClient.setAuthToken('driver_token');
       const mockWalletData = {
         bank: {
           institution: 'Banco Cooperativo Sicoob S.A.',
@@ -689,7 +690,7 @@ describe('apiClient', () => {
 
   describe('Driver Cards API', () => {
     it('addCard sends POST with card data and returns created card', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      apiClient.setAuthToken('driver_token');
       const mockCard = {
         id: 1,
         cardHolder: 'JOAO SILVA',
@@ -741,7 +742,7 @@ describe('apiClient', () => {
     });
 
     it('deleteCard sends DELETE to /cards/:cardId', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      apiClient.setAuthToken('driver_token');
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({ success: true }),
@@ -761,7 +762,7 @@ describe('apiClient', () => {
     });
 
     it('setDefaultCard sends PATCH to /cards/:cardId/default', async () => {
-      (secureStorage.getToken as jest.Mock).mockResolvedValueOnce('driver_token');
+      apiClient.setAuthToken('driver_token');
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({ success: true }),

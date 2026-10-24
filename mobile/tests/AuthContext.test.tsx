@@ -23,6 +23,8 @@ jest.mock('../src/services/api/apiClient', () => ({
   apiClient: {
     login: jest.fn(),
     setOnUnauthorized: jest.fn(),
+    setAuthToken: jest.fn(),
+    getAuthToken: jest.fn(),
   },
 }));
 
