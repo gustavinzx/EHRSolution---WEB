@@ -319,8 +319,10 @@ describe('Leak Checks', () => {
       expect(Object.keys(item).sort()).toEqual([
         "duration_minutes",
         "id",
+        "kind",
         "release_method",
         "station_name",
+        "status",
         "timestamp",
         "truck_plate",
         "volume_liters"

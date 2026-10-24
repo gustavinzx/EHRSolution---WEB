@@ -160,17 +160,53 @@ exports.getHistory = async (req, res) => {
 
     const [totalRes, itemsRes, summaryRes] = await Promise.all([
       db.query(
-        "SELECT COUNT(*)::int AS total FROM fueling_logs WHERE driver_id = $1",
+        `SELECT (
+          (SELECT COUNT(*) FROM fueling_logs WHERE driver_id = $1)
+          +
+          (SELECT COUNT(*) FROM fueling_sessions WHERE driver_id = $1 AND (status = 'cancelled' OR (status = 'expired' AND authorized_at IS NOT NULL)))
+        )::int AS total`,
         [driverId]
       ),
       db.query(
-        `SELECT f.id, f.timestamp, f.volume_liters, f.duration_minutes, f.release_method, f.station_name, f.data_source,
-                t.plate AS truck_plate
-           FROM fueling_logs f
-           LEFT JOIN trucks t ON t.id = f.truck_id
-          WHERE f.driver_id = $1
-          ORDER BY f.timestamp DESC, f.id DESC
-          LIMIT $2 OFFSET $3`,
+        `SELECT * FROM (
+           SELECT f.id,
+                  'log'::text AS kind,
+                  'completed'::text AS status,
+                  f.timestamp,
+                  f.volume_liters,
+                  f.duration_minutes,
+                  f.release_method,
+                  f.station_name,
+                  f.data_source,
+                  t.plate AS truck_plate
+             FROM fueling_logs f
+             LEFT JOIN trucks t ON t.id = f.truck_id
+            WHERE f.driver_id = $1
+
+            UNION ALL
+
+           SELECT s.id,
+                  'session'::text AS kind,
+                  s.status::text AS status,
+                  COALESCE(
+                    CASE WHEN s.metadata->>'cancelled_at' ~ '^\\d{4}-\\d{2}-\\d{2}' THEN (s.metadata->>'cancelled_at')::timestamptz END,
+                    CASE WHEN s.status = 'expired' THEN s.expires_at END,
+                    s.authorized_at,
+                    s.requested_at
+                  ) AS timestamp,
+                  NULL::numeric AS volume_liters,
+                  NULL::numeric AS duration_minutes,
+                  s.release_method,
+                  NULL::text AS station_name,
+                  NULL::text AS data_source,
+                  t.plate AS truck_plate
+             FROM fueling_sessions s
+             LEFT JOIN trucks t ON t.id = s.truck_id
+            WHERE s.driver_id = $1
+              AND (s.status = 'cancelled' OR (s.status = 'expired' AND s.authorized_at IS NOT NULL))
+         ) combined
+         ORDER BY timestamp DESC, id DESC
+         LIMIT $2 OFFSET $3`,
         [driverId, limit, offset]
       ),
       db.query(
@@ -192,18 +228,21 @@ exports.getHistory = async (req, res) => {
       : 0;
 
     const items = itemsRes.rows.map((row) => {
-      const volume = row.data_source === "unverified"
+      const isSession = row.kind === 'session';
+      const volume = isSession || row.data_source === "unverified"
         ? null
         : (row.volume_liters != null ? parseFloat(row.volume_liters) : null);
-      const duration = row.duration_minutes != null ? parseFloat(row.duration_minutes) : null;
+      const duration = !isSession && row.duration_minutes != null ? parseFloat(row.duration_minutes) : null;
       return {
         id: row.id,
+        kind: row.kind,
+        status: row.status,
         timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : null,
         truck_plate: row.truck_plate || null,
         volume_liters: volume,
         duration_minutes: duration,
         release_method: row.release_method || null,
-        station_name: row.station_name || null,
+        station_name: isSession ? null : (row.station_name || null),
       };
     });
 
