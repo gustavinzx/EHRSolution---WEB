@@ -175,4 +175,75 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     );
     expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(false);
   });
+
+  it('LoginScreen: com __DEV__ true o Alert inclui "[dev]" + código e mensagem de diagnóstico', async () => {
+    mockSignIn.mockResolvedValueOnce(undefined);
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
+
+    const err = Object.assign(new Error('Biometria indisponível neste aparelho. Use e-mail e senha.'), {
+      code: 'BIOMETRIC_UNAVAILABLE',
+      originalCode: 'ERR_KEYSTORE_FAIL',
+      originalMessage: 'Key permanent invalidated',
+    });
+    (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(err);
+
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+
+    await act(async () => {});
+
+    fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
+    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+
+    await act(async () => {
+      fireEvent.press(getByText('Entrar'));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Aviso',
+      expect.stringContaining('[dev] ERR_KEYSTORE_FAIL Key permanent invalidated')
+    );
+  });
+
+  it('LoginScreen: com __DEV__ false o Alert NÃO inclui "[dev]"', async () => {
+    const originalDev = (globalThis as any).__DEV__;
+    (globalThis as any).__DEV__ = false;
+
+    try {
+      mockSignIn.mockResolvedValueOnce(undefined);
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
+
+      const err = Object.assign(new Error('Biometria indisponível neste aparelho. Use e-mail e senha.'), {
+        code: 'BIOMETRIC_UNAVAILABLE',
+        originalCode: 'ERR_KEYSTORE_FAIL',
+        originalMessage: 'Key permanent invalidated',
+      });
+      (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(err);
+
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+
+      await act(async () => {});
+
+      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
+      fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+
+      await act(async () => {
+        fireEvent.press(getByText('Entrar'));
+      });
+
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Aviso',
+        'Biometria indisponível neste aparelho. Use e-mail e senha.'
+      );
+      expect(alertSpy).not.toHaveBeenCalledWith(
+        'Aviso',
+        expect.stringContaining('[dev]')
+      );
+    } finally {
+      (globalThis as any).__DEV__ = originalDev;
+    }
+  });
 });

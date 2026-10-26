@@ -7,6 +7,7 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(),
   deleteItemAsync: jest.fn(),
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1,
+  canUseBiometricAuthentication: jest.fn(),
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -85,6 +86,85 @@ describe('secureStorage (Sem persistência de senhas e com proteção biométric
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_biometric_opt_in');
   });
 
+  it('setItem protegido falhando com erro {code: "ERR_TESTE", message: "falha simulada"}: o erro lançado tem code BIOMETRIC_UNAVAILABLE, mensagem genérica, originalCode e originalMessage, e apaga token/opt-in', async () => {
+    const err = Object.assign(new Error('falha simulada'), { code: 'ERR_TESTE' });
+    (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(err);
+
+    let caughtError: any;
+    try {
+      await secureStorage.saveToken('jwt-token-secret-123', { requireAuthentication: true });
+    } catch (e) {
+      caughtError = e;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(caughtError.code).toBe('BIOMETRIC_UNAVAILABLE');
+    expect(caughtError.message).toBe('Biometria indisponível neste aparelho. Use e-mail e senha.');
+    expect(caughtError.originalCode).toBe('ERR_TESTE');
+    expect(caughtError.originalMessage).toBe('falha simulada');
+    expect(caughtError.cause).toBe(err);
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_auth_token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_biometric_opt_in');
+  });
+
+  it('console.warn em __DEV__ contém código e mensagem, e NÃO contém o valor do token', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const secretToken = 'RECONHECIVEL_TOKEN_XYZ_789';
+    const err = Object.assign(new Error('detalhe_segredo_msg'), { code: 'ERR_DIAGNOSTICO_123' });
+    (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(err);
+
+    try {
+      await secureStorage.saveToken(secretToken, { requireAuthentication: true });
+    } catch (_) {}
+
+    expect(warnSpy).toHaveBeenCalled();
+    const allCalls = warnSpy.mock.calls.map(call => call.join(' '));
+    const biometriaWarn = allCalls.find(c => c.includes('[BIOMETRIA] setItem falhou:'));
+    expect(biometriaWarn).toBeDefined();
+    expect(biometriaWarn).toContain('ERR_DIAGNOSTICO_123');
+    expect(biometriaWarn).toContain('detalhe_segredo_msg');
+
+    for (const line of allCalls) {
+      expect(line).not.toContain(secretToken);
+    }
+    warnSpy.mockRestore();
+  });
+
+  it('com __DEV__ = false não há console.warn de biometria', async () => {
+    const originalDev = (globalThis as any).__DEV__;
+    (globalThis as any).__DEV__ = false;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const err = Object.assign(new Error('falha silenciosa'), { code: 'ERR_SILENT' });
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(err);
+      try {
+        await secureStorage.saveToken('jwt-token-123', { requireAuthentication: true });
+      } catch (_) {}
+
+      const biometricCalls = warnSpy.mock.calls
+        .map(call => call.join(' '))
+        .filter(c => c.includes('[BIOMETRIA]'));
+      expect(biometricCalls).toHaveLength(0);
+    } finally {
+      (globalThis as any).__DEV__ = originalDev;
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('se canUseBiometricAuthentication existir, é chamado antes da gravação e logado em __DEV__', async () => {
+    (SecureStore.canUseBiometricAuthentication as jest.Mock).mockReturnValue(true);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await secureStorage.saveToken('token-teste', { requireAuthentication: true });
+
+    expect(SecureStore.canUseBiometricAuthentication).toHaveBeenCalled();
+    const allCalls = warnSpy.mock.calls.map(c => c.join(' '));
+    expect(allCalls.some(c => c.includes('[BIOMETRIA] canUseBiometricAuthentication: true'))).toBe(true);
+
+    warnSpy.mockRestore();
+  });
+
   it('gravação normal sem requireAuthentication funciona normalmente', async () => {
     await secureStorage.saveToken('jwt-token-normal');
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
@@ -94,12 +174,24 @@ describe('secureStorage (Sem persistência de senhas e com proteção biométric
     );
   });
 
-  it('leitura com biometria: se falhar ou usuário cancelar, retorna null sem fallback para leitura desprotegida', async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockRejectedValueOnce(new Error('User cancelled'));
+  it('leitura protegida falhando (getItem) preserva originalCode/originalMessage da mesma forma', async () => {
+    const err = Object.assign(new Error('erro leitura protegida'), { code: 'ERR_READ_FAIL' });
+    (SecureStore.getItemAsync as jest.Mock).mockRejectedValueOnce(err);
 
-    const token = await secureStorage.getToken({ requireAuthentication: true });
-    expect(token).toBeNull();
-    // Apenas 1 chamada a getItemAsync (com requireAuthentication: true), NENHUM fallback desprotegido
+    let caughtError: any;
+    try {
+      await secureStorage.getToken({ requireAuthentication: true });
+    } catch (e) {
+      caughtError = e;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(caughtError.code).toBe('BIOMETRIC_UNAVAILABLE');
+    expect(caughtError.message).toBe('Biometria indisponível neste aparelho. Use e-mail e senha.');
+    expect(caughtError.originalCode).toBe('ERR_READ_FAIL');
+    expect(caughtError.originalMessage).toBe('erro leitura protegida');
+    expect(caughtError.cause).toBe(err);
+    // Chamou apenas 1 vez com requireAuthentication: true, sem fallback desprotegido
     expect(SecureStore.getItemAsync).toHaveBeenCalledTimes(1);
     expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
       'ehr_auth_token',

@@ -24,6 +24,18 @@ import { Button } from '../components/Button';
 import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
 
+const withDevBiometricDetails = (baseMsg: string, err: any): string => {
+  if (__DEV__) {
+    const code = err?.originalCode ? String(err.originalCode).trim() : '';
+    const message = err?.originalMessage ? String(err.originalMessage).trim() : '';
+    const details = [code, message].filter(Boolean).join(' ');
+    if (details) {
+      return `${baseMsg}\n[dev] ${details}`;
+    }
+  }
+  return baseMsg;
+};
+
 export const LoginScreen: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -123,7 +135,7 @@ export const LoginScreen: React.FC = () => {
                 setBiometricLoginReady(false);
                 const msg = err?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
                 setErrorMessage(msg);
-                Alert.alert('Aviso', msg);
+                Alert.alert('Aviso', withDevBiometricDetails(msg, err));
               }
             },
           },
@@ -193,7 +205,7 @@ export const LoginScreen: React.FC = () => {
     } catch (error: any) {
       const msg = error.message || 'Falha na autenticação biométrica.';
       setErrorMessage(msg);
-      Alert.alert('Erro Biometria', msg);
+      Alert.alert('Erro Biometria', withDevBiometricDetails(msg, error));
     } finally {
       setLoading(false);
     }
@@ -235,7 +247,7 @@ export const LoginScreen: React.FC = () => {
           setBiometricLoginReady(false);
           const msg = biometricErr?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
           setErrorMessage(msg);
-          Alert.alert('Aviso', msg);
+          Alert.alert('Aviso', withDevBiometricDetails(msg, biometricErr));
         }
       }
     } catch (error: any) {
