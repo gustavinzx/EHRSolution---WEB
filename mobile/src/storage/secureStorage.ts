@@ -24,6 +24,17 @@ async function setItem(key: string, value: string, options?: StorageOptions): Pr
   }
 
   if (options?.requireAuthentication) {
+    if (typeof (SecureStore as any).canUseBiometricAuthentication === 'function') {
+      try {
+        const canUse = (SecureStore as any).canUseBiometricAuthentication();
+        if (__DEV__) {
+          console.warn(`[BIOMETRIA] canUseBiometricAuthentication: ${Boolean(canUse)}`);
+        }
+      } catch (_) {
+        // Se a função lançar erro ou não existir, ignore sem erro
+      }
+    }
+
     const secureOptions: SecureStore.SecureStoreOptions = {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       requireAuthentication: true,
@@ -42,8 +53,18 @@ async function setItem(key: string, value: string, options?: StorageOptions): Pr
         await SecureStore.deleteItemAsync(BIOMETRIC_KEY);
       } catch (_) {}
 
+      const originalCode = String(err?.code || (err && typeof err === 'object' && 'code' in err ? err.code : '') || '');
+      const originalMessage = String(err?.message || (typeof err === 'string' ? err : '') || '');
+
+      if (__DEV__) {
+        console.warn(`[BIOMETRIA] setItem falhou: ${originalCode} ${originalMessage}`.trimEnd());
+      }
+
       const customError = new Error('Biometria indisponível neste aparelho. Use e-mail e senha.');
       (customError as any).code = 'BIOMETRIC_UNAVAILABLE';
+      (customError as any).originalCode = originalCode;
+      (customError as any).originalMessage = originalMessage;
+      (customError as any).cause = err;
       throw customError;
     }
   } else {
@@ -69,8 +90,20 @@ async function getItem(key: string, options?: StorageOptions): Promise<string | 
     // sem fallback para leitura desprotegida do mesmo token.
     try {
       return await SecureStore.getItemAsync(key, { requireAuthentication: true });
-    } catch {
-      return null;
+    } catch (err: any) {
+      const originalCode = String(err?.code || (err && typeof err === 'object' && 'code' in err ? err.code : '') || '');
+      const originalMessage = String(err?.message || (typeof err === 'string' ? err : '') || '');
+
+      if (__DEV__) {
+        console.warn(`[BIOMETRIA] getItem falhou: ${originalCode} ${originalMessage}`.trimEnd());
+      }
+
+      const customError = new Error('Biometria indisponível neste aparelho. Use e-mail e senha.');
+      (customError as any).code = 'BIOMETRIC_UNAVAILABLE';
+      (customError as any).originalCode = originalCode;
+      (customError as any).originalMessage = originalMessage;
+      (customError as any).cause = err;
+      throw customError;
     }
   } else {
     try {
