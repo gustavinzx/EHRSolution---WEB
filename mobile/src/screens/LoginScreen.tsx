@@ -66,10 +66,10 @@ export const LoginScreen: React.FC = () => {
             deviceReady = true;
             setBiometricAvailable(true);
             const supportedTypes = await LocalAuthModule.supportedAuthenticationTypesAsync();
-            if (supportedTypes.includes(2)) {
-              setBiometricType('Face ID');
-            } else if (supportedTypes.includes(1)) {
-              setBiometricType('Digital');
+            if (Platform.OS === 'android' ? supportedTypes.includes(1) : supportedTypes.includes(2)) {
+              setBiometricType(Platform.OS === 'android' ? 'Digital' : 'Face ID');
+            } else if (Platform.OS === 'android' ? supportedTypes.includes(2) : supportedTypes.includes(1)) {
+              setBiometricType(Platform.OS === 'android' ? 'Biometria' : 'Digital');
             } else {
               setBiometricType('Biometria');
             }
@@ -127,6 +127,10 @@ export const LoginScreen: React.FC = () => {
                 }
                 await secureStorage.setBiometricOptIn(true);
                 setBiometricOptInChecked(true);
+                const storedDriver = await secureStorage.getDriver();
+                if (storedDriver && (currentToken || (await secureStorage.getToken()))) {
+                  setBiometricLoginReady(true);
+                }
               } catch (err: any) {
                 apiClient.setAuthToken(null);
                 await secureStorage.removeToken();

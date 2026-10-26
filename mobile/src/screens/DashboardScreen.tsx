@@ -79,7 +79,38 @@ const getSummaryText = (summary: HistorySummary | null): string => {
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
-  const { driver, vehicle, signOut, refreshProfile } = useAuth();
+  const { driver, vehicle, signOut, lockSession, refreshProfile } = useAuth();
+  const handleLogout = useCallback(async () => {
+    try {
+      const hasBiometric = await secureStorage.getBiometricOptIn();
+      if (hasBiometric && typeof lockSession === 'function') {
+        Alert.alert(
+          'Sair do EHR Frota',
+          'Como deseja sair?',
+          [
+            {
+              text: 'Bloquear (Manter Biometria)',
+              onPress: lockSession,
+            },
+            {
+              text: 'Desconectar da Conta',
+              style: 'destructive',
+              onPress: signOut,
+            },
+            {
+              text: 'Cancelar',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        signOut();
+      }
+    } catch (_) {
+      signOut();
+    }
+  }, [lockSession, signOut]);
+
   const [inicioRefreshing, setInicioRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'carteira' | 'perfil'>('inicio');
@@ -597,7 +628,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.headerLogoutBtn}
-          onPress={signOut}
+          onPress={handleLogout}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityLabel="Sair da conta"
         >
@@ -1333,7 +1364,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={{ marginTop: 16 }}>
               <TouchableOpacity
-                onPress={signOut}
+                onPress={handleLogout}
                 style={styles.subtleLogoutBtn}
                 activeOpacity={0.8}
               >

@@ -12,6 +12,7 @@ interface AuthContextData {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   unlockSession: (driver: Driver, vehicle?: Vehicle | null, token?: string | null) => void;
+  lockSession: () => void;
   signOut: () => Promise<void>;
   onUnauthorized: (message?: string) => void;
   refreshProfile: () => Promise<void>;
@@ -24,9 +25,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const lockSession = useCallback(() => {
+    apiClient.setAuthToken(null);
+    setDriver(null);
+    setVehicle(null);
+  }, []);
+
   const signOut = useCallback(async () => {
     apiClient.setAuthToken(null);
-    // Apaga token, dados e opt-in de biometria ao deslogar
+    // Apaga token, dados e opt-in de biometria ao deslogar completamente
     await secureStorage.clearAll();
     setDriver(null);
     setVehicle(null);
@@ -130,6 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         signIn,
         unlockSession,
+        lockSession,
         signOut,
         onUnauthorized,
         refreshProfile,
