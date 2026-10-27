@@ -9,6 +9,7 @@ const DRIVER_KEY = 'ehr_driver_data';
 const VEHICLE_KEY = 'ehr_vehicle_data';
 const REMEMBERED_EMAIL_KEY = 'ehr_remembered_email';
 const BIOMETRIC_KEY = 'ehr_biometric_opt_in';
+const BIOMETRIC_PROMPT_DISMISSED_KEY = 'ehr_biometric_prompt_dismissed';
 const LEGACY_CREDENTIALS_KEY = 'ehr_saved_credentials';
 
 const isWeb = Platform.OS === 'web';
@@ -93,6 +94,17 @@ async function getItem(key: string, options?: StorageOptions): Promise<string | 
     } catch (err: any) {
       const originalCode = String(err?.code || (err && typeof err === 'object' && 'code' in err ? err.code : '') || '');
       const originalMessage = String(err?.message || (typeof err === 'string' ? err : '') || '');
+
+      const isCancel =
+        originalCode.toLowerCase().includes('cancel') ||
+        originalMessage.toLowerCase().includes('cancel');
+
+      if (isCancel) {
+        if (__DEV__) {
+          console.warn(`[BIOMETRIA] getItem cancelado pelo usuário: ${originalCode} ${originalMessage}`.trimEnd());
+        }
+        return null;
+      }
 
       if (__DEV__) {
         console.warn(`[BIOMETRIA] getItem falhou: ${originalCode} ${originalMessage}`.trimEnd());
@@ -182,6 +194,15 @@ export const secureStorage = {
     return val === 'true';
   },
 
+  // Flag não protegida para indicar se o diálogo de ativação na home foi dispensado ("Agora não")
+  async setBiometricPromptDismissed(dismissed: boolean): Promise<void> {
+    await setItem(BIOMETRIC_PROMPT_DISMISSED_KEY, dismissed ? 'true' : 'false');
+  },
+  async getBiometricPromptDismissed(): Promise<boolean> {
+    const val = await getItem(BIOMETRIC_PROMPT_DISMISSED_KEY);
+    return val === 'true';
+  },
+
   // Migração segura: remove a chave antiga 'ehr_saved_credentials' que armazenava senha
   async cleanupLegacyCredentials(): Promise<void> {
     try {
@@ -189,12 +210,13 @@ export const secureStorage = {
     } catch (_) {}
   },
 
-  // Logout completo: apaga token, dados de motorista, veículo e opt-in de biometria
+  // Logout completo: apaga token, dados de motorista, veículo, opt-in de biometria e flag de diálogo
   async clearAll(): Promise<void> {
     await removeItem(TOKEN_KEY);
     await removeItem(DRIVER_KEY);
     await removeItem(VEHICLE_KEY);
     await removeItem(BIOMETRIC_KEY);
+    await removeItem(BIOMETRIC_PROMPT_DISMISSED_KEY);
     await removeItem(LEGACY_CREDENTIALS_KEY);
   },
 };
