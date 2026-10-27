@@ -174,7 +174,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await apiClient.login(email, password);
       apiClient.setAuthToken(response.token);
-      await secureStorage.saveToken(response.token);
+
+      const optIn = await secureStorage.getBiometricOptIn();
+      if (optIn) {
+        try {
+          await secureStorage.saveToken(response.token, { requireAuthentication: true });
+        } catch (_) {
+          await secureStorage.setBiometricOptIn(false);
+          await secureStorage.setBiometricPromptDismissed(false);
+          await secureStorage.saveToken(response.token);
+        }
+      } else {
+        await secureStorage.saveToken(response.token);
+      }
+
       await secureStorage.saveDriver(response.driver);
       
       if (response.vehicle) {

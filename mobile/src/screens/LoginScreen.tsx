@@ -109,6 +109,10 @@ export const LoginScreen: React.FC = () => {
       const storedToken = await secureStorage.getToken({ requireAuthentication: true });
       if (!storedToken) {
         // Usuário cancelou o prompt biométrico: permanece na tela sem erro
+        const currentOptIn = await secureStorage.getBiometricOptIn();
+        if (!cachedDriver || !currentOptIn) {
+          setBiometricLoginReady(false);
+        }
         return;
       }
 

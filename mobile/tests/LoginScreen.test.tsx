@@ -150,6 +150,32 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     expect(apiClient.getMe).not.toHaveBeenCalled();
   });
 
+  it('f2) no cancelamento, se opt-in foi desligado ou driver ausente, esconde o botão biométrico', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+    // Inicialmente opt-in true para montar com o botão visível
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValueOnce(true);
+
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { findByText, queryByTestId } = render(<LoginScreen />);
+    const btn = await findByText('Entrar como João Silva');
+    expect(btn).toBeTruthy();
+
+    // Quando o usuário cancela, opt-in é verificado e agora retorna false
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValueOnce(false);
+
+    await act(async () => {
+      fireEvent.press(btn);
+    });
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    // Botão é escondido
+    expect(queryByTestId('biometric-login-btn')).toBeNull();
+  });
+
   it('g) erro real no desbloqueio (ex: keystore invalidado): com __DEV__ true inclui "[dev]" + detalhes', async () => {
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
