@@ -58,6 +58,7 @@ describe('secureStorage (Sem persistência de senhas e com proteção biométric
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_driver_data');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_vehicle_data');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_saved_credentials');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('ehr_biometric_prompt_dismissed');
   });
 
   it('gerencia a preferência explícita de opt-in biométrico', async () => {
@@ -197,5 +198,26 @@ describe('secureStorage (Sem persistência de senhas e com proteção biométric
       'ehr_auth_token',
       expect.objectContaining({ requireAuthentication: true })
     );
+  });
+
+  it('leitura protegida cancelada pelo usuário (código ou mensagem cancel) retorna null sem lançar erro', async () => {
+    const cancelErr = Object.assign(new Error('User cancelled biometric prompt'), { code: 'user_cancel' });
+    (SecureStore.getItemAsync as jest.Mock).mockRejectedValueOnce(cancelErr);
+
+    const token = await secureStorage.getToken({ requireAuthentication: true });
+    expect(token).toBeNull();
+  });
+
+  it('gerencia a preferência de prompt de biometria dispensado', async () => {
+    await secureStorage.setBiometricPromptDismissed(true);
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'ehr_biometric_prompt_dismissed',
+      'true',
+      expect.any(Object)
+    );
+
+    (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce('true');
+    const dismissed = await secureStorage.getBiometricPromptDismissed();
+    expect(dismissed).toBe(true);
   });
 });

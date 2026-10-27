@@ -91,7 +91,7 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     expect(secureStorage.setBiometricOptIn).not.toHaveBeenCalledWith(true);
   });
 
-  it('desbloqueia sessão existente via biometria com token seguro', async () => {
+  it('d) e e) desbloqueia sessão existente via biometria com token seguro: exatamente 1 getToken protegido, NUNCA chama authenticateAsync, valida com getMe e chama unlockSession', async () => {
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([
@@ -107,14 +107,18 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
 
     const { findByText } = render(<LoginScreen />);
 
-    const biometricBtn = await findByText('Entrar com Face ID');
+    // d) exibe o botão com o nome do motorista cacheador
+    const biometricBtn = await findByText('Entrar como João Silva');
     expect(biometricBtn).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(biometricBtn);
     });
 
-    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled();
+    // e) exatamente 1 chamada protegida a getToken, NUNCA authenticateAsync
+    expect(secureStorage.getToken).toHaveBeenCalledTimes(1);
+    expect(secureStorage.getToken).toHaveBeenCalledWith({ requireAuthentication: true });
+    expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
     expect(apiClient.getMe).toHaveBeenCalled();
     expect(mockUnlockSession).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'João Silva' }),
@@ -123,115 +127,107 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     );
   });
 
-  it('trata token expirado no desbloqueio biométrico, remove token e pede login com senha', async () => {
+  it('f) cancelamento do prompt pelo usuário no desbloqueio não exibe Alert e permanece no login', async () => {
     (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
     (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
-    (secureStorage.getToken as jest.Mock).mockResolvedValue('expired-jwt-token');
+    // secureStorage retorna null no cancelamento (código ou mensagem com 'cancel')
+    (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
     (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
     (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
 
-    (apiClient.getMe as jest.Mock).mockRejectedValueOnce({ status: 401, message: 'token_expired' });
     const alertSpy = jest.spyOn(Alert, 'alert');
-
     const { findByText } = render(<LoginScreen />);
-    const btn = await findByText('Entrar com Digital');
+    const btn = await findByText('Entrar como João Silva');
 
     await act(async () => {
       fireEvent.press(btn);
     });
 
-    expect(secureStorage.removeToken).toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Sessão Expirada',
-      expect.stringContaining('Sua sessão expirou')
-    );
+    expect(secureStorage.getToken).toHaveBeenCalledWith({ requireAuthentication: true });
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(mockUnlockSession).not.toHaveBeenCalled();
+    expect(apiClient.getMe).not.toHaveBeenCalled();
   });
 
-  it('exibe alerta e volta para e-mail e senha quando a proteção biométrica falha (sem degradação silenciosa)', async () => {
-    mockSignIn.mockResolvedValueOnce(undefined);
-    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
-    (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
-    (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(
-      new Error('Biometria indisponível neste aparelho. Use e-mail e senha.')
-    );
+  it('f2) no cancelamento, se opt-in foi desligado ou driver ausente, esconde o botão biométrico', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue(null);
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+    // Inicialmente opt-in true para montar com o botão visível
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValueOnce(true);
 
     const alertSpy = jest.spyOn(Alert, 'alert');
-    const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+    const { findByText, queryByTestId } = render(<LoginScreen />);
+    const btn = await findByText('Entrar como João Silva');
+    expect(btn).toBeTruthy();
 
-    // Aguarda montagem assíncrona do useEffect
-    await act(async () => {});
-
-    fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
-    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+    // Quando o usuário cancela, opt-in é verificado e agora retorna false
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValueOnce(false);
 
     await act(async () => {
-      fireEvent.press(getByText('Entrar'));
+      fireEvent.press(btn);
     });
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Aviso',
-      'Biometria indisponível neste aparelho. Use e-mail e senha.'
-    );
-    expect(secureStorage.setBiometricOptIn).toHaveBeenCalledWith(false);
+    expect(alertSpy).not.toHaveBeenCalled();
+    // Botão é escondido
+    expect(queryByTestId('biometric-login-btn')).toBeNull();
   });
 
-  it('LoginScreen: com __DEV__ true o Alert inclui "[dev]" + código e mensagem de diagnóstico', async () => {
-    mockSignIn.mockResolvedValueOnce(undefined);
+  it('g) erro real no desbloqueio (ex: keystore invalidado): com __DEV__ true inclui "[dev]" + detalhes', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
     (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
-    (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
 
     const err = Object.assign(new Error('Biometria indisponível neste aparelho. Use e-mail e senha.'), {
       code: 'BIOMETRIC_UNAVAILABLE',
       originalCode: 'ERR_KEYSTORE_FAIL',
-      originalMessage: 'Key permanent invalidated',
+      originalMessage: 'Key permanently invalidated',
     });
-    (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(err);
+    (secureStorage.getToken as jest.Mock).mockRejectedValueOnce(err);
 
     const alertSpy = jest.spyOn(Alert, 'alert');
-    const { getByPlaceholderText, getByText } = render(<LoginScreen />);
-
-    await act(async () => {});
-
-    fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
-    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+    const { findByText } = render(<LoginScreen />);
+    const btn = await findByText('Entrar como João Silva');
 
     await act(async () => {
-      fireEvent.press(getByText('Entrar'));
+      fireEvent.press(btn);
     });
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Aviso',
-      expect.stringContaining('[dev] ERR_KEYSTORE_FAIL Key permanent invalidated')
+      expect.stringContaining('[dev] ERR_KEYSTORE_FAIL Key permanently invalidated')
     );
   });
 
-  it('LoginScreen: com __DEV__ false o Alert NÃO inclui "[dev]"', async () => {
+  it('g) erro real no desbloqueio: com __DEV__ false NÃO inclui "[dev]"', async () => {
     const originalDev = (globalThis as any).__DEV__;
     (globalThis as any).__DEV__ = false;
 
     try {
-      mockSignIn.mockResolvedValueOnce(undefined);
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
       (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
-      (secureStorage.getToken as jest.Mock).mockResolvedValue('mock-jwt-token');
 
       const err = Object.assign(new Error('Biometria indisponível neste aparelho. Use e-mail e senha.'), {
         code: 'BIOMETRIC_UNAVAILABLE',
         originalCode: 'ERR_KEYSTORE_FAIL',
-        originalMessage: 'Key permanent invalidated',
+        originalMessage: 'Key permanently invalidated',
       });
-      (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(err);
+      (secureStorage.getToken as jest.Mock).mockRejectedValueOnce(err);
 
       const alertSpy = jest.spyOn(Alert, 'alert');
-      const { getByPlaceholderText, getByText } = render(<LoginScreen />);
-
-      await act(async () => {});
-
-      fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
-      fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+      const { findByText } = render(<LoginScreen />);
+      const btn = await findByText('Entrar como João Silva');
 
       await act(async () => {
-        fireEvent.press(getByText('Entrar'));
+        fireEvent.press(btn);
       });
 
       expect(alertSpy).toHaveBeenCalledWith(
@@ -245,5 +241,36 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     } finally {
       (globalThis as any).__DEV__ = originalDev;
     }
+  });
+
+  it('h) trata 401/403 no desbloqueio biométrico, limpa com clearAll e pede login com senha', async () => {
+    (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+    (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('expired-jwt-token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+    (apiClient.getMe as jest.Mock).mockRejectedValueOnce({ status: 401, message: 'token_expired' });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    const { findByText } = render(<LoginScreen />);
+    const btn = await findByText('Entrar como João Silva');
+
+    await act(async () => {
+      fireEvent.press(btn);
+    });
+
+    expect(secureStorage.clearAll).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sessão Expirada',
+      expect.stringContaining('Sua sessão expirou')
+    );
+  });
+
+  it('j) LoginScreen NÃO contém saveToken com requireAuthentication: true', () => {
+    const fs = require('fs');
+    const src = fs.readFileSync('src/screens/LoginScreen.tsx', 'utf8');
+    expect(src).not.toMatch(/saveToken\s*\([^)]*requireAuthentication/);
   });
 });

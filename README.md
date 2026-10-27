@@ -114,9 +114,9 @@ O projeto conta com **100% de testes automatizados passando com sucesso** em tod
 |---|---|---|---|
 | **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **312 passed** (28 suítes) |
 | **Frontend Web** | Vitest + Testing Library | Painel, Rotas, Modais protegidos, Detalhes do Caminhão, Mapas Leaflet, Máscaras e Tabela ANP | ✅ **58 passed** (13 suítes) |
-| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **184 passed** (13 suítes) |
+| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **202 passed** (13 suítes) |
 | **Frontend Lint** | ESLint | Análise estática de código e integridade de tipos | ✅ **0 erros / 0 avisos** |
-| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **554 / 554 (100% GREEN)** |
+| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **572 / 572 (100% GREEN)** |
 
 ---
 
@@ -185,7 +185,7 @@ EHR-Solutions-Web/
 │   ├── src/
 │   │   ├── contexts/        # Contexto de autenticação e sessão com SecureStore
 │   │   └── screens/         # Login, Câmera Facial Biométrica, Status da Trava e Histórico
-│   └── tests/               # 11 suítes de testes Jest (150 testes)
+│   └── tests/               # 13 suítes de testes Jest (202 testes)
 │
 ├── docs/             # Manuais Oficiais e Documentação Executiva
 │   ├── ARQUITETURA.md                 # Arquitetura detalhada, fluxos e tabelas
@@ -202,7 +202,7 @@ EHR-Solutions-Web/
 
 1. **Hardware Virtual e Simulador Embutido:** O sistema possui um módulo completo de hardware virtual (`virtualHardware.js`) e simulador de telemetria rodoviária (`simulator.js`). Toda a plataforma pode ser operada e testada de ponta a ponta sem necessidade imediata da placa física conectada.
 2. **Integração Plug-and-Play:** A documentação completa de contratos de API, payloads de telemetria e especificações elétricas/lógicas da trava solenoide está consolidada em [`docs/GUIA_INTEGRACAO_HARDWARE.md`](docs/GUIA_INTEGRACAO_HARDWARE.md).
-3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 460 testes para qualquer merge.
+3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 572 testes para qualquer merge.
 
 ---
 

@@ -76,10 +76,22 @@ const getSummaryText = (summary: HistorySummary | null): string => {
   return `Últimos 30 dias: ${countLabel} • ${volumeLabel}`;
 };
 
+const withDevBiometricDetails = (baseMsg: string, err: any): string => {
+  if (__DEV__) {
+    const code = err?.originalCode ? String(err.originalCode).trim() : '';
+    const message = err?.originalMessage ? String(err.originalMessage).trim() : '';
+    const details = [code, message].filter(Boolean).join(' ');
+    if (details) {
+      return `${baseMsg}\n[dev] ${details}`;
+    }
+  }
+  return baseMsg;
+};
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
-  const { driver, vehicle, signOut, refreshProfile } = useAuth();
+  const { driver, vehicle, signOut, forgetDevice, enableBiometricLogin, disableBiometricLogin, refreshProfile } = useAuth();
   const [inicioRefreshing, setInicioRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'inicio' | 'historico' | 'carteira' | 'perfil'>('inicio');
@@ -179,7 +191,45 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       } catch (_) {}
     }
 
-    checkDeviceBiometrics();
+    checkDeviceBiometrics().then(async () => {
+      try {
+        const optIn = await secureStorage.getBiometricOptIn();
+        const promptDismissed = await secureStorage.getBiometricPromptDismissed();
+        if (LocalAuthModule) {
+          const hasHardware = await LocalAuthModule.hasHardwareAsync();
+          const enrolled = await LocalAuthModule.isEnrolledAsync();
+          if (hasHardware && enrolled && !optIn && !promptDismissed) {
+            Alert.alert(
+              'Ativar login com biometria?',
+              'Deseja habilitar o acesso rápido por biometria neste aparelho?',
+              [
+                {
+                  text: 'Agora não',
+                  style: 'cancel',
+                  onPress: async () => {
+                    await secureStorage.setBiometricPromptDismissed(true);
+                  },
+                },
+                {
+                  text: 'Ativar',
+                  onPress: async () => {
+                    const res = await enableBiometricLogin();
+                    if (res.success) {
+                      if (isMountedRef.current) {
+                        setBiometricOptIn(true);
+                      }
+                    } else if (!res.canceled && res.error) {
+                      const msg = res.error?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
+                      Alert.alert('Aviso', withDevBiometricDetails(msg, res.error));
+                    }
+                  },
+                },
+              ]
+            );
+          }
+        }
+      } catch (_) {}
+    });
 
     return () => {
       isMountedRef.current = false;
@@ -187,19 +237,36 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   const handleToggleBiometricOptIn = async (value: boolean) => {
-    if (value && LocalAuthModule) {
-      try {
-        const res = await LocalAuthModule.authenticateAsync({
-          promptMessage: `Confirme sua ${biometricTypeName} para ativar o login biométrico`,
-          cancelLabel: 'Cancelar',
-        });
-        if (!res?.success) return;
-      } catch (_) {
-        return;
+    if (value) {
+      const res = await enableBiometricLogin();
+      if (res.success) {
+        setBiometricOptIn(true);
+      } else {
+        setBiometricOptIn(false);
+        if (!res.canceled && res.error) {
+          const msg = res.error?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
+          Alert.alert('Aviso', withDevBiometricDetails(msg, res.error));
+        }
       }
+    } else {
+      await disableBiometricLogin();
+      setBiometricOptIn(false);
     }
-    await secureStorage.setBiometricOptIn(value);
-    setBiometricOptIn(value);
+  };
+
+  const handleForgetDevice = () => {
+    Alert.alert(
+      'Esquecer este aparelho?',
+      'Isso removerá a biometria cadastrada e todas as preferências salvas neste dispositivo. Deseja continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Esquecer e Sair',
+          style: 'destructive',
+          onPress: forgetDevice,
+        },
+      ]
+    );
   };
 
   const formatCardNumberInput = (text: string) => {
@@ -1339,6 +1406,15 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <Text style={styles.subtleLogoutText}>Sair da Conta</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleForgetDevice}
+                style={styles.forgetDeviceBtn}
+                activeOpacity={0.8}
+                testID="forget-device-btn"
+              >
+                <Text style={styles.forgetDeviceText}>Sair e esquecer este aparelho</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -2281,6 +2357,18 @@ const styles = StyleSheet.create({
   profileDivider: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  forgetDeviceBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  forgetDeviceText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.85,
   },
   subtleLogoutBtn: {
     height: 48,

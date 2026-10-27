@@ -5,6 +5,19 @@ import { secureStorage } from '../storage/secureStorage';
 import { apiClient } from '../services/api/apiClient';
 import { Alert } from 'react-native';
 
+let LocalAuthModule: typeof import('expo-local-authentication') | null = null;
+try {
+  LocalAuthModule = require('expo-local-authentication');
+} catch {
+  LocalAuthModule = null;
+}
+
+export interface BiometricActionResult {
+  success: boolean;
+  canceled?: boolean;
+  error?: any;
+}
+
 interface AuthContextData {
   signed: boolean;
   driver: Driver | null;
@@ -13,6 +26,9 @@ interface AuthContextData {
   signIn: (email: string, password: string) => Promise<void>;
   unlockSession: (driver: Driver, vehicle?: Vehicle | null, token?: string | null) => void;
   signOut: () => Promise<void>;
+  forgetDevice: () => Promise<void>;
+  enableBiometricLogin: (promptTitle?: string) => Promise<BiometricActionResult>;
+  disableBiometricLogin: () => Promise<void>;
   onUnauthorized: (message?: string) => void;
   refreshProfile: () => Promise<void>;
 }
@@ -24,9 +40,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const enableBiometricLogin = useCallback(async (promptTitle?: string): Promise<BiometricActionResult> => {
+    if (!LocalAuthModule) {
+      return { success: false, error: new Error('Módulo de autenticação biométrica não disponível.') };
+    }
+    try {
+      const hasHardware = await LocalAuthModule.hasHardwareAsync();
+      const isEnrolled = await LocalAuthModule.isEnrolledAsync();
+      if (!hasHardware || !isEnrolled) {
+        return { success: false, error: new Error('Biometria não configurada no dispositivo.') };
+      }
+
+      const authResult = await LocalAuthModule.authenticateAsync({
+        promptMessage: promptTitle || 'Confirme sua biometria para autorizar o desbloqueio',
+        cancelLabel: 'Cancelar',
+        fallbackLabel: 'Usar Senha',
+        disableDeviceFallback: false,
+      });
+
+      if (!authResult.success) {
+        const errStr = String(authResult.error || '');
+        const isCanceled =
+          errStr.toLowerCase().includes('cancel') ||
+          authResult.error === 'user_cancel' ||
+          authResult.error === 'system_cancel' ||
+          authResult.error === 'app_cancel';
+
+        return { success: false, canceled: isCanceled, error: authResult.error };
+      }
+
+      const currentToken = apiClient.getAuthToken();
+      if (!currentToken) {
+        return { success: false, error: new Error('Sessão ativa não encontrada para proteção biométrica.') };
+      }
+
+      try {
+        await secureStorage.saveToken(currentToken, { requireAuthentication: true });
+        await secureStorage.setBiometricOptIn(true);
+        return { success: true };
+      } catch (err: any) {
+        // Falha na gravação protegida NÃO mexe na sessão em memória nem derruba o usuário.
+        // Apenas garante opt-in = false.
+        await secureStorage.setBiometricOptIn(false);
+        return { success: false, error: err };
+      }
+    } catch (unexpectedErr: any) {
+      await secureStorage.setBiometricOptIn(false);
+      return { success: false, error: unexpectedErr };
+    }
+  }, []);
+
+  const disableBiometricLogin = useCallback(async (): Promise<void> => {
+    // Remove o token protegido e desativa opt-in; a sessão atual em memória continua
+    await secureStorage.removeToken();
+    await secureStorage.setBiometricOptIn(false);
+  }, []);
+
   const signOut = useCallback(async () => {
     apiClient.setAuthToken(null);
-    // Apaga token, dados e opt-in de biometria ao deslogar
+    const optIn = await secureStorage.getBiometricOptIn();
+    if (optIn) {
+      // Se o opt-in biométrico estiver LIGADO, MANTÉM o token protegido, o motorista em cache e o opt-in;
+      // apenas zera a memória.
+    } else {
+      await secureStorage.clearAll();
+    }
+    setDriver(null);
+    setVehicle(null);
+  }, []);
+
+  const forgetDevice = useCallback(async () => {
+    apiClient.setAuthToken(null);
     await secureStorage.clearAll();
     setDriver(null);
     setVehicle(null);
@@ -45,8 +129,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (message) {
       Alert.alert('Acesso Negado', message);
     }
-    signOut();
-  }, [signOut]);
+    // Respostas 401 e 403 continuam limpando TUDO (clearAll + memória)
+    secureStorage.clearAll();
+    setDriver(null);
+    setVehicle(null);
+  }, []);
 
   useEffect(() => {
     apiClient.setOnUnauthorized(onUnauthorized);
@@ -87,7 +174,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await apiClient.login(email, password);
       apiClient.setAuthToken(response.token);
-      await secureStorage.saveToken(response.token);
+
+      const optIn = await secureStorage.getBiometricOptIn();
+      if (optIn) {
+        try {
+          await secureStorage.saveToken(response.token, { requireAuthentication: true });
+        } catch (_) {
+          await secureStorage.setBiometricOptIn(false);
+          await secureStorage.setBiometricPromptDismissed(false);
+          await secureStorage.saveToken(response.token);
+        }
+      } else {
+        await secureStorage.saveToken(response.token);
+      }
+
       await secureStorage.saveDriver(response.driver);
       
       if (response.vehicle) {
@@ -131,6 +231,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signIn,
         unlockSession,
         signOut,
+        forgetDevice,
+        enableBiometricLogin,
+        disableBiometricLogin,
         onUnauthorized,
         refreshProfile,
       }}
