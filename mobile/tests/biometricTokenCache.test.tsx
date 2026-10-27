@@ -103,13 +103,13 @@ describe('Biometric Token Cache & In-Memory Session (Regression & Feature Tests)
 
     apiClient.setAuthToken(null);
 
-    const { findByText } = render(
+    const { findByText, findByTestId } = render(
       <AuthProvider>
         <LoginScreen />
       </AuthProvider>
     );
 
-    const btn = await findByText('Entrar com Digital');
+    const btn = await findByTestId('biometric-login-btn');
     expect(btn).toBeTruthy();
 
     expect(secureStorage.getToken).toHaveBeenCalledTimes(0);

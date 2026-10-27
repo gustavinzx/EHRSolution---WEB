@@ -30,6 +30,7 @@ import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
 import { getBleLock } from '../services/bluetooth/bleLock';
 import { getCancelErrorMessage } from '../utils/cancelError';
+import { getBiometricLabel } from '../utils/biometricLabel';
 import { HistoryItem, HistorySummary } from '../types/history';
 import { WalletResponse, DriverCard, CreateCardPayload } from '../types/wallet';
 
@@ -178,13 +179,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             setBiometricEnrolled(enrolled);
             if (hasHardware) {
               const types = await LocalAuthModule.supportedAuthenticationTypesAsync();
-              if (types.includes(2)) {
-                setBiometricTypeName('Face ID');
-              } else if (types.includes(1)) {
-                setBiometricTypeName('Touch ID / Digital');
-              } else {
-                setBiometricTypeName('Biometria');
-              }
+              setBiometricTypeName(getBiometricLabel(types, Platform.OS));
             }
           }
         }
@@ -409,10 +404,8 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       const isEnrolled = await LocalAuthModule.isEnrolledAsync();
       const types = await LocalAuthModule.supportedAuthenticationTypesAsync();
       const typeLabel = types.map((t: number) => {
-        if (t === 1) return 'Digital (Touch ID)';
-        if (t === 2) return 'Reconhecimento Facial (Face ID)';
         if (t === 3) return 'Íris';
-        return 'Biometria';
+        return getBiometricLabel([t], Platform.OS);
       }).join(', ') || 'Sensor Biométrico';
 
       if (!isEnrolled) {
@@ -1333,7 +1326,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Card Biometria do Smartphone (Touch ID / Face ID) */}
+            {/* Card Biometria do Smartphone */}
             <View style={[styles.profileDetailsCard, { marginTop: 14 }]}>
               <View style={styles.biometricSectionHeader}>
                 <Text style={styles.cardSectionTitle}>Biometria do Smartphone</Text>

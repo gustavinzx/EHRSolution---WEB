@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { LoginScreen } from '../src/screens/LoginScreen';
 import { useAuth } from '../src/hooks/useAuth';
 import { secureStorage } from '../src/storage/secureStorage';
@@ -272,5 +272,25 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     const fs = require('fs');
     const src = fs.readFileSync('src/screens/LoginScreen.tsx', 'utf8');
     expect(src).not.toMatch(/saveToken\s*\([^)]*requireAuthentication/);
+  });
+
+  it('k) com Platform.OS="android" e tipos [2, 1], mostra "Digital" e NÃO mostra "Face ID"', async () => {
+    const originalPlatform = Platform.OS;
+    try {
+      Platform.OS = 'android';
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([2, 1]);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-token');
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+      const { findByText, queryByText } = render(<LoginScreen />);
+      const btn = await findByText('Entrar com Digital');
+      expect(btn).toBeTruthy();
+      expect(queryByText(/Face ID/i)).toBeNull();
+    } finally {
+      Platform.OS = originalPlatform;
+    }
   });
 });
