@@ -16,6 +16,9 @@ jest.mock('../src/storage/secureStorage', () => ({
     clearAll: jest.fn(),
     cleanupLegacyCredentials: jest.fn(),
     getBiometricOptIn: jest.fn().mockResolvedValue(false),
+    setBiometricOptIn: jest.fn().mockResolvedValue(undefined),
+    setBiometricPromptDismissed: jest.fn().mockResolvedValue(undefined),
+    getBiometricPromptDismissed: jest.fn().mockResolvedValue(false),
   },
 }));
 
@@ -207,5 +210,120 @@ describe('AuthContext', () => {
     });
 
     expect(secureStorage.clearAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('a) falha na ativação NÃO apaga token em memória e NÃO derruba o motorista logado; optIn permanece false', async () => {
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('jwt_mem_token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva', email: 'motorista1@ehr.com', phone: '11999999999' });
+    (secureStorage.getVehicle as jest.Mock).mockResolvedValue(null);
+    (secureStorage.saveToken as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error('Biometria indisponível neste aparelho. Use e-mail e senha.'), {
+        code: 'BIOMETRIC_UNAVAILABLE',
+        originalCode: 'ERR_KEYSTORE_FAIL',
+      })
+    );
+
+    let contextRef: any;
+    render(
+      <AuthProvider>
+        <AuthContext.Consumer>
+          {value => {
+            contextRef = value;
+            return null;
+          }}
+        </AuthContext.Consumer>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(contextRef.loading).toBe(false);
+    });
+
+    let result: any;
+    await act(async () => {
+      result = await contextRef.enableBiometricLogin();
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.canceled).toBeFalsy();
+    expect(result.error).toBeTruthy();
+
+    // Token em memória e motorista logado permanecem intactos
+    expect(contextRef.driver).toEqual(expect.objectContaining({ name: 'João Silva' }));
+    expect(apiClient.setAuthToken).not.toHaveBeenCalledWith(null);
+    expect(secureStorage.setBiometricOptIn).not.toHaveBeenCalledWith(true);
+  });
+
+  it('b) signOut com optIn ativo preserva token protegido, motorista em cache e flag optIn, zera memória; com optIn inativo chama clearAll total', async () => {
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('jwt_mem_token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva', email: 'motorista1@ehr.com', phone: '11999999999' });
+    (secureStorage.getVehicle as jest.Mock).mockResolvedValue({ id: 10, plate: 'ABC-1234' });
+
+    let contextRef: any;
+    render(
+      <AuthProvider>
+        <AuthContext.Consumer>
+          {value => {
+            contextRef = value;
+            return null;
+          }}
+        </AuthContext.Consumer>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(contextRef.loading).toBe(false);
+    });
+
+    // Caso 1: optIn ativo => NÃO chama clearAll
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+    await act(async () => {
+      await contextRef.signOut();
+    });
+
+    expect(secureStorage.clearAll).not.toHaveBeenCalled();
+    expect(contextRef.driver).toBeNull();
+    expect(contextRef.vehicle).toBeNull();
+    expect(apiClient.setAuthToken).toHaveBeenCalledWith(null);
+
+    // Caso 2: optIn inativo => chama clearAll total
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(false);
+    await act(async () => {
+      await contextRef.signOut();
+    });
+
+    expect(secureStorage.clearAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('c) forgetDevice chama clearAll total (incluindo optIn e dismissed) e zera memória', async () => {
+    (secureStorage.getToken as jest.Mock).mockResolvedValue('jwt_mem_token');
+    (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva', email: 'motorista1@ehr.com', phone: '11999999999' });
+    (secureStorage.getVehicle as jest.Mock).mockResolvedValue({ id: 10, plate: 'ABC-1234' });
+    (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+    let contextRef: any;
+    render(
+      <AuthProvider>
+        <AuthContext.Consumer>
+          {value => {
+            contextRef = value;
+            return null;
+          }}
+        </AuthContext.Consumer>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(contextRef.loading).toBe(false);
+    });
+
+    await act(async () => {
+      await contextRef.forgetDevice();
+    });
+
+    expect(secureStorage.clearAll).toHaveBeenCalled();
+    expect(contextRef.driver).toBeNull();
+    expect(contextRef.vehicle).toBeNull();
+    expect(apiClient.setAuthToken).toHaveBeenCalledWith(null);
   });
 });

@@ -5,6 +5,7 @@ import { DashboardScreen } from '../src/screens/DashboardScreen';
 import { apiClient } from '../src/services/api/apiClient';
 import { getBleLock } from '../src/services/bluetooth/bleLock';
 import { useAuth } from '../src/hooks/useAuth';
+import { secureStorage } from '../src/storage/secureStorage';
 
 let mockLastFocusEffectCallback: (() => void | (() => void)) | null = null;
 
@@ -25,12 +26,20 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('../src/hooks/useAuth');
 jest.mock('../src/services/api/apiClient');
 jest.mock('../src/services/bluetooth/bleLock');
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn().mockResolvedValue(true),
+  isEnrolledAsync: jest.fn().mockResolvedValue(true),
+  supportedAuthenticationTypesAsync: jest.fn().mockResolvedValue([1]),
+  authenticateAsync: jest.fn().mockResolvedValue({ success: true }),
+}));
 
 const mockNavigation = { navigate: jest.fn() } as any;
 
 describe('DashboardScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(secureStorage, 'getBiometricPromptDismissed').mockResolvedValue(true);
+    jest.spyOn(secureStorage, 'getBiometricOptIn').mockResolvedValue(false);
     (apiClient.getHistory as jest.Mock).mockResolvedValue({
       items: [],
       page: 1,
@@ -1121,6 +1130,117 @@ describe('DashboardScreen', () => {
       await act(async () => {
         fireEvent.press(getByTestId('test-biometrics-profile-btn'));
       });
+    });
+
+    it('i) diálogo de ativação na home aparece quando: hardware ativo, enrolled ativo, não dispensado e opt-in falso; "Agora não" persiste dismiss=true', async () => {
+      jest.spyOn(secureStorage, 'getBiometricOptIn').mockResolvedValue(false);
+      jest.spyOn(secureStorage, 'getBiometricPromptDismissed').mockResolvedValue(false);
+      const setDismissedSpy = jest.spyOn(secureStorage, 'setBiometricPromptDismissed').mockResolvedValue(undefined as any);
+      const alertSpy = jest.spyOn(Alert, 'alert');
+
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+        forgetDevice: jest.fn(),
+        enableBiometricLogin: jest.fn().mockResolvedValue({ success: true }),
+        disableBiometricLogin: jest.fn(),
+      });
+
+      render(<DashboardScreen navigation={mockNavigation} route={{} as any} />);
+
+      await act(async () => {});
+
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Ativar login com biometria?',
+        'Deseja habilitar o acesso rápido por biometria neste aparelho?',
+        expect.any(Array)
+      );
+
+      const alertButtons = alertSpy.mock.calls.find(call => call[0] === 'Ativar login com biometria?')?.[2] as any[];
+      expect(alertButtons).toBeTruthy();
+      const agoraNaoBtn = alertButtons.find(b => b.text === 'Agora não');
+      expect(agoraNaoBtn).toBeTruthy();
+
+      await act(async () => {
+        await agoraNaoBtn.onPress();
+      });
+
+      expect(setDismissedSpy).toHaveBeenCalledWith(true);
+    });
+
+    it('k) toggle do Perfil chama enableBiometricLogin e disableBiometricLogin', async () => {
+      const mockEnable = jest.fn().mockResolvedValue({ success: true });
+      const mockDisable = jest.fn().mockResolvedValue(undefined);
+
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+        forgetDevice: jest.fn(),
+        enableBiometricLogin: mockEnable,
+        disableBiometricLogin: mockDisable,
+      });
+
+      const { getByText, getByRole } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      await act(async () => {
+        fireEvent.press(getByText('Perfil'));
+      });
+
+      const biometricSwitch = getByRole('switch');
+      expect(biometricSwitch).toBeTruthy();
+
+      await act(async () => {
+        fireEvent(biometricSwitch, 'valueChange', true);
+      });
+      expect(mockEnable).toHaveBeenCalled();
+
+      await act(async () => {
+        fireEvent(biometricSwitch, 'valueChange', false);
+      });
+      expect(mockDisable).toHaveBeenCalled();
+    });
+
+    it('botão "Sair e esquecer este aparelho" exibe confirmação e chama forgetDevice', async () => {
+      const mockForget = jest.fn();
+      const alertSpy = jest.spyOn(Alert, 'alert');
+
+      (useAuth as jest.Mock).mockReturnValue({
+        driver: { name: 'João' },
+        vehicle: { id: 10, plate: 'ABC-1234', model: 'Volvo FH', capacity: 500 },
+        signOut: jest.fn(),
+        forgetDevice: mockForget,
+        enableBiometricLogin: jest.fn(),
+        disableBiometricLogin: jest.fn(),
+      });
+
+      const { getByText, getByTestId } = render(
+        <DashboardScreen navigation={mockNavigation} route={{} as any} />
+      );
+
+      await act(async () => {
+        fireEvent.press(getByText('Perfil'));
+      });
+
+      const forgetBtn = getByTestId('forget-device-btn');
+      expect(forgetBtn).toBeTruthy();
+
+      fireEvent.press(forgetBtn);
+
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Esquecer este aparelho?',
+        expect.stringContaining('Isso removerá a biometria cadastrada'),
+        expect.any(Array)
+      );
+
+      const alertButtons = alertSpy.mock.calls.find(call => call[0] === 'Esquecer este aparelho?')?.[2] as any[];
+      const confirmBtn = alertButtons.find(b => b.text === 'Esquecer e Sair');
+      confirmBtn.onPress();
+
+      expect(mockForget).toHaveBeenCalled();
     });
   });
 
