@@ -46,7 +46,7 @@ export const LoginScreen: React.FC = () => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometria');
   const [biometricLoginReady, setBiometricLoginReady] = useState(false);
-  const [biometricOptInChecked, setBiometricOptInChecked] = useState(false);
+  const [cachedDriver, setCachedDriver] = useState<any>(null);
   const { signIn, unlockSession } = useAuth();
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export const LoginScreen: React.FC = () => {
             setIdentifier(rememberedEmail);
             setRememberMe(true);
           }
-          setBiometricOptInChecked(Boolean(optIn));
+          setCachedDriver(storedDriver);
           // Desbloqueio biométrico disponível apenas com hardware + opt-in aceito + sessão em cache
           setBiometricLoginReady(Boolean(deviceReady && optIn && storedDriver));
         }
@@ -102,110 +102,44 @@ export const LoginScreen: React.FC = () => {
     };
   }, []);
 
-  const handleToggleBiometricOptIn = async (value: boolean) => {
-    if (value) {
-      Alert.alert(
-        `Ativar ${biometricType}?`,
-        `Ao ativar, você autoriza o uso de ${biometricType} para desbloquear sua sessão salva neste aparelho. Deseja continuar?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Ativar',
-            onPress: async () => {
-              if (LocalAuthModule) {
-                const check = await LocalAuthModule.authenticateAsync({
-                  promptMessage: `Confirme sua ${biometricType} para autorizar o desbloqueio`,
-                  fallbackLabel: 'Usar Senha',
-                  cancelLabel: 'Cancelar',
-                });
-                if (!check.success) return;
-              }
-              try {
-                const currentToken = apiClient.getAuthToken() || await secureStorage.getToken();
-                if (currentToken) {
-                  await secureStorage.saveToken(currentToken, { requireAuthentication: true });
-                }
-                await secureStorage.setBiometricOptIn(true);
-                setBiometricOptInChecked(true);
-              } catch (err: any) {
-                apiClient.setAuthToken(null);
-                await secureStorage.removeToken();
-                await secureStorage.setBiometricOptIn(false);
-                setBiometricOptInChecked(false);
-                setBiometricLoginReady(false);
-                const msg = err?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
-                setErrorMessage(msg);
-                Alert.alert('Aviso', withDevBiometricDetails(msg, err));
-              }
-            },
-          },
-        ]
-      );
-    } else {
-      await secureStorage.setBiometricOptIn(false);
-      setBiometricOptInChecked(false);
-      setBiometricLoginReady(false);
-    }
-  };
-
   const handleBiometricAuth = async () => {
     setErrorMessage('');
+    setLoading(true);
     try {
       const storedToken = await secureStorage.getToken({ requireAuthentication: true });
-      const storedDriver = await secureStorage.getDriver();
-      if (!storedToken || !storedDriver) {
-        Alert.alert(
-          'Biometria do Dispositivo',
-          'Faça login com seu e-mail e senha uma vez para associar este aparelho à sua conta.'
-        );
+      if (!storedToken) {
+        // Usuário cancelou o prompt biométrico: permanece na tela sem erro
         return;
       }
 
-      if (!LocalAuthModule) {
-        Alert.alert('Aviso', 'Autenticação biométrica indisponível.');
-        return;
-      }
-
-      const result = await LocalAuthModule.authenticateAsync({
-        promptMessage: `Autentique com ${biometricType} para entrar no EHR Frota`,
-        fallbackLabel: 'Usar Senha',
-        cancelLabel: 'Cancelar',
-        disableDeviceFallback: false,
-      });
-
-      if (result?.success) {
-        setLoading(true);
-        try {
-          apiClient.setAuthToken(storedToken);
-          // Desbloqueia sessão existente validando o token JWT
-          const profile = await apiClient.getMe();
-          if (profile?.driver) {
-            unlockSession(profile.driver, profile.vehicle, storedToken);
-          } else {
-            throw { status: 401, message: 'Sessão inválida' };
-          }
-        } catch (sessionError: any) {
-          // Token expirado ou credenciais inválidas: exige login tradicional
-          if (sessionError?.status === 401 || sessionError?.status === 403 || sessionError?.message?.includes('token')) {
-            apiClient.setAuthToken(null);
-            await secureStorage.removeToken();
-            setBiometricLoginReady(false);
-            setPassword('');
-            Alert.alert(
-              'Sessão Expirada',
-              'Sua sessão expirou. Por favor, entre com seu e-mail e senha normalmente.'
-            );
-          } else {
-            throw sessionError;
-          }
+      apiClient.setAuthToken(storedToken);
+      try {
+        const profile = await apiClient.getMe();
+        if (profile?.driver) {
+          unlockSession(profile.driver, profile.vehicle, storedToken);
+        } else if (cachedDriver) {
+          unlockSession(cachedDriver, null, storedToken);
+        } else {
+          throw { status: 401, message: 'Sessão inválida' };
         }
-      } else if (result && result.error && result.error !== 'user_cancel' && result.error !== 'system_cancel' && result.error !== 'app_cancel') {
-        setErrorMessage('Biometria não reconhecida. Tente novamente ou use sua senha.');
+      } catch (sessionError: any) {
+        if (sessionError?.status === 401 || sessionError?.status === 403 || sessionError?.message?.includes('token')) {
+          await secureStorage.clearAll();
+          apiClient.setAuthToken(null);
+          setBiometricLoginReady(false);
+          setPassword('');
+          Alert.alert(
+            'Sessão Expirada',
+            'Sua sessão expirou. Por favor, entre com seu e-mail e senha normalmente.'
+          );
+        } else {
+          throw sessionError;
+        }
       }
     } catch (error: any) {
-      const msg = error.message || 'Falha na autenticação biométrica.';
+      const msg = error?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
       setErrorMessage(msg);
-      Alert.alert('Erro Biometria', withDevBiometricDetails(msg, error));
+      Alert.alert('Aviso', withDevBiometricDetails(msg, error));
     } finally {
       setLoading(false);
     }
@@ -229,26 +163,6 @@ export const LoginScreen: React.FC = () => {
         await secureStorage.saveRememberedEmail(identifier.trim());
       } else {
         await secureStorage.removeRememberedEmail();
-      }
-
-      // Se o usuário marcou opt-in biométrico explicitamente na tela de login
-      if (biometricOptInChecked) {
-        try {
-          const currentToken = apiClient.getAuthToken() || await secureStorage.getToken();
-          if (currentToken) {
-            await secureStorage.saveToken(currentToken, { requireAuthentication: true });
-          }
-          await secureStorage.setBiometricOptIn(true);
-        } catch (biometricErr: any) {
-          apiClient.setAuthToken(null);
-          await secureStorage.removeToken();
-          await secureStorage.setBiometricOptIn(false);
-          setBiometricOptInChecked(false);
-          setBiometricLoginReady(false);
-          const msg = biometricErr?.message || 'Biometria indisponível neste aparelho. Use e-mail e senha.';
-          setErrorMessage(msg);
-          Alert.alert('Aviso', withDevBiometricDetails(msg, biometricErr));
-        }
       }
     } catch (error: any) {
       const msg = error.message || 'Falha ao autenticar.';
@@ -354,21 +268,6 @@ export const LoginScreen: React.FC = () => {
                   <Text style={styles.rememberText}>Lembrar de mim</Text>
                 </View>
 
-                {/* Opt-in explícito para biometria */}
-                {biometricAvailable && (
-                  <View style={styles.biometricOptInRow}>
-                    <Switch
-                      value={biometricOptInChecked}
-                      onValueChange={handleToggleBiometricOptIn}
-                      trackColor={{ false: '#1E293B', true: '#22C55E' }}
-                      thumbColor={biometricOptInChecked ? '#FFFFFF' : '#94A3B8'}
-                    />
-                    <Text style={styles.biometricOptInText}>
-                      Desbloqueio com {biometricType}
-                    </Text>
-                  </View>
-                )}
-
                 {/* Botão de Entrar Normal */}
                 <Button
                   title={loading ? 'Autenticando...' : 'Entrar'}
@@ -393,21 +292,21 @@ export const LoginScreen: React.FC = () => {
                       activeOpacity={0.8}
                       accessibilityRole="button"
                       accessibilityLabel={`Entrar com ${biometricType}`}
+                      testID="biometric-login-btn"
                     >
                       <Text style={styles.biometricIcon}>
                         {biometricType === 'Face ID' ? '📱' : '👆'}
                       </Text>
                       <Text style={styles.biometricBtnText}>
-                        Entrar com {biometricType}
+                        {cachedDriver?.name ? `Entrar como ${cachedDriver.name}` : `Entrar com ${biometricType}`}
                       </Text>
+                      {cachedDriver?.name ? (
+                        <Text style={styles.biometricSubText}>
+                          Entrar com {biometricType}
+                        </Text>
+                      ) : null}
                     </TouchableOpacity>
                   </View>
-                )}
-
-                {!biometricLoginReady && biometricAvailable && (
-                  <Text style={styles.biometricHint}>
-                    Ative o acesso biométrico para desbloquear sua sessão com {biometricType} nos próximos acessos.
-                  </Text>
                 )}
 
                 {/* Footer Corporativo */}
@@ -632,6 +531,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  biometricSubText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   biometricHint: {
     color: '#64748B',
