@@ -23,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
+import { getBiometricLabel, getBiometricIcon } from '../utils/biometricLabel';
 
 const withDevBiometricDetails = (baseMsg: string, err: any): string => {
   if (__DEV__) {
@@ -66,13 +67,7 @@ export const LoginScreen: React.FC = () => {
             deviceReady = true;
             setBiometricAvailable(true);
             const supportedTypes = await LocalAuthModule.supportedAuthenticationTypesAsync();
-            if (supportedTypes.includes(2)) {
-              setBiometricType('Face ID');
-            } else if (supportedTypes.includes(1)) {
-              setBiometricType('Digital');
-            } else {
-              setBiometricType('Biometria');
-            }
+            setBiometricType(getBiometricLabel(supportedTypes, Platform.OS));
           }
         }
 
@@ -281,7 +276,7 @@ export const LoginScreen: React.FC = () => {
                   style={styles.loginBtn}
                 />
 
-                {/* Acesso Biométrico Nativo (Face ID / Impressão Digital) */}
+                {/* Acesso Biométrico Nativo */}
                 {biometricLoginReady && (
                   <View style={styles.biometricSection}>
                     <View style={styles.dividerRow}>
@@ -299,7 +294,7 @@ export const LoginScreen: React.FC = () => {
                       testID="biometric-login-btn"
                     >
                       <Text style={styles.biometricIcon}>
-                        {biometricType === 'Face ID' ? '📱' : '👆'}
+                        {getBiometricIcon(biometricType)}
                       </Text>
                       <Text style={styles.biometricBtnText}>
                         {cachedDriver?.name ? `Entrar como ${cachedDriver.name}` : `Entrar com ${biometricType}`}
