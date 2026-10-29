@@ -1,0 +1,66 @@
+services:
+  # ─── Banco de Dados PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ehr_postgres_staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ehr_fleet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      # Exposto apenas para loopback local do servidor (segurança contra acesso externo direto)
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend API + Simulador de Frota + Hardware Virtual ────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ehr_backend_staging
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ehr_fleet
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET com no minimo 32 caracteres no arquivo .env}
+      JWT_EXPIRES_IN: 8h
+      # NODE_ENV=staging permite simulador de frota, hardware virtual e face mock para testes da empresa sem placa física
+      NODE_ENV: staging
+      TRUST_PROXY: '1'
+      FACE_PROVIDER: mock
+      FACE_MOCK_MODE: always_match
+      VIRTUAL_HARDWARE_ENABLED: 'true'
+      DATA_SOURCE: mock
+      ALLOW_SEED_WIPE: ${ALLOW_SEED_WIPE:-false}
+      RUN_SEED_ON_BOOT: ${RUN_SEED_ON_BOOT:-false}
+    ports:
+      - '127.0.0.1:3001:3001'
+
+  # ─── Frontend Painel Web + Proxy Reverso Unificado (/api/ e /socket.io/) ────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ehr_frontend_staging
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '${HTTP_PORT:-80}:80'
+
+volumes:
+  postgres_staging_data:
