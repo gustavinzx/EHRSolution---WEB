@@ -5,6 +5,8 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_MAPBOX_TOKEN=""
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
 RUN npm run build
 
 # ── Serve com nginx ─────────────────────────────────────────────────────────

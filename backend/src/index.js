@@ -88,6 +88,7 @@ app.use(helmet({
     preload: true,
   },
   contentSecurityPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
 app.use(cors({

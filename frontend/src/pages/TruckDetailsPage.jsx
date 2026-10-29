@@ -695,7 +695,7 @@ export default function TruckDetailsPage() {
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 
                     attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-                    url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
+                    url={import.meta.env.VITE_MAPBOX_TOKEN ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}` : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'}
                     className="map-tiles"
                     noWrap={true}
                   />
