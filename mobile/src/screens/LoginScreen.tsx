@@ -296,14 +296,32 @@ export const LoginScreen: React.FC = () => {
                       <Text style={styles.biometricIcon}>
                         {getBiometricIcon(biometricType)}
                       </Text>
-                      <Text style={styles.biometricBtnText}>
-                        {cachedDriver?.name ? `Entrar como ${cachedDriver.name}` : `Entrar com ${biometricType}`}
-                      </Text>
-                      {cachedDriver?.name ? (
-                        <Text style={styles.biometricSubText}>
-                          Entrar com {biometricType}
-                        </Text>
-                      ) : null}
+                      <View style={styles.biometricTextColumn} testID="biometric-text-column">
+                        {cachedDriver?.name ? (
+                          <>
+                            <Text
+                              style={styles.biometricBtnText}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              Entrar como {cachedDriver.name}
+                            </Text>
+                            <Text
+                              style={styles.biometricSubText}
+                              numberOfLines={1}
+                            >
+                              Entrar com {biometricType}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text
+                            style={styles.biometricBtnText}
+                            numberOfLines={1}
+                          >
+                            Entrar com {biometricType}
+                          </Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -525,17 +543,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginRight: 10,
   },
+  biometricTextColumn: {
+    flex: 1,
+    flexShrink: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   biometricBtnText: {
     color: '#00D4FF',
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   biometricSubText: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 11,
     fontWeight: '600',
-    marginLeft: 6,
+    marginTop: 2,
+    textAlign: 'center',
   },
   biometricHint: {
     color: '#64748B',

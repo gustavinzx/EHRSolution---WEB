@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, StyleSheet } from 'react-native';
 import { LoginScreen } from '../src/screens/LoginScreen';
 import { useAuth } from '../src/hooks/useAuth';
 import { secureStorage } from '../src/storage/secureStorage';
@@ -292,5 +292,79 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     } finally {
       Platform.OS = originalPlatform;
     }
+  });
+
+  describe('layout do botão biométrico (fix/biometric-button-layout)', () => {
+    const longName = 'Sebastião Francisco de Albuquerque e Silva Filho de Paula e Castro dos Santos Neves';
+    let originalPlatform: typeof Platform.OS;
+
+    beforeEach(() => {
+      originalPlatform = Platform.OS;
+      Platform.OS = 'android';
+    });
+
+    afterEach(() => {
+      Platform.OS = originalPlatform;
+    });
+
+    it('a) com cachedDriver.name MUITO longo (80+ caracteres), o Text do nome tem numberOfLines === 1 e ellipsizeMode === "tail"', async () => {
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-token');
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: longName });
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+      const { findByText } = render(<LoginScreen />);
+      const nameElement = await findByText(`Entrar como ${longName}`);
+      expect(nameElement.props.numberOfLines).toBe(1);
+      expect(nameElement.props.ellipsizeMode).toBe('tail');
+    });
+
+    it('b) o Text do subtítulo "Entrar com Digital" tem numberOfLines === 1', async () => {
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-token');
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+      const { findByText } = render(<LoginScreen />);
+      const subTextElement = await findByText('Entrar com Digital');
+      expect(subTextElement.props.numberOfLines).toBe(1);
+    });
+
+    it('c) a View de texto tem flexShrink: 1 no estilo (verifique via StyleSheet.flatten)', async () => {
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-token');
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: 'João Silva' });
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+      const { findByTestId } = render(<LoginScreen />);
+      const textColumn = await findByTestId('biometric-text-column');
+      const flatStyle = StyleSheet.flatten(textColumn.props.style);
+      expect(flatStyle?.flexShrink).toBe(1);
+    });
+
+    it('d) sem cachedDriver (cachedDriver.name vazio): só aparece "Entrar com {biometricType}" (uma linha) e o botão continua com o mesmo testID/accessibilityLabel', async () => {
+      (LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true);
+      (LocalAuthentication.supportedAuthenticationTypesAsync as jest.Mock).mockResolvedValue([1]);
+      (secureStorage.getToken as jest.Mock).mockResolvedValue('valid-token');
+      (secureStorage.getDriver as jest.Mock).mockResolvedValue({ id: 1, name: '' });
+      (secureStorage.getBiometricOptIn as jest.Mock).mockResolvedValue(true);
+
+      const { findByTestId, findByText, queryByText } = render(<LoginScreen />);
+      const btn = await findByTestId('biometric-login-btn');
+      expect(btn).toBeTruthy();
+      expect(btn.props.accessibilityRole).toBe('button');
+      expect(btn.props.accessibilityLabel).toBe('Entrar com Digital');
+
+      const textElement = await findByText('Entrar com Digital');
+      expect(textElement.props.numberOfLines).toBe(1);
+      expect(queryByText(/Entrar como/)).toBeNull();
+    });
   });
 });
