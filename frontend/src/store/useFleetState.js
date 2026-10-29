@@ -27,7 +27,8 @@ const useFleetState = create((set, get) => ({
   connectSocket: () => {
     if (socket) return;
     const token = localStorage.getItem('token');
-    const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+    const defaultSocketUrl = typeof window !== 'undefined' && import.meta.env.PROD && window.location?.origin ? window.location.origin : 'http://localhost:3001';
+    const url = import.meta.env.VITE_SOCKET_URL || defaultSocketUrl;
     socket = io(url, { auth: { token } });
 
     socket.on('connect', () => {
