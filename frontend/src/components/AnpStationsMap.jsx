@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { AlertTriangle } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import { getMapboxToken } from '../utils/mapboxToken';
 
 function BoundsWatcher({ onBoundsChange }) {
   const map = useMap();
@@ -103,7 +104,7 @@ export default function AnpStationsMap({
         >
           <TileLayer
             attribution='&copy; OpenStreetMap'
-            url={import.meta.env?.VITE_MAPBOX_TOKEN ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}` : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"}
+            url={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${getMapboxToken()}`}
           />
           {onBoundsChange && <BoundsWatcher onBoundsChange={onBoundsChange} />}
           {stations.map(st => {

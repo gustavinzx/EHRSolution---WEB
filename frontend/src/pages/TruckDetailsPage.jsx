@@ -6,6 +6,7 @@ import { useFleet } from '../hooks/useFleet';
 import LoadingSpinner from '../components/LoadingSpinner';
 import RouteModal from '../components/RouteModal';
 import { renderAnpMatchCell } from '../components/FuelingTable';
+import { getMapboxToken } from '../utils/mapboxToken';
 import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
 
 function CenterOnTruck({ lat, lng }) {
@@ -695,7 +696,7 @@ export default function TruckDetailsPage() {
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 
                     attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-                    url={import.meta.env.VITE_MAPBOX_TOKEN ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}` : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'}
+                    url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${getMapboxToken()}`}
                     className="map-tiles"
                     noWrap={true}
                   />

@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, CheckCircle2, XCircle, Navigation } from 'lucide-react';
+import { getMapboxToken } from '../utils/mapboxToken';
 
 function createCustomPin(isAuthorized) {
   const color = isAuthorized ? '#10B981' : '#EF4444';
@@ -73,7 +74,7 @@ export default function AuthorizedStationsMap({
     ? [parseFloat(validStations[0].lat), parseFloat(validStations[0].lng)]
     : [-15.793889, -47.882778];
 
-  const mapboxToken = import.meta.env?.VITE_MAPBOX_TOKEN;
+  const mapboxToken = getMapboxToken();
   const tileUrl = mapboxToken
     ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`
     : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';

@@ -213,7 +213,7 @@ const useFleetState = create((set, get) => ({
   // WebSocket tick), then fetches the new return route.
   cancelTruckRoute: async (truckId) => {
     const token = localStorage.getItem('token');
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
       // Invalidate cached route so the new return route is fetched fresh
       fetchedTruckRoutes.delete(String(truckId));
