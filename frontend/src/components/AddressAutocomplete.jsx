@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Loader2 } from 'lucide-react';
+import { getMapboxToken } from '../utils/mapboxToken';
 
 export default function AddressAutocomplete({ placeholder, value, onChange }) {
   const [query, setQuery] = useState(value?.name || '');
@@ -35,7 +36,7 @@ export default function AddressAutocomplete({ placeholder, value, onChange }) {
 
       setLoading(true);
       try {
-        const token = import.meta.env.VITE_MAPBOX_TOKEN;
+        const token = getMapboxToken();
         // Adicionado language=pt e fuzziness param para melhorar precisão de CEPs e endereços brasileiros
         const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=br&language=pt&limit=5`);
         const data = await res.json();
