@@ -4,6 +4,8 @@ WORKDIR /build/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+ARG VITE_MAPBOX_TOKEN=""
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
 RUN npm run build
 
 # ─── Estágio 2: Servidor Unificado (Backend API + Socket.IO + Painel Web) ────

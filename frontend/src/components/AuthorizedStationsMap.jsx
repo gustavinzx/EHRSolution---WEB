@@ -76,7 +76,7 @@ export default function AuthorizedStationsMap({
   const mapboxToken = import.meta.env?.VITE_MAPBOX_TOKEN;
   const tileUrl = mapboxToken
     ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`
-    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
   return (
     <div

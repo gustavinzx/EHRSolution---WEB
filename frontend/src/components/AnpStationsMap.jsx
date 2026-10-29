@@ -103,7 +103,7 @@ export default function AnpStationsMap({
         >
           <TileLayer
             attribution='&copy; OpenStreetMap'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url={import.meta.env?.VITE_MAPBOX_TOKEN ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}` : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"}
           />
           {onBoundsChange && <BoundsWatcher onBoundsChange={onBoundsChange} />}
           {stations.map(st => {
