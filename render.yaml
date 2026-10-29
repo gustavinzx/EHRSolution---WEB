@@ -1,0 +1,40 @@
+databases:
+  - name: ehr-postgres-free
+    databaseName: ehr_fleet
+    user: ehr_user
+    plan: free
+
+services:
+  - type: web
+    name: ehr-solutions-homologacao
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ehr-postgres-free
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: NODE_ENV
+        value: staging
+      - key: TRUST_PROXY
+        value: "1"
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: AUTO_SEED_IF_EMPTY
+        value: "true"
+      - key: VIRTUAL_HARDWARE_ENABLED
+        value: "true"
+      - key: FACE_PROVIDER
+        value: mock
+      - key: FACE_MOCK_MODE
+        value: always_match
+      - key: DATA_SOURCE
+        value: mock

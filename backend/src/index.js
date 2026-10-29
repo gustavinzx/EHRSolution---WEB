@@ -154,6 +154,16 @@ app.use('/api/facial-attempts', generalLimiter, authMiddleware, require('./route
 app.use('/api/users', generalLimiter, authMiddleware, require('./routes/users'));
 app.use('/api/anp', generalLimiter, authMiddleware, require('./routes/anp'));
 
+// Em deploys unificados gratuitos (ex: Render.com), serve o build do Painel Web na mesma porta da API
+if (process.env.SERVE_FRONTEND === 'true') {
+  const frontendDist = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -193,6 +203,8 @@ if (process.env.NODE_ENV !== 'test') {
     try {
       const { runMigrations } = require('./migrations/runner');
       await runMigrations();
+      const { seedIfEmpty } = require('./seed/seedIfEmpty');
+      await seedIfEmpty();
     } catch (err) {
       console.error('[MIGRATIONS] Schema init failed:', err.message);
       process.exit(1);
