@@ -155,13 +155,23 @@ export function useDrivers() {
     }
   }, []);
 
-  return { 
-    drivers, 
-    loading, 
-    error, 
-    fetchDrivers, 
-    createDriver, 
-    updateDriver, 
+    const fetchDriverPassword = useCallback(async (id) => {
+    try {
+      const response = await client.get(`/drivers/${id}/password`);
+      return response.data.password; // string ou null
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao buscar senha');
+      return undefined;
+    }
+  }, []);
+
+  return {
+    drivers,
+    loading,
+    error,
+    fetchDrivers,
+    createDriver,
+    updateDriver,
     deactivateDriver, activateDriver,
     assignTruck,
     unassignTruck,
@@ -169,6 +179,7 @@ export function useDrivers() {
     enrollFace,
     removeFace,
     fetchRanking,
-    fetchDriverScore
+    fetchDriverScore,
+    fetchDriverPassword
   };
 }

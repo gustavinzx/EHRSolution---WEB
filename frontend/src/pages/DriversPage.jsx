@@ -5,6 +5,7 @@ import { useFleet } from '../hooks/useFleet';
 import DriverModal from '../components/DriverModal';
 import EnrollmentModal from '../components/EnrollmentModal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import DriverDetailsModal from '../components/DriverDetailsModal';
 import {
   UserPlus,
   Search,
@@ -20,7 +21,9 @@ import {
   XCircle,
   X,
   ScanFace,
+  Eye
 } from 'lucide-react';
+
 
 const glass = {
   background: 'rgba(11, 22, 40, 0.75)',
@@ -53,6 +56,8 @@ export default function DriversPage() {
     deleteDriver,
     enrollFace,
     removeFace,
+    fetchDriverScore,
+    fetchDriverPassword
   } = useDrivers();
   const { trucks } = useFleet();
   const [search, setSearch] = useState('');
@@ -61,6 +66,7 @@ export default function DriversPage() {
   const [editingDriver, setEditingDriver] = useState(null);
   const [assigning, setAssigning] = useState({});
   const [enrollDriverTarget, setEnrollDriverTarget] = useState(null);
+  const [detailsDriver, setDetailsDriver] = useState(null);
 
   const filtered = drivers
     .filter(d => {
@@ -95,10 +101,9 @@ export default function DriversPage() {
     const action = driver.is_active ? deactivateDriver : activateDriver;
     if (
       window.confirm(
-        `${
-          driver.is_active
-            ? 'Atenção: desativar o motorista cancelará imediatamente qualquer sessão de abastecimento em andamento e cortará o acesso dele ao sistema. Confirmar desativação?'
-            : 'Reativar acesso facial e operações deste motorista?'
+        `${driver.is_active
+          ? 'Atenção: desativar o motorista cancelará imediatamente qualquer sessão de abastecimento em andamento e cortará o acesso dele ao sistema. Confirmar desativação?'
+          : 'Reativar acesso facial e operações deste motorista?'
         }`
       )
     ) {
@@ -218,8 +223,8 @@ export default function DriversPage() {
             boxShadow: `0 4px 20px ${kpi.color}15`,
             transition: 'transform 0.2s',
           }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', color: '#8899A6', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.8px' }}>
@@ -320,13 +325,13 @@ export default function DriversPage() {
             const avatarBorder = !d.is_active
               ? '2px solid #EF4444'
               : d.face_enrolled
-              ? '2px solid #00F5A0'
-              : '2px solid #F59E0B';
+                ? '2px solid #00F5A0'
+                : '2px solid #F59E0B';
             const avatarGlow = !d.is_active
               ? '0 0 10px rgba(239, 68, 68, 0.35)'
               : d.face_enrolled
-              ? '0 0 12px rgba(0, 245, 160, 0.35)'
-              : '0 0 8px rgba(245, 158, 11, 0.25)';
+                ? '0 0 12px rgba(0, 245, 160, 0.35)'
+                : '0 0 8px rgba(245, 158, 11, 0.25)';
 
             return (
               <div
@@ -381,7 +386,7 @@ export default function DriversPage() {
                         style={{
                           display:
                             d.face_photo &&
-                            d.face_photo !== 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='
+                              d.face_photo !== 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='
                               ? 'none'
                               : 'flex',
                           alignItems: 'center',
@@ -413,6 +418,13 @@ export default function DriversPage() {
                       </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setDetailsDriver(d)}
+                    title="Ver detalhes, score e senha"
+                    style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Eye size={14} />
+                  </button>
 
                   {user?.role !== 'auditor' && (
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -677,6 +689,14 @@ export default function DriversPage() {
         onSave={handleSave}
         driver={editingDriver}
         trucks={trucks}
+      />
+
+      <DriverDetailsModal
+        driver={detailsDriver}
+        onClose={() => setDetailsDriver(null)}
+        onEdit={d => { setEditingDriver(d); setIsModalOpen(true); }}
+        loadScore={fetchDriverScore}
+        loadPassword={fetchDriverPassword}
       />
 
       <EnrollmentModal
