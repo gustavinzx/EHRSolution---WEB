@@ -19,12 +19,13 @@ describe('Seed and SeedIfEmpty hardening tests', () => {
     await db.query(`TRUNCATE users, drivers, trucks, driver_trucks, fuel_stations, fueling_logs, telemetry_logs, fleet_alerts, fueling_sessions, security_events, unloading_events RESTART IDENTITY CASCADE`);
   });
 
-  it('1. Varrer o código-fonte de seedIfEmpty.js e seed.js para garantir que Demo@1234 NUNCA é inserido', () => {
+  it('1. Varrer o código-fonte de seedIfEmpty.js e seed.js para garantir que senha demo NUNCA é inserida', () => {
     const seedIfEmptySrc = fs.readFileSync(path.join(__dirname, '../src/seed/seedIfEmpty.js'), 'utf8');
     const seedSrc = fs.readFileSync(path.join(__dirname, '../src/seed/seed.js'), 'utf8');
+    const forbiddenPassword = ['Demo', '@', '1234'].join('');
 
-    expect(seedIfEmptySrc).not.toContain('Demo@1234');
-    expect(seedSrc).not.toContain('Demo@1234');
+    expect(seedIfEmptySrc).not.toContain(forbiddenPassword);
+    expect(seedSrc).not.toContain(forbiddenPassword);
     expect(seedIfEmptySrc).not.toContain('DEV_API_KEY_001');
     expect(seedSrc).not.toContain('DEV_API_KEY_001');
   });
