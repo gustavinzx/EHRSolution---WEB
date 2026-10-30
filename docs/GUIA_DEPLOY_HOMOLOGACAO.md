@@ -43,9 +43,11 @@ docker compose -f docker-compose.staging.yml up -d --build
 ```
 
 ### Passo 2.4 — Popular os Dados Iniciais (Apenas na 1ª Vez)
-Para criar o banco inicial de demonstração (`gestor@ehr.com` / `motorista@ehr.com` com senha `Demo@1234`, caminhão `EHR-0001` e posto de teste):
+Para criar o banco inicial de demonstração (`gestor@ehr.com` / `motorista@ehr.com`, caminhão `EHR-0001` e posto de teste):
 ```bash
-docker exec -e ALLOW_SEED_WIPE=true ehr_backend_staging npm run seed
+# As senhas podem ser definidas pelas variáveis SEED_ADMIN_PASSWORD e SEED_DRIVER_PASSWORD.
+# Se omitidas, o seed gera senhas aleatórias fortes (16+ caracteres) e as imprime uma única vez no log.
+docker exec -e ALLOW_SEED_WIPE=true -e SEED_ADMIN_PASSWORD="sua_senha_segura" -e SEED_DRIVER_PASSWORD="sua_senha_segura" ehr_backend_staging npm run seed
 ```
 *(Ou, se preferir começar com o banco limpo e criar apenas o seu usuário Gestor Administrador personalizado):*
 ```bash
@@ -107,6 +109,8 @@ Como o projeto já está atualizado para o **Expo SDK 58**, basta apontar o `mob
 ### Configuração no Render.com e Variáveis de Ambiente
 Ao realizar o deploy no Render (via `Dockerfile` ou blueprint `render.yaml`), certifique-se de configurar as seguintes variáveis no painel de Environment do serviço:
 - `VITE_MAPBOX_TOKEN`: **Obrigatório para mapas interativos**. Token público da sua conta Mapbox. Ele é repassado no build do frontend (`ARG/ENV VITE_MAPBOX_TOKEN` no `Dockerfile`). Se ausente, o sistema exibe a mensagem orientativa `"Token do Mapbox não configurado"` nos componentes de mapa e autocomplete sem quebrar a aplicação.
+- `SEED_ADMIN_PASSWORD`: (Opcional) Senha inicial da conta do gestor (`gestor@ehr.com`). Se não configurada, o seed gera uma senha forte de 16+ caracteres e a imprime uma única vez no log.
+- `SEED_DRIVER_PASSWORD`: (Opcional) Senha inicial da conta do motorista (`motorista@ehr.com`). Se não configurada, o seed gera uma senha forte de 16+ caracteres e a imprime uma única vez no log.
 
 
 1. **No Painel Web (`https://frota.suaempresa.com.br`):**

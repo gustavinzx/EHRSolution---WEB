@@ -111,7 +111,7 @@ describe('AuthContext', () => {
     });
 
     await act(async () => {
-      await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+      await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
     });
 
     expect(secureStorage.saveToken).toHaveBeenCalledWith('jwt_mock_token');
@@ -171,7 +171,7 @@ describe('AuthContext', () => {
     });
 
     await act(async () => {
-      await contextRef.signIn('motorista2@ehr.com', 'Demo@1234');
+      await contextRef.signIn('motorista2@ehr.com', 'SenhaTeste@2026');
     });
 
     expect(secureStorage.saveToken).toHaveBeenCalledWith('jwt_mock_token_null');
@@ -374,7 +374,7 @@ describe('AuthContext', () => {
       });
 
       await act(async () => {
-        await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+        await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
       });
 
       // saveToken protegido chamado
@@ -420,7 +420,7 @@ describe('AuthContext', () => {
       });
 
       await act(async () => {
-        await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+        await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
       });
 
       // Tentou gravação protegida
@@ -466,7 +466,7 @@ describe('AuthContext', () => {
       });
 
       await act(async () => {
-        await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+        await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
       });
 
       expect(secureStorage.saveToken).toHaveBeenCalledWith('jwt_mock_token', { requireAuthentication: true });
@@ -501,7 +501,7 @@ describe('AuthContext', () => {
       });
 
       await act(async () => {
-        await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+        await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
       });
 
       expect(secureStorage.saveToken).toHaveBeenCalledWith('jwt_mock_token');
@@ -554,7 +554,7 @@ describe('AuthContext', () => {
       });
 
       await act(async () => {
-        await contextRef.signIn('motorista1@ehr.com', 'Demo@1234');
+        await contextRef.signIn('motorista1@ehr.com', 'SenhaTeste@2026');
       });
 
       // Validação do estado final do opt-in

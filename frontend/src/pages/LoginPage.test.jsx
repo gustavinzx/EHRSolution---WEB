@@ -26,7 +26,7 @@ describe('LoginPage - Remocao de credenciais demo', () => {
     );
 
     expect(screen.queryByRole('button', { name: /credenciais de teste/i })).toBeNull();
-    expect(screen.queryByText(/Demo@1234/i)).toBeNull();
+    expect(screen.queryByText(/Demo@\d+/i)).toBeNull();
   });
 
   it('botao ou dica de credenciais de teste NUNCA aparece mesmo com DEV=true', () => {
@@ -38,7 +38,7 @@ describe('LoginPage - Remocao de credenciais demo', () => {
     );
 
     expect(screen.queryByRole('button', { name: /credenciais de teste/i })).toBeNull();
-    expect(screen.queryByText(/Demo@1234/i)).toBeNull();
+    expect(screen.queryByText(/Demo@\d+/i)).toBeNull();
     expect(screen.queryByText(/gestor@ehr.com/i)).toBeNull();
   });
 });

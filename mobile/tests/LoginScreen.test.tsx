@@ -78,13 +78,13 @@ describe('LoginScreen (Sessão Segura sem Armazenamento de Senha)', () => {
     const { getByPlaceholderText, getByText } = render(<LoginScreen />);
 
     fireEvent.changeText(getByPlaceholderText('Digite seu e-mail corporativo'), 'motorista1@ehr.com');
-    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'Demo@1234');
+    fireEvent.changeText(getByPlaceholderText('Digite sua senha'), 'SenhaTeste@2026');
 
     await act(async () => {
       fireEvent.press(getByText('Entrar'));
     });
 
-    expect(mockSignIn).toHaveBeenCalledWith('motorista1@ehr.com', 'Demo@1234');
+    expect(mockSignIn).toHaveBeenCalledWith('motorista1@ehr.com', 'SenhaTeste@2026');
     // Salva apenas e-mail
     expect(secureStorage.saveRememberedEmail).toHaveBeenCalledWith('motorista1@ehr.com');
     // "Lembrar de mim" NÃO ativa biometria sozinho
