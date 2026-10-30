@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowRight, Shield, Gauge, Bell } from 'lucide-react';
+import { ArrowRight, Shield, Gauge, Bell, Radio } from 'lucide-react';
 
 const features = [
-  { icon: Gauge,  label: 'Monitoramento em tempo real' },
-  { icon: Shield, label: 'Controle seguro de abastecimento' },
-  { icon: Bell,   label: 'Alertas de combustível crítico' },
+  { icon: Gauge,  label: 'Telemetria telemática contínua e rastreamento em tempo real' },
+  { icon: Shield, label: 'Liberação física de bocal com biometria facial e IA liveness' },
+  { icon: Bell,   label: 'Detecção de divergência volumétrica e auditoria ANP' },
 ];
 
 export default function LoginPage() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const { login }  = useAuth();
   const navigate   = useNavigate();
 
@@ -25,12 +24,12 @@ export default function LoginPage() {
     if (ok) navigate('/');
   };
 
-  const input = {
-    background: 'rgba(0,0,0,0.4)',
-    border: '1px solid rgba(255,255,255,0.1)',
+  const inputStyle = {
+    background: 'rgba(6, 11, 19, 0.75)',
+    border: '1px solid rgba(0, 212, 255, 0.2)',
     color: '#fff',
     padding: '13px 16px',
-    borderRadius: '10px',
+    borderRadius: '12px',
     width: '100%',
     fontSize: '14px',
     outline: 'none',
@@ -42,7 +41,7 @@ export default function LoginPage() {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
-      background: 'radial-gradient(ellipse at 20% 50%, rgba(56,189,248,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(79,142,247,0.08) 0%, transparent 50%), #070d1a',
+      background: 'radial-gradient(ellipse at 15% 50%, rgba(0, 212, 255, 0.12) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(0, 114, 255, 0.12) 0%, transparent 55%), #060B13',
     }}>
       {/* Left: branding */}
       <div style={{
@@ -50,53 +49,64 @@ export default function LoginPage() {
         justifyContent: 'center', alignItems: 'center',
         padding: '60px', position: 'relative', overflow: 'hidden',
       }}>
-        {/* decorative circles */}
-        {[['-100px','-100px','300px','rgba(56,189,248,0.08)'],[null,'-80px','200px','rgba(79,142,247,0.1)',0,'60%']].map(([t,l,s,bg,b,r],i) => (
-          <div key={i} style={{
-            position:'absolute', top: i===0?'-60px':'auto', bottom: i===1?'-60px':'auto',
-            left: i===0?'-60px':'auto', right: i===1?'-60px':'auto',
-            width: s, height: s, borderRadius:'50%', background: bg, filter:'blur(40px)', pointerEvents:'none',
-          }}/>
-        ))}
+        {/* Decorative blur spots */}
+        <div style={{
+          position: 'absolute', top: '-100px', left: '-100px',
+          width: '360px', height: '360px', borderRadius: '50%',
+          background: 'rgba(0, 212, 255, 0.14)', filter: 'blur(60px)', pointerEvents: 'none'
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-80px', right: '-80px',
+          width: '280px', height: '280px', borderRadius: '50%',
+          background: 'rgba(0, 114, 255, 0.12)', filter: 'blur(50px)', pointerEvents: 'none'
+        }} />
 
-        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, maxWidth: '400px' }}>
-          {/* Logo */}
+        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, maxWidth: '440px' }}>
+          {/* Official Logo Container */}
           <div style={{
-            width: '80px', height: '80px', borderRadius: '20px', margin: '0 auto 28px',
-            background: 'linear-gradient(135deg, #38BDF8, #60A5FA)',
+            width: '92px', height: '92px', borderRadius: '24px', margin: '0 auto 24px',
+            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 114, 255, 0.2))',
+            border: '1.5px solid rgba(0, 212, 255, 0.45)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 40px rgba(56,189,248,0.4)',
+            boxShadow: '0 0 35px rgba(0, 212, 255, 0.35)',
           }}>
-            <img src="/images/ehr-logo.webp" alt="" style={{ width: '60px', height: '60px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+            <img
+              src="/ehr-logo-official.png"
+              alt="EHR Solutions"
+              style={{ width: '64px', height: '64px', objectFit: 'contain' }}
+            />
           </div>
 
           <h1 style={{
-            fontFamily: 'Outfit, sans-serif', fontSize: '40px', fontWeight: 800,
-            color: '#fff', margin: '0 0 12px', lineHeight: 1.1,
+            fontSize: '40px', fontWeight: 900,
+            color: '#fff', margin: '0 0 10px', lineHeight: 1.1,
+            letterSpacing: '-0.5px'
           }}>
-            EHR <span style={{ background: 'linear-gradient(135deg,#38BDF8,#60A5FA)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Solutions</span>
+            EHR <span style={{ color: '#00D4FF', textShadow: '0 0 20px rgba(0, 212, 255, 0.5)' }}>Solutions</span>
           </h1>
 
-          <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, marginBottom: '40px' }}>
-            Plataforma Inteligente de<br />Controle de Frotas
+          <p style={{ color: '#8899A6', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px' }}>
+            Plataforma Next-Gen de Gestão de Frotas, Telemetria IoT e Segurança Forense
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
             {features.map(({ icon: Icon, label }) => (
               <div key={label} style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '12px 16px', borderRadius: '10px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '14px 18px', borderRadius: '14px',
+                background: 'rgba(11, 22, 40, 0.75)',
+                border: '1px solid rgba(0, 212, 255, 0.15)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
               }}>
                 <div style={{
-                  width: '32px', height: '32px', borderRadius: '8px',
-                  background: 'linear-gradient(135deg,#38BDF8,#60A5FA)',
+                  width: '36px', height: '36px', borderRadius: '10px',
+                  background: 'rgba(0, 212, 255, 0.12)',
+                  border: '1px solid rgba(0, 212, 255, 0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <Icon size={15} color="#fff" />
+                  <Icon size={18} color="#00D4FF" />
                 </div>
-                <span style={{ fontSize: '13px', color: '#94a3b8' }}>{label}</span>
+                <span style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>{label}</span>
               </div>
             ))}
           </div>
@@ -105,47 +115,51 @@ export default function LoginPage() {
 
       {/* Right: form */}
       <div style={{
-        width: '440px', flexShrink: 0,
+        width: '460px', flexShrink: 0,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: '60px 48px',
-        background: 'rgba(255,255,255,0.03)',
-        backdropFilter: 'blur(40px)',
-        WebkitBackdropFilter: 'blur(40px)',
-        borderLeft: '1px solid rgba(255,255,255,0.07)',
+        background: 'rgba(11, 22, 40, 0.88)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+        borderLeft: '1px solid rgba(0, 212, 255, 0.18)',
+        boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.5)',
       }}>
-        <div style={{ marginBottom: '36px' }}>
-          <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '26px', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(0, 212, 255, 0.12)', border: '1px solid rgba(0, 212, 255, 0.3)', padding: '5px 12px', borderRadius: '20px', color: '#00D4FF', fontSize: '11px', fontWeight: 800, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '14px', boxShadow: '0 0 12px rgba(0, 212, 255, 0.2)' }}>
+            <Radio size={12} color="#00D4FF" /> Portal do Gestor
+          </div>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', marginBottom: '6px', letterSpacing: '-0.3px' }}>
             Acessar Painel
           </h2>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Entre com suas credenciais de gestor
+          <p style={{ color: '#8899A6', fontSize: '14px', margin: 0 }}>
+            Entre com suas credenciais autorizadas de comando
           </p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#8899A6', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               E-mail
             </label>
             <input
-              type="email" required autoComplete="email" placeholder="gestor@ehr.com"
+              type="email" required autoComplete="email" placeholder="seu.email@empresa.com"
               value={email} onChange={e => setEmail(e.target.value)}
-              style={input}
-              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
-              onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
+              style={inputStyle}
+              onFocus={e => { e.target.style.borderColor='#00D4FF'; e.target.style.boxShadow='0 0 16px rgba(0, 212, 255, 0.25)'; }}
+              onBlur={e => { e.target.style.borderColor='rgba(0, 212, 255, 0.2)'; e.target.style.boxShadow='none'; }}
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#8899A6', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               Senha
             </label>
             <input
               type="password" required autoComplete="current-password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)}
-              style={input}
-              onFocus={e => { e.target.style.borderColor='rgba(56,189,248,0.5)'; e.target.style.boxShadow='0 0 0 3px rgba(56,189,248,0.1)'; }}
-              onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.boxShadow='none'; }}
+              style={inputStyle}
+              onFocus={e => { e.target.style.borderColor='#00D4FF'; e.target.style.boxShadow='0 0 16px rgba(0, 212, 255, 0.25)'; }}
+              onBlur={e => { e.target.style.borderColor='rgba(0, 212, 255, 0.2)'; e.target.style.boxShadow='none'; }}
             />
           </div>
 
@@ -153,41 +167,18 @@ export default function LoginPage() {
             type="submit" disabled={loading}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              padding: '14px', borderRadius: '10px', border: 'none',
-              background: loading ? 'rgba(56,189,248,0.5)' : 'linear-gradient(135deg, #38BDF8, #60A5FA)',
-              color: '#fff', fontFamily: 'Outfit, sans-serif', fontWeight: 700,
+              padding: '14px', borderRadius: '12px', border: 'none',
+              background: loading ? 'rgba(0, 212, 255, 0.4)' : 'linear-gradient(135deg, #00D4FF 0%, #0072FF 100%)',
+              color: '#fff', fontWeight: 800,
               fontSize: '15px', cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 8px 32px rgba(56,189,248,0.3)',
-              transition: 'opacity 0.2s, transform 0.1s',
-              marginTop: '8px',
+              boxShadow: '0 0 24px rgba(0, 212, 255, 0.4)',
+              transition: 'all 0.2s',
+              marginTop: '6px',
             }}
           >
             {loading ? 'Entrando...' : <><span>Entrar</span><ArrowRight size={16}/></>}
           </button>
         </form>
-
-        {/* Demo hint */}
-        <div style={{ marginTop: '24px', textAlign: 'center' }}>
-          <button
-            type="button"
-            onClick={() => setShowDemo(!showDemo)}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            {showDemo ? 'Ocultar credenciais de teste' : 'Mostrar credenciais de teste'}
-          </button>
-          {showDemo && (
-            <div style={{
-              marginTop: '12px', padding: '12px',
-              background: 'rgba(56,189,248,0.06)',
-              border: '1px solid rgba(56,189,248,0.15)',
-              borderRadius: '8px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.6, textAlign: 'left'
-            }}>
-              <div style={{ fontWeight: 600, color: '#38BDF8', marginBottom: '4px' }}>🔑 Acesso Demo</div>
-              <div>E-mail: gestor@ehr.com</div>
-              <div>Senha: Demo@1234</div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

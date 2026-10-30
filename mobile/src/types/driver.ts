@@ -1,7 +1,6 @@
 export interface Driver {
-  id: string;
+  id: number;
   name: string;
-  cpf: string;
-  registration: string;
-  vehicleId?: string;
+  email: string;
+  phone: string;
 }

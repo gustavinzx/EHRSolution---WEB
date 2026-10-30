@@ -1,8 +1,12 @@
 const db = require('../config/db');
+const { isInterdicted } = require('./anpStatus');
+const { validateStationMatchRadius } = require('./stationMatcher');
 
 // Thresholds
 const FUEL_DROP_THRESHOLD_PCT = 8;   // % drop that triggers alert
 const TIME_WINDOW_MINUTES = 5;        // window to check for fueling log
+
+const ALERT_RETURN_COLS = `id, truck_id, type, severity, message, plate, model, resolved_at, resolution_note, resolved_by, created_at, fueling_log_id`;
 
 /**
  * Check for suspicious fuel drops for all trucks.
@@ -44,8 +48,18 @@ async function detectFuelAnomalies(io) {
 
       // Um abastecimento legítimo recupera o alerta aberto daquele caminhão.
       if (parseFloat(row.current_level) >= cap * 0.9) {
-        await db.query(`UPDATE fleet_alerts SET resolved_at = NOW()
-          WHERE truck_id = $1 AND type = 'suspicious_fuel_drop' AND resolved_at IS NULL`, [row.truck_id]);
+        const { rows: logs } = await db.query(`
+          SELECT timestamp, data_source FROM fueling_logs 
+          WHERE truck_id=$1 AND timestamp >= NOW() - INTERVAL '30 minutes' 
+          ORDER BY timestamp DESC LIMIT 1
+        `, [row.truck_id]);
+        if (logs.length > 0 && ['hardware', 'manager'].includes(logs[0].data_source)) {
+          await db.query(`
+            UPDATE fleet_alerts SET resolved_at = NOW(), resolution_note = 'Resolvido automaticamente por abastecimento validado', resolved_by = 'Sistema'
+            WHERE truck_id = $1 AND type = 'suspicious_fuel_drop' AND resolved_at IS NULL AND created_at <= $2
+            RETURNING id, created_at
+          `, [row.truck_id, logs[0].timestamp]);
+        }
         continue;
       }
 
@@ -83,7 +97,7 @@ async function detectFuelAnomalies(io) {
       const { rows: inserted } = await db.query(`
         INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
         VALUES ($1, 'suspicious_fuel_drop', 'critical', $2, $3, $4)
-        RETURNING *
+        RETURNING ${ALERT_RETURN_COLS}
       `, [row.truck_id, message, row.plate, row.model]);
 
       console.log(`[ALERT] Queda suspeita de combustível detectada: Caminhão ${row.plate} — ${dropPct.toFixed(1)}% de queda`);
@@ -114,6 +128,7 @@ async function detectUnauthorizedStationFueling(io) {
       JOIN trucks t ON t.id = f.truck_id
       LEFT JOIN fuel_stations fs ON fs.id = f.station_id
       WHERE f.station_id IS NOT NULL
+        AND COALESCE(f.data_source, '') != 'simulated'
         AND f.timestamp > NOW() - INTERVAL '24 hours'
         AND fs.is_authorized = false
     `);
@@ -132,7 +147,7 @@ async function detectUnauthorizedStationFueling(io) {
       const { rows: inserted } = await db.query(`
         INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
         VALUES ($1, 'unauthorized_station', 'critical', $2, $3, $4)
-        RETURNING *
+        RETURNING ${ALERT_RETURN_COLS}
       `, [log.truck_id, message, log.plate, log.model]);
 
       console.log(`[ALERT] Posto não autorizado: ${log.plate} — ${log.station_name}`);
@@ -145,12 +160,118 @@ async function detectUnauthorizedStationFueling(io) {
   }
 }
 
+async function evaluateAnpStationAlertForLog({
+  logId,
+  truckId,
+  plate,
+  model,
+  dataSource,
+  matchStatus,
+  anpStationId,
+  io
+} = {}) {
+  try {
+    if (!truckId) return null;
+    if (dataSource === 'simulated') return null;
+    if (!matchStatus || matchStatus === 'no_position') return null;
+
+    if (matchStatus === 'unrecognized') {
+      const { rows: existing } = await db.query(
+        `SELECT id FROM fleet_alerts
+         WHERE truck_id = $1
+           AND type = 'unrecognized_station'
+           AND created_at > NOW() - INTERVAL '2 hours'
+         LIMIT 1`,
+        [truckId]
+      );
+      if (existing.length > 0) return null;
+
+      let radiusM = 150;
+      try {
+        radiusM = validateStationMatchRadius(process.env.STATION_MATCH_RADIUS_M);
+      } catch (_) {
+        radiusM = 150;
+      }
+
+      const message = `Abastecimento do veículo ${plate || '#' + truckId} realizado fora do raio de ${radiusM} m de qualquer posto ativo no catálogo ANP (pode indicar GPS impreciso ou posto novo ainda não publicado pela ANP).`;
+      const { rows: inserted } = await db.query(
+        `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model, fueling_log_id)
+         VALUES ($1, 'unrecognized_station', 'high', $2, $3, $4, $5)
+         RETURNING ${ALERT_RETURN_COLS}`,
+        [truckId, message, plate || null, model || null, logId || null]
+      );
+
+      if (io && inserted.length > 0) {
+        io.emit('newAlert', inserted[0]);
+      }
+      return inserted[0] || null;
+    }
+
+    if (matchStatus === 'matched' && anpStationId) {
+      const { rows: stRows } = await db.query(
+        `SELECT razao_social, cnpj, situacao_sigaf
+         FROM anp_stations
+         WHERE id = $1
+         LIMIT 1`,
+        [anpStationId]
+      );
+      if (stRows.length === 0) return null;
+      const st = stRows[0];
+      if (!isInterdicted(st.situacao_sigaf)) return null;
+
+      const { rows: existing } = await db.query(
+        `SELECT id FROM fleet_alerts
+         WHERE truck_id = $1
+           AND type = 'unauthorized_station'
+           AND created_at > NOW() - INTERVAL '2 hours'
+         LIMIT 1`,
+        [truckId]
+      );
+      if (existing.length > 0) return null;
+
+      const message = `Abastecimento em posto NÃO autorizado / interditado na ANP: ${st.razao_social || 'Desconhecido'} (CNPJ ${String(st.cnpj || '').trim()}). Veículo: ${plate || '#' + truckId}.`;
+      const { rows: inserted } = await db.query(
+        `INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model, fueling_log_id)
+         VALUES ($1, 'unauthorized_station', 'critical', $2, $3, $4, $5)
+         RETURNING ${ALERT_RETURN_COLS}`,
+        [truckId, message, plate || null, model || null, logId || null]
+      );
+
+      if (io && inserted.length > 0) {
+        io.emit('newAlert', inserted[0]);
+      }
+      return inserted[0] || null;
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[ANOMALY] Erro ao avaliar alerta ANP do abastecimento:', err.message);
+    return null;
+  }
+}
+
+let isRunning = false;
+
 function startAnomalyEngine(io) {
   console.log("[SECURITY] Iniciando Motor de Anomalias em background (24/7)...");
   setInterval(async () => {
-    await detectFuelAnomalies(io);
-    await detectUnauthorizedStationFueling(io);
+    if (isRunning) return;
+    isRunning = true;
+    try {
+      await detectFuelAnomalies(io);
+      await detectUnauthorizedStationFueling(io);
+    } catch (err) {
+      console.error("[SECURITY] Erro no loop de anomalias:", err);
+    } finally {
+      isRunning = false;
+    }
   }, 5000); // Roda a cada 5 segundos
 }
 
-module.exports = { detectFuelAnomalies, detectUnauthorizedStationFueling, startAnomalyEngine };
+module.exports = {
+  detectFuelAnomalies,
+  detectUnauthorizedStationFueling,
+  evaluateAnpStationAlertForLog,
+  startAnomalyEngine
+};
+

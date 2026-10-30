@@ -1,15 +1,50 @@
 const db = require('../config/db');
 const { detectFuelAnomalies } = require('../services/anomalyDetector');
+const { CRITICAL_ALERT_TYPES } = require('../services/securityService');
+const fleetDataProvider = require('../services/fleetDataProvider');
 
 // GET /api/alerts — return recent alerts (last 24h)
 exports.list = async (req, res) => {
   try {
-    const { rows } = await db.query(`
-      SELECT * FROM fleet_alerts
-      WHERE resolved_at IS NULL
-      ORDER BY created_at DESC
-      LIMIT 50
-    `);
+    let { truck_id, type, severity, status, start, end } = req.query;
+    
+    // Default status
+    if (!status) status = 'active';
+
+    // Validações
+    if (truck_id && !/^\d+$/.test(truck_id)) {
+      return res.status(400).json({ error: "truck_id deve ser um número inteiro válido." });
+    }
+    if (severity && !['low', 'medium', 'high', 'critical'].includes(severity)) {
+      return res.status(400).json({ error: "severity inválida. Use low, medium, high ou critical." });
+    }
+    if (status && !['active', 'resolved', 'all'].includes(status)) {
+      return res.status(400).json({ error: "status inválido. Use active, resolved ou all." });
+    }
+    if (start && isNaN(Date.parse(start))) {
+      return res.status(400).json({ error: "start deve ser uma data válida." });
+    }
+    if (end && isNaN(Date.parse(end))) {
+      return res.status(400).json({ error: "end deve ser uma data válida." });
+    }
+
+    let query = 'SELECT * FROM fleet_alerts WHERE 1=1';
+    const params = [];
+    let pIdx = 1;
+
+    if (truck_id) { query += ` AND truck_id = $${pIdx++}`; params.push(parseInt(truck_id)); }
+    if (type) { query += ` AND type = $${pIdx++}`; params.push(type); }
+    if (severity) { query += ` AND severity = $${pIdx++}`; params.push(severity); }
+    
+    if (status === 'resolved') { query += ` AND resolved_at IS NOT NULL`; }
+    else if (status === 'active') { query += ` AND resolved_at IS NULL`; }
+
+    if (start) { query += ` AND created_at >= $${pIdx++}`; params.push(new Date(start).toISOString()); }
+    if (end) { query += ` AND created_at <= $${pIdx++}`; params.push(new Date(end).toISOString()); }
+
+    query += ' ORDER BY created_at DESC LIMIT 100';
+
+    const { rows } = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error('List alerts error:', err);
@@ -17,104 +52,89 @@ exports.list = async (req, res) => {
   }
 };
 
-// POST /api/alerts/simulate-fuel-drop/:truckId — dev demo endpoint
-exports.simulateFuelDrop = async (req, res) => {
-  try {
-    const { truckId } = req.params;
-
-    const { rows: trucks } = await db.query(
-      'SELECT id, plate, model, current_level_liters, capacity_liters FROM trucks WHERE id = $1',
-      [truckId]
-    );
-    if (!trucks.length) return res.status(404).json({ error: 'Truck not found' });
-
-    const truck = trucks[0];
-    const cap = parseFloat(truck.capacity_liters);
-    const currentLevel = parseFloat(truck.current_level_liters);
-    
-    // Force a suspicious drop: reduce fuel by 12% without a fueling log
-    const dropLiters = cap * 0.12;
-    const newLevel = Math.max(0, currentLevel - dropLiters);
-
-    await db.query(
-      'UPDATE trucks SET current_level_liters = $1 WHERE id = $2',
-      [newLevel, truckId]
-    );
-
-    // Insert a telemetry record showing the drop
-    const { rows: lastTel } = await db.query(
-      'SELECT lat, lng FROM trucks WHERE id = $1',
-      [truckId]
-    );
-    if (lastTel.length) {
-      await db.query(
-        'INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters) VALUES ($1, $2, $3, 60, $4)',
-        [truckId, lastTel[0].lat, lastTel[0].lng, newLevel]
-      );
-      // Insert a prev reading that is higher so the detector sees the drop
-      await db.query(
-        'INSERT INTO telemetry_logs (truck_id, lat, lng, speed_kmh, fuel_level_liters, timestamp) VALUES ($1, $2, $3, 60, $4, NOW() - INTERVAL \'2 minutes\')',
-        [truckId, lastTel[0].lat, lastTel[0].lng, currentLevel]
-      );
-    }
-
-    // Create the alert immediately (don't wait for next tick)
-    const dropPct = (dropLiters / cap) * 100;
-    const message = `[DEMO] Queda suspeita de ${dropPct.toFixed(1)}% (${dropLiters.toFixed(1)}L) sem abastecimento registrado.`;
-    
-    const { rows: inserted } = await db.query(`
-      INSERT INTO fleet_alerts (truck_id, type, severity, message, plate, model)
-      VALUES ($1, 'suspicious_fuel_drop', 'critical', $2, $3, $4)
-      RETURNING *
-    `, [truckId, message, truck.plate, truck.model]);
-
-    // Emit via WebSocket in real time
-    if (req.io && inserted.length > 0) {
-      req.io.emit('newAlert', inserted[0]);
-    }
-
-    res.json({ 
-      message: 'Fuel drop simulated successfully', 
-      alert: inserted[0],
-      dropLiters: dropLiters.toFixed(1),
-      dropPct: dropPct.toFixed(1)
-    });
-  } catch (err) {
-    console.error('Simulate fuel drop error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-// DELETE /api/alerts/:id — dismiss an alert
-exports.dismiss = async (req, res) => {
-  try {
-    await db.query('DELETE FROM fleet_alerts WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Alert dismissed' });
-  } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
 exports.resolve = async (req, res) => {
+  let client;
   try {
     const { id } = req.params;
-    const { resolution_note, resolved_by } = req.body;
+    const { resolution_note } = req.body;
     
-    const { rows } = await db.query(
+    // Validar nota de resolução
+    if (!resolution_note || resolution_note.trim().length < 5) {
+      return res.status(400).json({ error: "A nota de resolução deve ter pelo menos 5 caracteres." });
+    }
+
+    // Identificar gestor a partir do token (authMiddleware)
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuário não autenticado." });
+    }
+    const resolved_by = req.user.name || req.user.email;
+
+    // Resolução do alerta + restauração do status do caminhão na MESMA transação,
+    // para nunca existir janela com o alerta resolvido e o caminhão ainda em 'security_alert'.
+    client = await db.pool.connect();
+    await client.query('BEGIN');
+
+    // Trava a linha do caminhão antes de resolver: resoluções simultâneas de alertas do
+    // mesmo caminhão são serializadas e a checagem "resta alerta crítico aberto?" é confiável.
+    const { rows: target } = await client.query(
+      `SELECT truck_id, type FROM fleet_alerts WHERE id = $1 AND resolved_at IS NULL`,
+      [id]
+    );
+    if (target.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Alerta não encontrado ou já resolvido" });
+    }
+    const isCritical = CRITICAL_ALERT_TYPES.includes(target[0].type);
+    if (isCritical && target[0].truck_id) {
+      await client.query('SELECT id FROM trucks WHERE id = $1 FOR UPDATE', [target[0].truck_id]);
+    }
+
+    const { rows } = await client.query(
       `UPDATE fleet_alerts 
        SET resolved_at = NOW(), resolution_note = $1, resolved_by = $2
        WHERE id = $3 AND resolved_at IS NULL
        RETURNING *`,
-      [resolution_note || null, resolved_by || null, id]
+      [resolution_note.trim(), resolved_by, id]
     );
     
     if (rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: "Alerta não encontrado ou já resolvido" });
+    }
+
+    let truckRestored = false;
+    if (isCritical && rows[0].truck_id) {
+      const { rowCount } = await client.query(
+        `UPDATE trucks SET status = 'ok'
+          WHERE id = $1 AND status = 'security_alert'
+            AND NOT EXISTS (
+              SELECT 1 FROM fleet_alerts a
+               WHERE a.truck_id = trucks.id AND a.resolved_at IS NULL AND a.type = ANY($2::text[])
+            )`,
+        [rows[0].truck_id, CRITICAL_ALERT_TYPES]
+      );
+      truckRestored = rowCount > 0;
+    }
+
+    await client.query('COMMIT');
+
+    // Mesmo evento que o painel já usa para atualizar os caminhões (a etiqueta some sem recarregar)
+    if (truckRestored && req.io) {
+      try {
+        req.io.emit('fleetUpdate', await fleetDataProvider.getFleetSnapshot());
+      } catch (emitErr) {
+        console.error('Emit fleetUpdate after resolve error:', emitErr.message);
+      }
     }
     
     res.json(rows[0]);
   } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* transação já encerrada */ }
+    }
     console.error("Resolve alert error:", err);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    if (client) client.release();
   }
 };

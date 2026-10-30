@@ -30,4 +30,5 @@ Thumbs.db
 
 *.glb
 
-**/.expo/
+fix*.js
+*_test_output.txt

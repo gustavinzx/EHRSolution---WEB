@@ -32,10 +32,10 @@ export function useDrivers() {
       const response = await client.post('/drivers', driverData);
       setDrivers(prev => [...prev, response.data]);
       toast.success('Motorista criado com sucesso');
-      return true;
+      return response.data;
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao criar motorista');
-      return false;
+      return null;
     }
   };
 
@@ -75,6 +75,30 @@ export function useDrivers() {
     }
   };
 
+  const unassignTruck = async (driverId, truckId) => {
+    try {
+      await client.delete(`/drivers/${driverId}/trucks/${truckId}`);
+      fetchDrivers();
+      toast.success('Caminhão desvinculado com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao desvincular caminhão');
+      return false;
+    }
+  };
+
+  const deleteDriver = async (id) => {
+    try {
+      await client.delete(`/drivers/${id}`);
+      setDrivers(prev => prev.filter(d => d.id !== id));
+      toast.success('Motorista excluído com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao excluir motorista');
+      return false;
+    }
+  };
+
   const assignTruck = async (driverId, truckId) => {
     try {
       await client.post(`/drivers/${driverId}/trucks`, { truck_id: truckId });
@@ -83,6 +107,30 @@ export function useDrivers() {
       return true;
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao vincular caminhão');
+      return false;
+    }
+  };
+
+  const enrollFace = async (driverId, data) => {
+    try {
+      const response = await client.post(`/drivers/${driverId}/face/enroll`, data);
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, ...response.data, face_enrolled: true } : d));
+      toast.success('Biometria facial cadastrada com sucesso!');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao cadastrar biometria facial');
+      return false;
+    }
+  };
+
+  const removeFace = async (driverId) => {
+    try {
+      await client.delete(`/drivers/${driverId}/face`);
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, face_enrolled: false, face_photo: null } : d));
+      toast.success('Biometria facial revogada com sucesso');
+      return true;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao revogar biometria');
       return false;
     }
   };
@@ -107,16 +155,31 @@ export function useDrivers() {
     }
   }, []);
 
-  return { 
-    drivers, 
-    loading, 
-    error, 
-    fetchDrivers, 
-    createDriver, 
-    updateDriver, 
+    const fetchDriverPassword = useCallback(async (id) => {
+    try {
+      const response = await client.get(`/drivers/${id}/password`);
+      return response.data.password; // string ou null
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao buscar senha');
+      return undefined;
+    }
+  }, []);
+
+  return {
+    drivers,
+    loading,
+    error,
+    fetchDrivers,
+    createDriver,
+    updateDriver,
     deactivateDriver, activateDriver,
     assignTruck,
+    unassignTruck,
+    deleteDriver,
+    enrollFace,
+    removeFace,
     fetchRanking,
-    fetchDriverScore
+    fetchDriverScore,
+    fetchDriverPassword
   };
 }

@@ -5,12 +5,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacityProps,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
-import { theme } from '../theme/theme';
 
-interface ButtonProps extends TouchableOpacityProps {
+export interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'success';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'outline' | 'ghost';
   loading?: boolean;
 }
 
@@ -20,50 +21,158 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   disabled,
   style,
+  testID,
   ...rest
 }) => {
-  const getBgColor = () => {
-    if (disabled) return theme.colors.border;
+  const getButtonStyles = (): { container: ViewStyle; text: TextStyle; spinnerColor: string } => {
+    if (disabled) {
+      return {
+        container: {
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderWidth: 1,
+          shadowOpacity: 0,
+          elevation: 0,
+        },
+        text: {
+          color: '#64748B',
+          fontWeight: '700',
+        },
+        spinnerColor: '#64748B',
+      };
+    }
+
     switch (variant) {
       case 'secondary':
-        return theme.colors.secondary;
+      case 'outline':
+        return {
+          container: {
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderWidth: 1.5,
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 1,
+          },
+          text: {
+            color: '#FFFFFF',
+            fontWeight: '700',
+          },
+          spinnerColor: '#FFFFFF',
+        };
+
       case 'danger':
-        return theme.colors.error;
+        return {
+          container: {
+            backgroundColor: '#EF4444',
+            borderColor: '#DC2626',
+            borderWidth: 1,
+            shadowColor: '#EF4444',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 3,
+          },
+          text: {
+            color: '#FFFFFF',
+            fontWeight: '700',
+          },
+          spinnerColor: '#FFFFFF',
+        };
+
       case 'success':
-        return theme.colors.success;
+        return {
+          container: {
+            backgroundColor: '#10B981',
+            borderColor: '#059669',
+            borderWidth: 1,
+            shadowColor: '#10B981',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 3,
+          },
+          text: {
+            color: '#FFFFFF',
+            fontWeight: '700',
+          },
+          spinnerColor: '#FFFFFF',
+        };
+
+      case 'ghost':
+        return {
+          container: {
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            borderWidth: 0,
+          },
+          text: {
+            color: '#64748B',
+            fontWeight: '600',
+          },
+          spinnerColor: '#64748B',
+        };
+
+      case 'primary':
       default:
-        return theme.colors.primary;
+        return {
+          container: {
+            backgroundColor: '#00C4D0',
+            borderColor: '#00B4C0',
+            borderWidth: 1,
+            shadowColor: '#00C4D0',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 4,
+          },
+          text: {
+            color: '#FFFFFF',
+            fontWeight: '800',
+          },
+          spinnerColor: '#FFFFFF',
+        };
     }
   };
 
+  const scheme = getButtonStyles();
+
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: getBgColor() }, style]}
+      testID={testID}
+      style={[
+        styles.base,
+        scheme.container,
+        style,
+      ]}
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={0.82}
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={theme.colors.white} />
+        <ActivityIndicator color={scheme.spinnerColor} />
       ) : (
-        <Text style={styles.text}>{title}</Text>
+        <Text style={[styles.baseText, scheme.text]}>
+          {title}
+        </Text>
       )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  base: {
     height: 52,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    marginVertical: theme.spacing.xs,
+    paddingHorizontal: 24,
+    marginVertical: 6,
   },
-  text: {
-    color: theme.colors.white,
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.medium,
+  baseText: {
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
 });

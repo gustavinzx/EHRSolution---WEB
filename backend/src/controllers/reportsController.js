@@ -1,91 +1,119 @@
-
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
-const dataProvider = require('../services/fleetDataProvider');
+const db = require('../config/db');
+const { stringify } = require('csv-stringify');
+
+const { buildFuelingLogsQuery } = require('../services/fuelingQuery');
+
+async function getFuelingLogsForExport(queryReq) {
+  let { query, values } = await buildFuelingLogsQuery(queryReq);
+  query += " LIMIT 1000";
+  const { rows } = await db.query(query, values);
+  return rows.map(r => ({
+    id: r.id,
+    motorista: r.driver_name,
+    caminhao: r.plate,
+    timestamp: r.timestamp,
+    lat: r.lat,
+    lng: r.lng,
+    level_before: r.level_before,
+    level_after: r.level_after,
+    release_method: r.release_method,
+    data_source: r.data_source,
+    pump_liters: r.pump_liters,
+    tank_liters_delta: r.tank_liters_delta,
+    divergence_liters: r.divergence_liters,
+    divergence_pct: r.divergence_pct
+  }));
+}
 
 exports.exportPDF = async (req, res) => {
   try {
-    const { truck_id, driver_id, start, end } = req.query;
-    const logs = await dataProvider.getFuelingLogs({ truck_id, driver_id, start, end });
+    const logs = await getFuelingLogsForExport(req.query);
     
-    // Configura resposta
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="relatorio_abastecimentos.pdf"');
     
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
     doc.pipe(res);
     
-    // Header
-    doc.fontSize(20).font('Helvetica-Bold').text('EHR Solutions - Relatório de Abastecimentos', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(10).font('Helvetica').text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'center' });
-    doc.text(`Filtros: Caminhão: ${truck_id || 'Todos'} | Motorista: ${driver_id || 'Todos'} | Período: ${start || 'S/D'} a ${end || 'S/D'}`, { align: 'center' });
-    doc.moveDown(2);
+    const brandColor = '#2FBEB5';
+    const darkText = '#1f2e3b';
+    const lightText = '#64748b';
+
+    doc.fillColor(brandColor).fontSize(20).font('Helvetica-Bold').text('EHR Solutions', { align: 'left' });
+    doc.fillColor(darkText).fontSize(14).text('Relatório Oficial de Abastecimentos', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fillColor(lightText).fontSize(10).font('Helvetica').text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, { align: 'left' });
+    doc.moveDown(1.5);
     
-    // Configuração de Tabela
     const colX = {
-      date: 40,
-      truck: 110,
-      driver: 170,
-      gps: 260,
-      qty: 360,
-      method: 410,
-      hash: 480
+      date: 30,
+      truck: 130,
+      driver: 200,
+      pump: 330,
+      tank: 390,
+      div: 450,
+      source: 550,
+      method: 640
     };
     
-    // Table Header
-    doc.font('Helvetica-Bold').fontSize(9);
-    doc.text('Data/Hora', colX.date, doc.y, { continued: false });
-    doc.text('Placa', colX.truck, doc.y - 10.5, { continued: false });
-    doc.text('Motorista', colX.driver, doc.y - 10.5, { continued: false });
-    doc.text('Localização (GPS)', colX.gps, doc.y - 10.5, { continued: false });
-    doc.text('Abastecido', colX.qty, doc.y - 10.5, { continued: false });
-    doc.text('Liberação', colX.method, doc.y - 10.5, { continued: false });
-    doc.text('Carimbo (Integridade)', colX.hash, doc.y - 10.5, { continued: false });
-    doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-    doc.moveDown();
+    const drawTableHeader = () => {
+      doc.rect(30, doc.y, 780, 20).fill('#f1f5f9');
+      doc.fillColor(darkText).font('Helvetica-Bold').fontSize(9);
+      const rowY = doc.y + 6;
+      doc.text('DATA / HORA', colX.date, rowY, { continued: false });
+      doc.text('PLACA', colX.truck, rowY, { continued: false });
+      doc.text('MOTORISTA', colX.driver, rowY, { continued: false });
+      doc.text('BOMBA (L)', colX.pump, rowY, { continued: false });
+      doc.text('TANQUE (L)', colX.tank, rowY, { continued: false });
+      doc.text('DIVERGÊNCIA', colX.div, rowY, { continued: false });
+      doc.text('ORIGEM', colX.source, rowY, { continued: false });
+      doc.text('MÉTODO', colX.method, rowY, { continued: false });
+      doc.moveDown(1.5);
+    };
+
+    drawTableHeader();
     
     doc.font('Helvetica').fontSize(8);
+    let isZebra = false;
     
     for (const log of logs) {
-      if (doc.y > 750) {
+      if (doc.y > 500) {
         doc.addPage();
-        doc.font('Helvetica-Bold').fontSize(9);
-        doc.text('Data/Hora', colX.date, doc.y, { continued: false });
-        doc.text('Placa', colX.truck, doc.y - 10.5, { continued: false });
-        doc.text('Motorista', colX.driver, doc.y - 10.5, { continued: false });
-        doc.text('Localização (GPS)', colX.gps, doc.y - 10.5, { continued: false });
-        doc.text('Abastecido', colX.qty, doc.y - 10.5, { continued: false });
-        doc.text('Liberação', colX.method, doc.y - 10.5, { continued: false });
-        doc.text('Carimbo (Integridade)', colX.hash, doc.y - 10.5, { continued: false });
-        doc.moveTo(40, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-        doc.moveDown();
+        drawTableHeader();
         doc.font('Helvetica').fontSize(8);
       }
       
-      const dt = new Date(log.timestamp).toLocaleString('pt-BR');
-      const plate = log.truck_plate || '-';
-      const driver = log.driver_name ? log.driver_name.substring(0, 15) : '-';
-      const gps = `${Number(log.lat).toFixed(4)}, ${Number(log.lng).toFixed(4)}`;
-      const qty = `+${Number(log.level_after) - Number(log.level_before)}L`;
-      const method = log.release_method === 'facial' ? 'Facial' : 'BLE';
-      
-      // NOTA: Este hash é uma SIMULAÇÃO de integridade. Em um cenário real, 
-      // uma infraestrutura de chaves públicas (PKI) ou blockchain seria utilizada.
-      const rawData = `${log.timestamp}|${log.lat}|${log.lng}|${driver}|${log.level_before}|${log.level_after}`;
-      const hash = crypto.createHash('sha256').update(rawData).digest('hex').substring(0, 12);
-      
       const currentY = doc.y;
-      doc.text(dt, colX.date, currentY, { width: 65 });
-      doc.text(plate, colX.truck, currentY, { width: 55 });
-      doc.text(driver, colX.driver, currentY, { width: 85 });
-      doc.text(gps, colX.gps, currentY, { width: 95 });
-      doc.text(qty, colX.qty, currentY, { width: 45 });
-      doc.text(method, colX.method, currentY, { width: 65 });
-      doc.font('Courier').text(hash, colX.hash, currentY, { width: 70 });
-      doc.font('Helvetica');
+      if (isZebra) doc.rect(30, currentY - 4, 780, 18).fill('#fafafa');
+      isZebra = !isZebra;
+
+      const dt = new Date(log.timestamp).toLocaleString('pt-BR');
+      const plate = log.caminhao || '-';
+      const driver = (log.motorista || '-').substring(0, 20);
+      const pump = log.pump_liters != null ? parseFloat(log.pump_liters).toFixed(1) : '-';
+      const tank = log.tank_liters_delta != null ? parseFloat(log.tank_liters_delta).toFixed(1) : '-';
+      const div = log.divergence_pct != null ? `${parseFloat(log.divergence_liters).toFixed(1)} L (${parseFloat(log.divergence_pct).toFixed(1)}%)` : '-';
+      const source = log.data_source || 'legacy';
+      const method = log.release_method || '-';
       
-      doc.moveDown(0.5);
+      doc.fillColor('#334155');
+      doc.text(dt, colX.date, currentY, { width: 95 });
+      doc.font('Helvetica-Bold').text(plate, colX.truck, currentY, { width: 65 });
+      doc.font('Helvetica').text(driver, colX.driver, currentY, { width: 120 });
+      doc.font('Helvetica-Bold').text(pump, colX.pump, currentY, { width: 55 });
+      doc.font('Helvetica-Bold').text(tank, colX.tank, currentY, { width: 55 });
+      
+      if (log.divergence_pct != null && parseFloat(log.divergence_pct) > 5) doc.fillColor('#f87171');
+      else doc.fillColor('#334155');
+      
+      doc.text(div, colX.div, currentY, { width: 95 });
+      
+      doc.fillColor('#64748b').font('Helvetica').text(source, colX.source, currentY, { width: 85 });
+      doc.fillColor('#64748b').text(method, colX.method, currentY, { width: 85 });
+      
+      doc.moveDown(1);
     }
     
     doc.end();
@@ -94,56 +122,13 @@ exports.exportPDF = async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 };
-const db = require('../config/db');
-const { stringify } = require('csv-stringify');
 
 exports.exportCSV = async (req, res) => {
   try {
-    const { truck_id, start, end } = req.query;
-    
-    let query = `
-      SELECT fl.id, 
-             d.name as motorista, 
-             t.plate as caminhao, 
-             fl.timestamp, 
-             fl.lat, 
-             fl.lng, 
-             fl.level_before, 
-             fl.level_after, 
-             fl.release_method
-      FROM fueling_logs fl
-      LEFT JOIN drivers d ON fl.driver_id = d.id
-      LEFT JOIN trucks t ON fl.truck_id = t.id
-      WHERE 1=1
-    `;
-    
-    const queryParams = [];
-    let paramIndex = 1;
-    
-    if (truck_id) {
-      query += ` AND fl.truck_id = $${paramIndex}`;
-      queryParams.push(truck_id);
-      paramIndex++;
-    }
-    
-    if (start) {
-      query += ` AND fl.timestamp >= $${paramIndex}`;
-      queryParams.push(start);
-      paramIndex++;
-    }
-    
-    if (end) {
-      query += ` AND fl.timestamp <= $${paramIndex}`;
-      queryParams.push(end);
-      paramIndex++;
-    }
-    
-    query += ` ORDER BY fl.timestamp DESC`;
-    
-    const result = await db.query(query, queryParams);
+    const logs = await getFuelingLogsForExport(req.query);
     
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=relatorio.csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=relatorio_abastecimentos.csv');
     
     const stringifier = stringify({
       header: true,
@@ -151,24 +136,24 @@ exports.exportCSV = async (req, res) => {
         { key: 'id', header: 'ID' },
         { key: 'motorista', header: 'Motorista' },
         { key: 'caminhao', header: 'Caminhão (placa)' },
-        { key: 'timestamp', header: 'Timestamp' },
-        { key: 'lat', header: 'Latitude' },
-        { key: 'lng', header: 'Longitude' },
-        { key: 'level_before', header: 'Nível Antes (L)' },
-        { key: 'level_after', header: 'Nível Depois (L)' },
+        { key: 'timestamp', header: 'Data/Hora' },
+        { key: 'pump_liters', header: 'Bomba (L)' },
+        { key: 'tank_liters_delta', header: 'Tanque (L)' },
+        { key: 'divergence_liters', header: 'Divergência (L)' },
+        { key: 'divergence_pct', header: 'Divergência (%)' },
+        { key: 'data_source', header: 'Origem do Dado' },
         { key: 'release_method', header: 'Método' }
       ]
     });
     
     stringifier.pipe(res);
-    
-    result.rows.forEach(row => {
-      stringifier.write(row);
-    });
-    
+    logs.forEach(row => stringifier.write(row));
     stringifier.end();
   } catch (error) {
     console.error('Export CSV error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+
+

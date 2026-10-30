@@ -17,6 +17,8 @@ export function useFueling(initialFilters = {}) {
       if (activeFilters.driverId) params.append('driver_id', activeFilters.driverId);
       if (activeFilters.start) params.append('start', activeFilters.start);
       if (activeFilters.end) params.append('end', activeFilters.end);
+      if (activeFilters.dataSource) params.append('dataSource', activeFilters.dataSource);
+      if (activeFilters.onlyDivergence) params.append('onlyDivergence', 'true');
 
       const response = await client.get('/fueling', { params });
       setLogs(Array.isArray(response.data) ? response.data : []);

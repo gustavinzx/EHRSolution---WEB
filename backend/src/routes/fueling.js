@@ -1,23 +1,66 @@
 const express = require("express");
 const fuelingController = require("../controllers/fuelingController");
 const stationsController = require("../controllers/stationsController");
+const authMiddleware = require("../middleware/auth");
+const { allow } = require("../middleware/authAny");
 
 const router = express.Router();
 
-// Fueling logs
-router.get("/", fuelingController.list);
+const managerOrDriver = allow({ manager: true, driver: true });
+const anyActor = allow({ manager: true, driver: true, hardware: true });
+const managerOnly = allow({ manager: true });
+const driverOnly = allow({ driver: true });
 
-// Fueling sessions
-router.post("/sessions", fuelingController.requestSession);
-router.post("/sessions/:id/authorize", fuelingController.authorizeSession);
-router.post("/sessions/:id/finish", fuelingController.finishSession);
-router.get("/sessions/:truckId/active", fuelingController.getActiveSession);
+router.param('id', (req, res, next, id) => {
+  if (!/^[1-9]\d*$/.test(id)) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+  next();
+});
 
-// Fuel stations
-router.get("/stations", stationsController.list);
-router.post("/stations", stationsController.create);
-router.put("/stations/:id", stationsController.update);
-router.patch("/stations/:id/toggle", stationsController.toggleAuthorized);
-router.get("/stations/nearest", stationsController.nearest);
+router.param('truckId', (req, res, next, truckId) => {
+  if (!/^[1-9]\d*$/.test(truckId)) {
+    return res.status(400).json({ error: 'truckId inválido' });
+  }
+  next();
+});
+
+// Fueling logs (Manager)
+router.get("/", authMiddleware, fuelingController.list);
+router.get("/history", driverOnly, fuelingController.getHistory);
+router.get("/wallet", driverOnly, fuelingController.getDriverWallet);
+router.post("/wallet/cards", driverOnly, fuelingController.createDriverCard);
+router.delete("/wallet/cards/:cardId", driverOnly, fuelingController.deleteDriverCard);
+router.patch("/wallet/cards/:cardId/default", driverOnly, fuelingController.setDefaultCard);
+
+// Fuel stations (Manager) — declaradas antes de /sessions/:id para não colidir
+router.get("/stations", authMiddleware, stationsController.list);
+router.post("/stations", authMiddleware, stationsController.create);
+router.get("/stations/nearest", authMiddleware, stationsController.nearest);
+router.put("/stations/:id", authMiddleware, stationsController.update);
+router.patch("/stations/:id/toggle", authMiddleware, stationsController.toggleAuthorized);
+
+// Emergência: liberação manual pelo gestor (sem sessão prévia)
+router.post("/emergency-unlock", managerOnly, fuelingController.emergencyUnlockTruck);
+// Pedidos de liberação manual pendentes (motoristas que estouraram as tentativas faciais)
+router.get("/sessions/pending-emergency", managerOnly, fuelingController.listPendingEmergency);
+
+// Consulta de sessão por ID (Motorista, Gestor, Hardware)
+router.get("/sessions/:id", anyActor, fuelingController.getSession);
+
+// Fueling sessions (App do motorista + painel do gestor)
+router.post("/sessions", managerOrDriver, fuelingController.requestSession);
+router.post("/sessions/:id/cancel", managerOrDriver, fuelingController.cancelSession);
+router.post("/sessions/:id/verify-face", driverOnly, fuelingController.verifyFace);
+router.post("/sessions/:id/ble-confirmed", allow({ hardware: true }), fuelingController.bleConfirmed);
+router.post("/sessions/:id/authorize", managerOrDriver, fuelingController.authorizeSession);
+router.post("/sessions/:id/finish", anyActor, fuelingController.finishSession);
+router.post("/sessions/:id/facial-failure", driverOnly, fuelingController.reportFacialFailure);
+router.post("/sessions/:id/emergency-unlock", managerOnly, fuelingController.emergencyUnlockSession);
+router.post("/sessions/:id/pump-reading", allow({ hardware: true }), fuelingController.reportPumpReading);
+
+// Sessão ativa (hardware consulta para abrir a trava; painel/app para exibir status)
+router.get("/sessions/:truckId/active", anyActor, fuelingController.getActiveSession);
 
 module.exports = router;
+

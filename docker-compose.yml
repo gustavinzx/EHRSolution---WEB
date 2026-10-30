@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # ─── Banco de Dados ────────────────────────────────────────────────────────
   postgres:
@@ -37,8 +35,18 @@ services:
       DB_NAME: ehr_fleet
       DB_USER: postgres
       DB_PASSWORD: postgres
-      JWT_SECRET: ehr_secret_mude_em_producao_2024
+      # Segredo JWT obrigatório via variável de ambiente (mínimo 32 caracteres em produção).
+      # Defina JWT_SECRET no arquivo .env antes de executar docker compose up.
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
+      DRIVER_PASSWORD_KEY: ${DRIVER_PASSWORD_KEY:?cole_aqui_os_64_caracteres_gerados}
       JWT_EXPIRES_IN: 8h
+      ALLOW_SEED_WIPE: 'true'
+      NODE_ENV: development
+      FACE_PROVIDER: mock
+      # Para bloquear a biometria utilize o "marker" e para liberar "always_match"
+      FACE_MOCK_MODE: always_match
+      # A variavel abaixo serve para liberar o abastecimento direto 
+      VIRTUAL_HARDWARE_ENABLED: 'true'
     ports:
       - '3001:3001'
 

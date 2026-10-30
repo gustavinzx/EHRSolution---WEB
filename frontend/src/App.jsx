@@ -11,12 +11,21 @@ import FleetPage        from './pages/FleetPage';
 import TruckDetailsPage from './pages/TruckDetailsPage';
 import FuelingPage      from './pages/FuelingPage';
 import ReportsPage      from './pages/ReportsPage';
+import FacialAttemptsPage from './pages/FacialAttemptsPage';
 import InvestigationPage from './pages/InvestigationPage';
 import StationsPage     from './pages/StationsPage';
+import AlertsPage       from './pages/AlertsPage';
+import SettingsPage     from './pages/SettingsPage';
+import UsersPage        from './pages/UsersPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
-import FuelUnlockModal  from './components/FuelUnlockModal';
 import useFleetState    from './store/useFleetState';
+
+export const RequireAdmin = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
+};
 
 export const ProtectedLayout = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -28,12 +37,15 @@ export const ProtectedLayout = ({ children }) => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
-    <div className="app-shell">
-      <FuelUnlockModal />
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
+      background: 'radial-gradient(circle at 75% 10%, rgba(0, 212, 255, 0.06) 0%, transparent 45%), radial-gradient(circle at 20% 85%, rgba(0, 196, 208, 0.05) 0%, transparent 45%), #060B13',
+    }}>
       <Sidebar />
-      <div className="app-content">
+      <div style={{ flex: 1, marginLeft: '240px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <TopBar />
-        <main className="app-main">
+        <main style={{ flex: 1, padding: '22px 26px', overflowY: 'auto' }}>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>
@@ -45,21 +57,21 @@ export const ProtectedLayout = ({ children }) => {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster
         position="top-right"
         toastOptions={{
           style: {
-            background: 'rgba(15,29,46,0.98)',
+            background: 'rgba(11, 21, 36, 0.98)',
             color: '#e2e8f0',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(0, 212, 255, 0.2)',
             backdropFilter: 'blur(20px)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             fontSize: '13px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            boxShadow: '0 10px 36px rgba(0, 0, 0, 0.55)',
           },
-          success: { iconTheme: { primary: '#34d399', secondary: '#fff' } },
-          error:   { iconTheme: { primary: '#f87171', secondary: '#fff' } },
+          success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
+          error:   { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
         }}
       />
       <Routes>
@@ -72,6 +84,10 @@ export default function App() {
         <Route path="/fueling"            element={<ProtectedLayout><FuelingPage /></ProtectedLayout>} />
         <Route path="/stations"           element={<ProtectedLayout><StationsPage /></ProtectedLayout>} />
         <Route path="/reports"            element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
+        <Route path="/facial-attempts"    element={<ProtectedLayout><FacialAttemptsPage /></ProtectedLayout>} />
+        <Route path="/alerts"             element={<ProtectedLayout><AlertsPage /></ProtectedLayout>} />
+        <Route path="/settings"           element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+        <Route path="/users"               element={<ProtectedLayout><UsersPage /></ProtectedLayout>} />
         <Route path="*"                   element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

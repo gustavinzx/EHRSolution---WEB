@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import client from '../api/client';
 import { normalizeRoute } from '../utils/routeGeometry';
+import toast from 'react-hot-toast';
 
 const routeRequests = new Map();
+const fetchedTruckRoutes = new Set();
 let socket = null;
 
 const useFleetState = create((set, get) => ({
@@ -17,6 +19,7 @@ const useFleetState = create((set, get) => ({
   loading: true,
   error: null,
   selectedTruckId: null,
+  isConnected: false,
 
   // ── Actions ────────────────────────────────────────────────────────────────
   setSelectedTruckId: (id) => set({ selectedTruckId: id }),
@@ -26,6 +29,18 @@ const useFleetState = create((set, get) => ({
     const token = localStorage.getItem('token');
     const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
     socket = io(url, { auth: { token } });
+
+    socket.on('connect', () => {
+      set({ isConnected: true, error: null });
+    });
+
+    socket.on('disconnect', () => {
+      set({ isConnected: false });
+    });
+
+    socket.on('connect_error', () => {
+      set({ isConnected: false });
+    });
 
     socket.on('fleetUpdate', (data) => {
       const fleetData = (Array.isArray(data) ? data : []).map(truck => {
@@ -37,17 +52,20 @@ const useFleetState = create((set, get) => ({
         }
         return truck;
       });
-      const currentRoutes = get().truckRoutes;
       const previousPhases = get().truckPhases || {};
       const newPhases = {};
       fleetData.forEach(truck => {
         newPhases[truck.id] = truck.route_phase;
         const phaseChanged = previousPhases[truck.id] && previousPhases[truck.id] !== truck.route_phase;
-        if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
+        if (phaseChanged) {
+          fetchedTruckRoutes.delete(String(truck.id));
+        }
+        const notYetFetched = !fetchedTruckRoutes.has(String(truck.id));
+        if ((notYetFetched && truck.route_index !== undefined) || phaseChanged) {
           get().fetchTruckRoute(truck.id, { force: Boolean(phaseChanged) });
         }
       });
-      set({ fleet: fleetData, loading: false, truckPhases: newPhases });
+      set({ fleet: fleetData, loading: false, truckPhases: newPhases, isConnected: true });
     });
 
     socket.on('liveEventsUpdate', (data) => {
@@ -57,6 +75,8 @@ const useFleetState = create((set, get) => ({
     socket.on('newAlert', (alert) => {
       set((state) => ({ alerts: [alert, ...state.alerts] }));
     });
+
+    get().fetchAlerts();
   },
 
   disconnectSocket: () => {
@@ -64,6 +84,7 @@ const useFleetState = create((set, get) => ({
       socket.disconnect();
       socket = null;
     }
+    set({ isConnected: false });
   },
 
   fetchFleet: async () => {
@@ -81,21 +102,25 @@ const useFleetState = create((set, get) => ({
         return truck;
       });
       
-      const currentRoutes = get().truckRoutes;
       const newPhases = {};
       
       fleetData.forEach(truck => {
         newPhases[truck.id] = truck.route_phase;
         const phaseChanged = get().truckPhases[truck.id] && get().truckPhases[truck.id] !== truck.route_phase;
-        if ((!currentRoutes[truck.id] && truck.route_index !== undefined) || phaseChanged) {
+        if (phaseChanged) {
+          fetchedTruckRoutes.delete(String(truck.id));
+        }
+        const notYetFetched = !fetchedTruckRoutes.has(String(truck.id));
+        if ((notYetFetched && truck.route_index !== undefined) || phaseChanged) {
           get().fetchTruckRoute(truck.id, { force: Boolean(phaseChanged) });
         }
       });
       
-      set({ fleet: fleetData, loading: false, error: null, truckPhases: newPhases });
+      set({ fleet: fleetData, loading: false, error: null, truckPhases: newPhases, isConnected: true });
     } catch (error) {
       console.error(error);
-      set({ error: error.message, loading: false });
+      const isSocketActive = Boolean(socket?.connected);
+      set({ error: error.message, loading: false, isConnected: isSocketActive });
     }
   },
 
@@ -156,14 +181,29 @@ const useFleetState = create((set, get) => ({
     }
   },
 
-  resolveAlert: async (id, note) => {
+  fetchAlerts: async () => {
     try {
-      await client.patch(`/fleet/alerts/${id}/resolve`, { resolution_note: note, resolved_by: 'Gestor' });
+      const response = await client.get('/alerts?status=active');
+      set({ alerts: Array.isArray(response.data) ? response.data : [] });
+    } catch (error) {
+      console.error('Erro ao buscar alertas:', error);
+    }
+  },
+
+  resolveAlert: async (id, note) => {
+    if (!note || note.trim().length < 5) {
+      toast.error('A nota de resolução deve ter pelo menos 5 caracteres.');
+      return;
+    }
+    try {
+      await client.patch(`/alerts/${id}/resolve`, { resolution_note: note.trim() });
+      toast.success('Alerta resolvido com sucesso!');
       set(state => ({
         alerts: state.alerts.filter(a => a.id !== id)
       }));
     } catch (error) {
       console.error('Erro ao resolver alerta:', error);
+      toast.error('Erro ao resolver alerta.');
     }
   },
 
@@ -174,16 +214,16 @@ const useFleetState = create((set, get) => ({
     const token = localStorage.getItem('token');
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-    // 1. Optimistic update — reflect cancellation in UI immediately
-    set(state => ({
-      fleet: state.fleet.map(t =>
-        t.id === truckId
-          ? { ...t, sim_state: 'driving', route_phase: 'returning_to_base', speed_kmh: 0 }
-          : t
-      ),
       // Invalidate cached route so the new return route is fetched fresh
-      truckRoutes: { ...state.truckRoutes, [String(truckId)]: null },
-    }));
+      fetchedTruckRoutes.delete(String(truckId));
+      set(state => ({
+        fleet: state.fleet.map(t =>
+          t.id === truckId
+            ? { ...t, sim_state: 'driving', route_phase: 'returning_to_base', speed_kmh: 0 }
+            : t
+        ),
+        truckRoutes: { ...state.truckRoutes, [String(truckId)]: null },
+      }));
 
     try {
       const res = await fetch(`${API_URL}/fleet/${truckId}/cancel-route`, {
@@ -204,6 +244,34 @@ const useFleetState = create((set, get) => ({
       console.error('[cancelTruckRoute]', err);
       get().fetchFleet();
       return { ok: false };
+    }
+  },
+
+  deleteTruck: async (truckId) => {
+    try {
+      await client.delete(`/fleet/${truckId}`);
+      toast.success('Caminhão excluído com sucesso!');
+      set(state => ({
+        fleet: state.fleet.filter(t => t.id !== truckId)
+      }));
+      return { ok: true };
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Erro ao excluir caminhão.';
+      toast.error(msg);
+      return { ok: false, error: msg };
+    }
+  },
+
+  createTruck: async (truckData) => {
+    try {
+      const res = await client.post('/fleet', truckData);
+      toast.success(`Caminhão ${res.data.plate} cadastrado com sucesso!`);
+      await get().fetchFleet();
+      return { ok: true, truck: res.data };
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Erro ao cadastrar caminhão.';
+      toast.error(msg);
+      return { ok: false, error: msg };
     }
   },
 }));

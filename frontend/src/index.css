@@ -1,36 +1,36 @@
 /* ═══════════════════════════════════════════════════════
    EHR Solutions — Modern Dark Theme
-   Inspired by G.Take dashboard: glassmorphism + gradients
+   Official EHR Cyan (#00C4D0) & Deep Navy (#070D1A / #0B1523)
    ═══════════════════════════════════════════════════════ */
 
 :root {
   /* Soft Dark Minimalist Theme */
-  --bg-deep:    #0B1120;
-  --bg-main:    #0F172A;
-  --bg-panel:   #1E293B;
-  --bg-card:    #1E293B;
+  --bg-deep:    #070D1A;
+  --bg-main:    #0B1523;
+  --bg-panel:   #111D2D;
+  --bg-card:    #111D2D;
   --bg-hover:   rgba(255, 255, 255, 0.05);
-  --bg-input:   rgba(0, 0, 0, 0.2);
+  --bg-input:   rgba(0, 0, 0, 0.25);
 
   /* Soft Borders */
-  --border:     #334155;
-  --border-glow:rgba(56, 189, 248, 0.25);
+  --border:     #1E2D40;
+  --border-glow:rgba(0, 196, 208, 0.25);
 
-  /* Strong Light Blue Palette (Sky Blue) */
-  --teal:       #38BDF8;
-  --teal-dim:   rgba(56, 189, 248, 0.15);
-  --teal-glow:  rgba(56, 189, 248, 0.4);
-  --blue:       #60A5FA;
-  --blue-dim:   rgba(96, 165, 250, 0.15);
-  --green:      #4ADE80;
-  --amber:      #FBBF24;
-  --red:        #F87171;
-  --purple:     #C084FC;
+  /* EHR Official Cyan & Accents */
+  --teal:       #00C4D0;
+  --teal-dim:   rgba(0, 196, 208, 0.15);
+  --teal-glow:  rgba(0, 196, 208, 0.4);
+  --blue:       #0097A7;
+  --blue-dim:   rgba(0, 151, 167, 0.15);
+  --green:      #10B981;
+  --amber:      #F59E0B;
+  --red:        #EF4444;
+  --purple:     #8B5CF6;
 
   /* Elegant Gradients */
-  --grad-brand: linear-gradient(135deg, #38BDF8 0%, #3B82F6 100%);
-  --grad-card:  linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(59,130,246,0.05) 100%);
-  --grad-glow:  radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.12) 0%, transparent 70%);
+  --grad-brand: linear-gradient(135deg, #00C4D0 0%, #0097A7 100%);
+  --grad-card:  linear-gradient(135deg, rgba(0, 196, 208, 0.08) 0%, rgba(0, 151, 167, 0.05) 100%);
+  --grad-glow:  radial-gradient(ellipse at 50% 0%, rgba(0, 196, 208, 0.12) 0%, transparent 70%);
 
   /* Text - Clean contrast */
   --text-primary: #F8FAFC;
@@ -78,7 +78,7 @@ input, select, textarea { font-family: var(--font-body); }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.4); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 196, 208, 0.4); }
 
 /* ── Glass utility ── */
 .glass {
@@ -159,7 +159,7 @@ tbody td { padding: 14px 16px; font-size: 14px; color: var(--text-primary); }
 .operations-summary h1 { margin-top:8px !important; font-size:26px !important; font-weight:600 !important; }
 .operations-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
 .operations-rings { display:flex; gap:24px; }
-.primary-button { background:#38bdf8 !important; color:#092323 !important; border-color:#38bdf8 !important; font-weight:600; }
+.primary-button { background:#00C4D0 !important; color:#070D1A !important; border-color:#00C4D0 !important; font-weight:700; }
 .fleet-kpi { display:flex; align-items:flex-start; gap:14px; padding:18px; background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-md); min-width:0; }
 .fleet-kpi-value { font-size:28px; font-weight:600; line-height:1.2; margin-top:6px; }
 .fleet-kpi-note { color:var(--text-muted); font-size:11px; margin-top:4px; }
@@ -172,7 +172,7 @@ button:disabled { cursor: default; opacity: .65; }
 .app-shell { display:flex; min-height:100vh; background:var(--bg-deep); }
 .app-sidebar { position:fixed; inset:0 auto 0 0; width:224px; background:var(--bg-main); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:200; padding:0 12px 18px; }
 .sidebar-brand { height:84px; display:flex; align-items:center; gap:10px; padding:0 8px; }
-.brand-mark,.tracking-symbol { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:var(--radius-md); background:#17383c; color:#5ad7cc; border:1px solid #285055; }
+.brand-mark,.tracking-symbol { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:var(--radius-md); background:#17383c; color:#00C4D0; border:1px solid #285055; }
 .sidebar-brand strong { display:block; font-size:15px; letter-spacing:-.02em; }
 .sidebar-brand small { display:block; color:var(--text-muted); font-size:11px; margin-top:2px; }
 .sidebar-section { font-size:10px; font-weight:600; letter-spacing:.12em; color:var(--text-muted); margin:22px 12px 10px; }
@@ -201,7 +201,7 @@ button:disabled { cursor: default; opacity: .65; }
 .tracking-header { padding:16px 22px; display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid var(--border); }
 .tracking-heading { display:flex; align-items:center; gap:12px; min-width:0; }
 .tracking-heading h2 { font-size:17px; font-weight:600; margin:4px 0; }
-.tracking-heading h2 span { color:#72d8ce; border-left:1px solid #405063; padding-left:12px; margin-left:12px; font-size:14px; letter-spacing:.04em; }
+.tracking-heading h2 span { color:#00C4D0; border-left:1px solid #405063; padding-left:12px; margin-left:12px; font-size:14px; letter-spacing:.04em; }
 .tracking-heading p { font-size:11px; color:var(--text-muted); margin:0; }
 .icon-button { display:grid; place-items:center; width:36px; height:36px; color:#cad6e2; border:1px solid var(--border); background:var(--bg-panel); border-radius:var(--radius-md); flex-shrink:0; }
 .icon-button:hover,.panel-button:hover:not(:disabled) { background:#294155; }
@@ -224,3 +224,9 @@ button:disabled { cursor: default; opacity: .65; }
  .tracking-overlay{padding:8px}.tracking-dialog{height:96dvh;border-radius:10px}.tracking-header{padding:12px}.tracking-heading{gap:8px}.tracking-heading h2{font-size:15px}.tracking-heading h2 span{display:block;border:0;padding:0;margin:5px 0 0;font-size:12px}.tracking-symbol{display:none}.tracking-toolbar{flex-wrap:wrap;gap:16px;padding:12px}.tracking-metric{min-width:0;flex:1}.tracking-actions{width:100%;margin:0;justify-content:space-between}.tracking-metric strong{font-size:24px}
 }
 @media(prefers-reduced-motion:reduce) { button,a { transition:none !important; } }
+
+/* Select options fix */
+select option {
+  background-color: #111b28;
+  color: #e9f0f6;
+}

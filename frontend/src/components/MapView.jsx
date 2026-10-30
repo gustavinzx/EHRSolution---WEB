@@ -6,6 +6,7 @@ import StationMarker from './StationMarker';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import useFleetState from '../store/useFleetState';
+import { getTruckVisualState } from '../utils/truckVisualState';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
   ok:        '#34d399',
   low_fuel:  '#fbbf24',
   no_signal: '#f87171',
-  fueling:   '#f87171',
+  fueling:   '#38bdf8',
   security_alert: '#fb7185',
   arrived: '#60a5fa',
 };
@@ -107,12 +108,115 @@ const MemoizedTruckRoute = React.memo(({ truck, tempRouteRaw, plannedRouteRaw, i
          prev.plannedRouteRaw === next.plannedRouteRaw;
 });
 
-export default function MapView({ trucks = [], onOpen3D }) {
+function FloatingMapControls({ mapType, setMapType }) {
+  const map = useMap();
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '14px',
+      left: '14px',
+      zIndex: 1000,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+    }}>
+      {/* Translucent Floating Zoom In / Out */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'rgba(7, 13, 24, 0.85)',
+        backdropFilter: 'blur(14px)',
+        border: '1px solid rgba(0, 196, 208, 0.25)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+      }}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); map.zoomIn(); }}
+          title="Aumentar Zoom"
+          style={{
+            width: '32px',
+            height: '32px',
+            background: 'transparent',
+            border: 'none',
+            color: '#FFFFFF',
+            fontSize: '18px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); map.zoomOut(); }}
+          title="Diminuir Zoom"
+          style={{
+            width: '32px',
+            height: '32px',
+            background: 'transparent',
+            border: 'none',
+            color: '#FFFFFF',
+            fontSize: '18px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          −
+        </button>
+      </div>
+
+      {/* Translucent Floating Satellite / Vector Layer Toggle */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setMapType(prev => prev === 'satellite' ? 'dark' : 'satellite'); }}
+        title="Alternar camada: Satélite / Vetor"
+        style={{
+          height: '30px',
+          padding: '0 10px',
+          background: 'rgba(7, 13, 24, 0.85)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(0, 196, 208, 0.3)',
+          borderRadius: '8px',
+          color: '#00C4D0',
+          fontSize: '11px',
+          fontWeight: 800,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        <span>🛰️</span>
+        <span>{mapType === 'satellite' ? 'Satélite' : 'Vetor'}</span>
+      </button>
+    </div>
+  );
+}
+
+const EMPTY_TRUCKS = [];
+
+export default function MapView({ trucks = EMPTY_TRUCKS }) {
   const navigate = useNavigate();
   const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
+  const [mapType, setMapType] = React.useState('satellite');
   
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
+
+  const tileUrl = mapType === 'satellite'
+    ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`
+    : `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" style={{ height: '100%' }}>
@@ -122,9 +226,10 @@ export default function MapView({ trucks = [], onOpen3D }) {
         style={{ height: '100%', width: '100%', background: '#1a1a1a' }}
         zoomControl={false}
       >
+        <FloatingMapControls mapType={mapType} setMapType={setMapType} />
         <TileLayer
           attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-          url={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${import.meta.env.VITE_MAPBOX_TOKEN}`}
+          url={tileUrl}
           className="map-tiles"
           noWrap={false}
         />
@@ -185,9 +290,14 @@ export default function MapView({ trucks = [], onOpen3D }) {
           const lat = parseFloat(truck.lat);
           const lng = parseFloat(truck.lng);
           if (!lat || !lng) return null;
-          const color = STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || '#34d399';
+          const visualState = getTruckVisualState(truck);
+          const isFueling = visualState === 'fueling';
+          const color = isFueling
+            ? STATUS_COLORS.fueling
+            : visualState === 'alert'
+              ? (STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || STATUS_COLORS.no_signal)
+              : (STATUS_COLORS[truck.sim_state] || STATUS_COLORS[truck.status] || STATUS_COLORS.ok);
           const pct = getLevelPct(truck);
-          const isFueling = truck.route_phase === 'fueling' || truck.route_phase === 'awaiting_fueling_authorization';
 
           return (
             <LiveTruckMarker
@@ -236,14 +346,6 @@ export default function MapView({ trucks = [], onOpen3D }) {
                     >
                       Ver Detalhes
                     </button>
-                    {onOpen3D && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onOpen3D(truck); }}
-                        style={{ flex: 1, padding: '8px', background: 'rgba(56,189,248,0.1)', color: 'var(--teal)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'background 0.2s' }}
-                      >
-                        Ver no 3D
-                      </button>
-                    )}
                   </div>
                 </div>
               </Popup>

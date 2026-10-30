@@ -1,377 +1,908 @@
-import React, { useState, useEffect } from 'react';
-import { Truck, Navigation, Fuel, FileText, ArrowRight, AlertTriangle, CheckCircle, Zap, Map } from 'lucide-react';
+import React from 'react';
+import {
+  Truck,
+  Navigation,
+  Fuel,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  Download,
+  Calendar,
+  MapPin,
+  ShieldAlert,
+  TrendingDown,
+  Lock,
+  Activity,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useFleet, useLiveEvents }   from '../hooks/useFleet';
+import { useFleet } from '../hooks/useFleet';
 import { useFueling } from '../hooks/useFueling';
-import useFleetState  from '../store/useFleetState';
-import MapView        from '../components/MapView';
-import FuelingTable   from '../components/FuelingTable';
+import { useAlerts } from '../hooks/useAlerts';
+import { getTruckVisualState } from '../utils/truckVisualState';
+import { isSameLocalDay } from '../utils/dayRange';
+import MapView from '../components/MapView';
 import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage   from '../components/ErrorMessage';
-import Simulation3DModal from '../components/Simulation3DModal';
 
-const card = {
-  background: 'var(--bg-panel)',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '12px',
+const panelStyle = {
+  background: 'linear-gradient(160deg, rgba(13, 25, 43, 0.92) 0%, rgba(8, 16, 30, 0.96) 100%)',
+  border: '1px solid rgba(0, 212, 255, 0.14)',
+  borderRadius: '16px',
+  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
 };
 
-function MiniBarChart({ trucks }) {
-  if (!trucks.length) return null;
-  const vals = trucks.slice(0,7).map(t => ({
-    label: t.plate,
-    value: t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0,
-    color: (t.current_level_liters / t.capacity_liters) < 0.2 ? '#f87171' :
-           (t.current_level_liters / t.capacity_liters) < 0.5 ? '#fbbf24' : '#38BDF8',
-  }));
-  const max = Math.max(...vals.map(v => v.value), 1);
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '80px', padding: '0 4px' }}>
-      {vals.map((v, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace', fontWeight: 600 }}>{v.value}%</span>
-          <div style={{
-            width: '100%', borderRadius: '4px 4px 0 0',
-            background: `${v.color}22`,
-            height: `${Math.max((v.value / max) * 56, 4)}px`,
-            border: `1px solid ${v.color}55`,
-            position: 'relative', overflow: 'hidden',
-          }}>
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%',
-              background: `linear-gradient(to top, ${v.color}88, transparent)`,
-            }} />
-          </div>
-          <span style={{ fontSize: '9px', color: '#8BA3BC', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textOverflow: 'ellipsis', textAlign: 'center', fontWeight: 500 }}>{v.label}</span>
-        </div>
-      ))}
-    </div>
-  );
+const alertTypeMeta = {
+  fuel_drop:            { label: 'Queda abrupta de combustível', icon: TrendingDown, color: '#EF4444' },
+  unauthorized_station: { label: 'Posto não autorizado',         icon: MapPin,       color: '#F59E0B' },
+  tampering:            { label: 'Violação de trava',            icon: Lock,         color: '#EF4444' },
+  facial_fail:          { label: 'Falha de biometria facial',    icon: ShieldAlert,  color: '#F59E0B' },
+  low_fuel:             { label: 'Combustível crítico',          icon: Fuel,         color: '#F59E0B' },
+};
+
+function getAlertMeta(type) {
+  return alertTypeMeta[type] || { label: type || 'Alerta de Segurança', icon: AlertTriangle, color: '#F59E0B' };
 }
 
-function DonutRing({ value, color, label }) {
-  const r = 22;
-  const circ = 2 * Math.PI * r;
-  const filled = (Math.min(value, 100) / 100) * circ;
+function getSeverityBadge(severity) {
+  switch (severity) {
+    case 'critical':
+      return { label: 'Crítico', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.35)' };
+    case 'high':
+      return { label: 'Alto', color: '#F97316', bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.35)' };
+    case 'medium':
+      return { label: 'Médio', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.35)' };
+    default:
+      return { label: 'Baixo', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.35)' };
+  }
+}
+
+/* Glowing Cyan Donut Chart for Fleet Activity */
+function DonutChart({ percent }) {
+  const radius = 58;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(Math.max(percent, 0), 100);
+  const strokeDasharray = `${(clamped / 100) * circumference} ${circumference}`;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-      <div style={{ position: 'relative', width: '64px', height: '64px' }}>
-        <svg width="64" height="64" viewBox="0 0 60 60">
-          <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="7" />
-          <circle cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="7"
-            strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
-            transform="rotate(-90 30 30)"
-          />
-        </svg>
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '12px', fontWeight: 700, color: '#fff', fontFamily: 'monospace',
-        }}>{value}%</div>
+    <div style={{ position: 'relative', width: '154px', height: '154px', margin: '8px auto 12px' }}>
+      <svg width="154" height="154" viewBox="0 0 154 154">
+        <defs>
+          <linearGradient id="iotCyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00E5FF" />
+            <stop offset="100%" stopColor="#0095FF" />
+          </linearGradient>
+        </defs>
+        {/* Outer subtle ticks ring */}
+        <circle
+          cx="77"
+          cy="77"
+          r="69"
+          fill="none"
+          stroke="rgba(0, 212, 255, 0.12)"
+          strokeWidth="1.5"
+          strokeDasharray="3 5"
+        />
+        {/* Track */}
+        <circle
+          cx="77"
+          cy="77"
+          r={radius}
+          fill="none"
+          stroke="rgba(255, 255, 255, 0.06)"
+          strokeWidth="13"
+        />
+        {/* Glowing Cyan Progress */}
+        <circle
+          cx="77"
+          cy="77"
+          r={radius}
+          fill="none"
+          stroke="url(#iotCyanGrad)"
+          strokeWidth="13"
+          strokeDasharray={strokeDasharray}
+          strokeLinecap="round"
+          transform="rotate(-90 77 77)"
+          style={{
+            filter: 'drop-shadow(0 0 10px rgba(0, 212, 255, 0.65))',
+            transition: 'stroke-dasharray 0.5s ease',
+          }}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <span style={{
+          fontSize: '28px',
+          fontWeight: 900,
+          color: '#FFFFFF',
+          fontFamily: 'monospace',
+          lineHeight: 1,
+          textShadow: '0 0 12px rgba(0, 212, 255, 0.4)',
+        }}>
+          {clamped}%
+        </span>
+        <span style={{
+          fontSize: '10px',
+          color: '#00D4FF',
+          textTransform: 'uppercase',
+          letterSpacing: '1.5px',
+          marginTop: '5px',
+          fontWeight: 800,
+        }}>
+          ATIVOS
+        </span>
       </div>
-      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>{label}</span>
     </div>
   );
 }
 
 export default function DashboardPage() {
-  const [alertFilter, setAlertFilter] = useState('all');
-  const { trucks, loading: fl, error, refetch } = useFleet();
-  const { logs,   loading: ll }          = useFueling();
-  const { fueling_now, recent_logs }     = useLiveEvents();
+  const { trucks, loading: fl, isConnected, refetch: refetchFleet } = useFleet();
+  const { logs, refetch: refetchFueling } = useFueling();
+  const { alerts, loading: al, error: ae, refetch: refetchAlerts } = useAlerts();
   const navigate = useNavigate();
-  const { selectedTruckId, setSelectedTruckId, alerts, fetchAlerts } = useFleetState();
-  const [is3DOpen, setIs3DOpen] = useState(false);
-
-  useEffect(() => {
-    if (fetchAlerts) fetchAlerts();
-  }, [fetchAlerts]);
-
-  const handleSelectTruck = (id) => {
-    if (selectedTruckId === id) setSelectedTruckId(null);
-    else setSelectedTruckId(id);
-  };
-
-  const selectedTruck = trucks?.find(t => t.id === selectedTruckId);
 
   const pct = (t) => t.capacity_liters > 0
     ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;
 
-  if (fl && (!trucks || trucks.length === 0)) return <LoadingSpinner />;
-  if (error && (!trucks || trucks.length === 0)) return <ErrorMessage message={error} />;
+  if (fl && trucks.length === 0) return <LoadingSpinner />;
 
-  const safeTrucks = Array.isArray(trucks) ? trucks : [];
-  const safeLogs = Array.isArray(logs) ? logs : [];
+  const now = new Date();
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
 
-  const today    = new Date().toISOString().split('T')[0];
-  const enRoute  = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
-  const critical = safeTrucks.filter(t => pct(t) < 20).length;
-  const todayFuel= safeLogs.filter(l => l.timestamp?.startsWith(today)).length;
+  const totalTrucks = trucks.length;
+  const enRoute = trucks.filter(t => parseFloat(t.speed_kmh) > 0).length;
+  const critical = trucks.filter(t => pct(t) < 20).length;
+  const todayFuel = logs.filter(l => isSameLocalDay(l.timestamp, now)).length;
+  const yesterdayFuel = logs.filter(l => isSameLocalDay(l.timestamp, yesterdayDate)).length;
+
+  const hasFuelTrend = yesterdayFuel > 0;
+  const fuelTrendPct = hasFuelTrend
+    ? Math.round(((todayFuel - yesterdayFuel) / yesterdayFuel) * 100)
+    : null;
+
   const statuses = {
-    ok:  safeTrucks.filter(t => t.status === 'ok').length,
-    low: safeTrucks.filter(t => t.status === 'low_fuel').length,
-    off: safeTrucks.filter(t => t.status === 'no_signal').length,
+    ok: trucks.filter(t => t.status === 'ok').length,
+    low: trucks.filter(t => t.status === 'low_fuel').length,
+    off: trucks.filter(t => t.status === 'no_signal').length,
   };
-  const avgFuel = safeTrucks.length > 0
-    ? Math.round(safeTrucks.reduce((acc, t) => acc + pct(t), 0) / safeTrucks.length) : 0;
 
-  const statCards = [
-    { title: 'Total Caminhões', value: safeTrucks.length, sub: `${statuses.ok} operacionais`, icon: Truck, color: '#38BDF8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.2)' },
-    { title: 'Em Rota', value: enRoute, sub: `${safeTrucks.length - enRoute} parados`, icon: Navigation, color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
-    { title: 'Tanques Críticos', value: critical, sub: 'Abaixo de 20%', icon: Fuel, color: critical > 0 ? '#f87171' : '#34d399', bg: critical > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', border: critical > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' },
-    { title: 'Abastecimentos Hoje', value: todayFuel, sub: 'registros hoje', icon: FileText, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)' },
-  ];
+  const fuelingTrucksCount = trucks.filter(t => getTruckVisualState(t) === 'fueling').length;
+  const alertTrucksCount = trucks.filter(t => getTruckVisualState(t) === 'alert').length;
+  const activeAlerts = (alerts || []).filter(a => !a.resolved_at && !a.resolved).slice(0, 3);
 
-  const alertTrucks  = safeTrucks.filter(t => t.status !== 'ok').slice(0, 4);
-  const activeTrucks = safeTrucks.filter(t => parseFloat(t.speed_kmh) > 0).slice(0, 4);
-  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const enRoutePercent = totalTrucks > 0 ? Math.round((enRoute / totalTrucks) * 100) : 0;
+  const operationalPercent = totalTrucks > 0 ? Math.round((statuses.ok / totalTrucks) * 100) : 0;
+  const criticalPercent = totalTrucks > 0 ? Math.round((critical / totalTrucks) * 100) : 0;
+
+  const dateFormatted = now.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const dateDisplay = dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1);
+
+  const handleRefresh = () => {
+    refetchFleet();
+    if (refetchFueling) refetchFueling();
+    if (refetchAlerts) refetchAlerts();
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
-      <div className="operations-summary">
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div className="eyebrow">CENTRAL DE OPERAÇÕES</div>
-          <h1 style={{ margin: 0, fontSize: '30px', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-            Visão geral da frota
-          </h1>
-          <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,0.55)', fontSize: '14px', maxWidth: '400px' }}>
-            Você tem <strong style={{ color: '#fbbf24' }}>{critical} tanque{critical !== 1 ? 's' : ''} crítico{critical !== 1 ? 's' : ''}</strong> e{' '}
-            <strong style={{ color: '#38BDF8' }}>{enRoute} {enRoute === 1 ? 'caminhão' : 'caminhões'} em rota</strong> agora.
+      {/* ── Top Header Card (Next-Gen Command Bar) ── */}
+      <div style={{
+        ...panelStyle,
+        padding: '18px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        background: 'linear-gradient(120deg, rgba(13, 27, 48, 0.95) 0%, rgba(8, 17, 32, 0.98) 100%)',
+        border: '1px solid rgba(0, 212, 255, 0.2)',
+      }}>
+        {/* Left Title & Live Status */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+              Painel de Controle da Frota
+            </h1>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: isConnected ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)',
+              border: isConnected ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+              color: isConnected ? '#10B981' : '#EF4444',
+              fontSize: '11px',
+              fontWeight: 800,
+              padding: '4px 11px',
+              borderRadius: '20px',
+              letterSpacing: '0.3px',
+            }}>
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: isConnected ? '#10B981' : '#EF4444',
+                boxShadow: isConnected ? '0 0 8px #10B981' : '0 0 8px #EF4444',
+              }} />
+              {isConnected ? 'Sistema Online' : 'Sistema Offline'}
+            </span>
+          </div>
+          <p style={{ margin: '5px 0 0', fontSize: '12.5px', color: '#8A9BB2', fontWeight: 500 }}>
+            Monitoramento de Abastecimento e Segurança IoT em Tempo Real
           </p>
-          <div className="operations-actions">
-            <button onClick={() => navigate('/fleet')} className="panel-button primary-button">
-              <Truck size={14} /> Ver Frota Completa
-            </button>
-            <button onClick={refetch} className="panel-button">
-              Atualizar Dados
-            </button>
-          </div>
         </div>
-        <div className="operations-rings">
-          <DonutRing value={avgFuel} color="#38BDF8" label="Combustível" />
-          <DonutRing value={safeTrucks.length > 0 ? Math.round((enRoute / safeTrucks.length) * 100) : 0} color="#34d399" label="Em rota" />
-          <DonutRing value={safeTrucks.length > 0 ? Math.round((statuses.ok / safeTrucks.length) * 100) : 0} color="#60A5FA" label="Operacional" />
+
+        {/* Right Date & Quick Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '10px',
+            padding: '8px 13px',
+            color: '#CBD5E1',
+            fontSize: '12px',
+            fontWeight: 500,
+          }}>
+            <Calendar size={14} color="#00D4FF" />
+            <span>{dateDisplay}</span>
+          </div>
+
+          <button
+            onClick={() => navigate('/reports')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              background: 'rgba(0, 212, 255, 0.08)',
+              border: '1px solid rgba(0, 212, 255, 0.28)',
+              color: '#E2E8F0',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Download size={14} color="#00D4FF" />
+            <span>Exportar CSV</span>
+          </button>
+
+          <button
+            onClick={handleRefresh}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              background: 'linear-gradient(135deg, #00D4FF 0%, #0095FF 100%)',
+              border: 'none',
+              color: '#04101E',
+              padding: '8px 16px',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 0 18px rgba(0, 212, 255, 0.35)',
+              transition: 'all 0.2s',
+            }}
+          >
+            <RefreshCw size={14} color="#04101E" />
+            <span>Atualizar</span>
+          </button>
         </div>
       </div>
 
-      <div className="dashboard-stats">
-        {statCards.map((s, i) => (
-          <div key={i} className="fleet-kpi">
-            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${s.color}20`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <s.icon size={20} color={s.color} />
-            </div>
-            <div>
-              <div className="eyebrow">{s.title}</div>
-              <div className="fleet-kpi-value">{s.value}</div>
-              <div className="fleet-kpi-note">{s.sub}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* ── 4 Next-Gen KPI Cards Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
 
-      <div className="dashboard-columns">
-        <div style={{ ...card, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div className="fleet-map-header">
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Mapa da Frota em Tempo Real</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Posições atualizadas automaticamente</div>
+        {/* Card 1: Total Caminhões */}
+        <div style={{
+          ...panelStyle,
+          padding: '18px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '12px',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'rgba(0, 212, 255, 0.12)',
+              border: '1px solid rgba(0, 212, 255, 0.32)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 0 16px rgba(0, 212, 255, 0.18)',
+            }}>
+              <Truck size={22} color="#00D4FF" />
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-              {selectedTruckId && (
-                <button 
-                  onClick={() => setIs3DOpen(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--teal)', color: '#000', border: 'none', padding: '4px 10px', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  <Map size={12} /> Ver no 3D
-                </button>
-              )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: '#8A9BB2', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Total Caminhões
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 900, color: '#FFFFFF', fontFamily: 'monospace' }}>{totalTrucks}</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#10B981',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.28)',
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                }}>
+                  {statuses.ok} operacionais
+                </span>
+              </div>
             </div>
           </div>
-          <div style={{ height: '300px' }}>
-            <MapView
-              trucks={safeTrucks}
-              onOpen3D={(truck) => {
-                setSelectedTruckId(truck.id);
-                setIs3DOpen(true);
-              }}
-            />
-          </div>
-          <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Nível de Combustível por Veículo</span>
-              <Link to="/fleet" style={{ fontSize: '12px', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '4px' }}>Ver todos <ArrowRight size={12} /></Link>
-            </div>
-            <MiniBarChart trucks={safeTrucks} />
+          <div style={{ height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${operationalPercent}%`, height: '100%', background: 'linear-gradient(90deg, #00D4FF, #10B981)' }} />
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={card}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px #34d399' }} />
-                Rotas Ativas
-              </div>
-              <span style={{ fontSize: '11px', color: '#38BDF8', background: 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{enRoute} em rota</span>
+        {/* Card 2: Em Rota */}
+        <div style={{
+          ...panelStyle,
+          padding: '18px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '12px',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.32)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 0 16px rgba(16, 185, 129, 0.18)',
+            }}>
+              <Navigation size={22} color="#10B981" />
             </div>
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {activeTrucks.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', padding: '20px 0' }}>Nenhum caminhão em rota</div>
-              ) : activeTrucks.map(t => (
-                <div key={t.id} onClick={() => handleSelectTruck(t.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)', border: '1px solid', borderColor: selectedTruckId === t.id ? 'var(--teal)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', transition: 'all 0.2s' }}
-                >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(79,142,247,0.2))', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Truck size={16} color="#38BDF8" />
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.model}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#34d399', fontFamily: 'monospace' }}>{t.speed_kmh} km/h</div>
-                    <div style={{ fontSize: '10px', color: '#475569' }}>velocidade</div>
-                  </div>
-                </div>
-              ))}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: '#8A9BB2', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Em Rota
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 900, color: '#FFFFFF', fontFamily: 'monospace' }}>{enRoute}</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#00D4FF',
+                  background: 'rgba(0, 212, 255, 0.12)',
+                  border: '1px solid rgba(0, 212, 255, 0.28)',
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                }}>
+                  {enRoutePercent}% ativos
+                </span>
+              </div>
             </div>
           </div>
+          <div style={{ height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${enRoutePercent}%`, height: '100%', background: 'linear-gradient(90deg, #10B981, #00D4FF)' }} />
+          </div>
+        </div>
 
-          <div style={card}>
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <AlertTriangle size={15} color="#fbbf24" /> Alertas
-              </div>
-              {(alertTrucks.length > 0 || safeAlerts.length > 0) && (
-                <span style={{ fontSize: '11px', color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>{alertTrucks.length + safeAlerts.length} atenção</span>
-              )}
+        {/* Card 3: Tanques Críticos */}
+        <div style={{
+          ...panelStyle,
+          border: critical > 0 ? '1px solid rgba(239, 68, 68, 0.42)' : panelStyle.border,
+          boxShadow: critical > 0
+            ? '0 10px 30px rgba(239, 68, 68, 0.12), inset 0 0 22px rgba(239, 68, 68, 0.06)'
+            : panelStyle.boxShadow,
+          padding: '18px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '12px',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'rgba(239, 68, 68, 0.14)',
+              border: '1px solid rgba(239, 68, 68, 0.38)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 0 16px rgba(239, 68, 68, 0.22)',
+            }}>
+              <Fuel size={22} color="#EF4444" />
             </div>
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {alertTrucks.length === 0 && safeAlerts.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 12px', color: '#34d399', fontSize: '13px' }}>
-                  <CheckCircle size={16} /> Todos os veículos estão OK
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: '#8A9BB2', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Tanques Críticos
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 900, color: '#FFFFFF', fontFamily: 'monospace' }}>{critical}</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: critical > 0 ? '#EF4444' : '#8A9BB2',
+                  background: critical > 0 ? 'rgba(239, 68, 68, 0.14)' : 'rgba(255, 255, 255, 0.05)',
+                  border: critical > 0 ? '1px solid rgba(239, 68, 68, 0.32)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                }}>
+                  Abaixo de 20%
+                </span>
+              </div>
+            </div>
+          </div>
+          <div style={{ height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${criticalPercent}%`, height: '100%', background: 'linear-gradient(90deg, #EF4444, #F59E0B)' }} />
+          </div>
+        </div>
+
+        {/* Card 4: Abastecimentos Hoje (Preserves exact parentElement hierarchy for DashboardPage.test.jsx) */}
+        <div style={{
+          ...panelStyle,
+          padding: '18px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '12px',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.32)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 0 16px rgba(245, 158, 11, 0.18)',
+            }}>
+              <FileText size={22} color="#F59E0B" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: '#8A9BB2', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Abastecimentos Hoje
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 900, color: '#FFFFFF', fontFamily: 'monospace' }}>{todayFuel}</span>
+                {hasFuelTrend && (
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: fuelTrendPct >= 0 ? '#10B981' : '#EF4444' }}>
+                    {fuelTrendPct >= 0 ? `▲ +${fuelTrendPct}%` : `▼ ${fuelTrendPct}%`}{' '}
+                    <span style={{ color: '#64748B', fontWeight: 500 }}>vs. ontem</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div style={{ height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: todayFuel > 0 ? '100%' : '15%', height: '100%', background: 'linear-gradient(90deg, #F59E0B, #10B981)' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main 3-Column Bento Grid ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1fr', gap: '16px', alignItems: 'stretch' }}>
+
+        {/* COLUMN 1: MAPA DA FROTA EM TEMPO REAL */}
+        <div style={{
+          ...panelStyle,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid rgba(0, 212, 255, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MapPin size={16} color="#00D4FF" />
+                <span style={{ fontWeight: 800, fontSize: '15px', color: '#FFFFFF' }}>Mapa da Frota em Tempo Real</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#8A9BB2', marginTop: '3px' }}>
+                Acompanhe a localização dos veículos e o status de abastecimento.
+              </div>
+            </div>
+            <Link to="/fleet" style={{ color: '#00D4FF', fontSize: '12px', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              Ver todos →
+            </Link>
+          </div>
+
+          <div style={{ height: '380px', position: 'relative', flex: 1 }}>
+            <MapView trucks={trucks} />
+          </div>
+
+          {/* Map bottom legend (keeps exact test labels) */}
+          <div style={{
+            padding: '13px 18px',
+            borderTop: '1px solid rgba(0, 212, 255, 0.1)',
+            background: 'rgba(6, 11, 20, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
+            fontSize: '11.5px',
+            color: '#94A3B8',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} />
+              <span>Em rota ({enRoute})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8' }} />
+              <span>Parado ({Math.max(0, totalTrucks - enRoute)})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
+              <span>Comb. baixo ({critical})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00D4FF', boxShadow: '0 0 6px #00D4FF' }} />
+              <span>Abastecendo ({fuelingTrucksCount})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', boxShadow: '0 0 6px #EF4444' }} />
+              <span>Alerta ({alertTrucksCount})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* COLUMN 2: NÍVEL DE COMBUSTÍVEL + ALERTAS RECENTES */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Card: Nível de Combustível por Veículo */}
+          <div style={{ ...panelStyle, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Fuel size={15} color="#00D4FF" />
+                <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Nível de Combustível por Veículo</span>
+              </div>
+              <Link to="/fleet" style={{ color: '#00D4FF', fontSize: '12px', fontWeight: 700, textDecoration: 'none' }}>
+                Ver todos →
+              </Link>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {trucks.length === 0 ? (
+                <div style={{ padding: '24px 12px', textAlign: 'center', color: '#8A9BB2', fontSize: '13px' }}>
+                  Nenhum caminhão cadastrado
                 </div>
               ) : (
-                <>
-                  {safeAlerts.map(a => (
-                    <div key={`alert-${a.id}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: a.type === 'destination_arrived' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.15)', border: `1px solid ${a.type === 'destination_arrived' ? 'rgba(52,211,153,0.3)' : '#f87171'}` }}
-                    >
-                      <Fuel size={15} color="#f87171" style={{ flexShrink: 0 }} />
-                      <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => handleSelectTruck(a.truck_id)}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{a.plate}</div>
-                        <div style={{ fontSize: '11px', color: '#f87171' }}>{a.message}</div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                          {new Date(a.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                trucks.slice(0, 3).map((t, i) => {
+                  const currentPct = pct(t);
+                  const barColor = currentPct < 20 ? '#EF4444' : currentPct < 50 ? '#F59E0B' : '#00D4FF';
+                  return (
+                    <div key={t.id || i} style={{
+                      background: 'rgba(6, 12, 24, 0.65)',
+                      border: '1px solid rgba(0, 212, 255, 0.12)',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <div style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '8px',
+                            background: `${barColor}18`,
+                            border: `1px solid ${barColor}45`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            <Truck size={15} color={barColor} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div>
+                              <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '13px', fontFamily: 'monospace' }}>{t.plate}</span>
+                              <span style={{ color: '#8A9BB2', fontSize: '11px', marginLeft: '6px' }}>- {t.model}</span>
+                            </div>
+                          </div>
                         </div>
-                        <Link to={`/investigation/${a.truck_id}`} style={{ fontSize: '11px', color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.15)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                          Investigar
-                        </Link>
+                        <span style={{ fontSize: '13px', fontWeight: 900, color: barColor, fontFamily: 'monospace' }}>
+                          {currentPct}%
+                        </span>
+                      </div>
+
+                      {/* Glowing Progress Track */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}>
+                        <div style={{
+                          flex: 1,
+                          height: '8px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            width: `${currentPct}%`,
+                            height: '100%',
+                            background: barColor,
+                            boxShadow: `0 0 10px ${barColor}88`,
+                            borderRadius: '6px',
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '10.5px', color: '#94A3B8', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                          {parseFloat(t.current_level_liters).toFixed(1)} L / {parseFloat(t.capacity_liters).toFixed(1)} L
+                        </span>
                       </div>
                     </div>
-                  ))}
-                  {alertTrucks.map(t => {
-                    let color = '#f87171';
-                    let label = 'Sem Sinal';
-                    let Icon = AlertTriangle;
-                    if (t.status === 'low_fuel' || t.status === 'critical_fuel') {
-                      color = '#fbbf24';
-                      label = 'Combustível Baixo';
-                    } else if (t.status === 'arrived' || t.sim_state === 'arrived') {
-                      color = '#60a5fa';
-                      label = 'Chegou ao Destino';
-                      Icon = CheckCircle;
-                    }
-                    return (
-                      <div key={`status-${t.id}`} onClick={() => handleSelectTruck(t.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '12px', background: selectedTruckId === t.id ? `${color}22` : `${color}0d`, border: `1px solid`, borderColor: selectedTruckId === t.id ? color : `${color}33`, cursor: 'pointer', transition: 'all 0.2s' }}
-                      >
-                        <Icon size={15} color={color} style={{ flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', fontFamily: 'monospace' }}>{t.plate}</div>
-                          <div style={{ fontSize: '11px', color }}>{label}</div>
-                        </div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{pct(t)}%</div>
-                      </div>
-                    );
-                  })}
-                </>
+                  );
+                })
               )}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Eventos ao Vivo ── */}
-      {(Array.isArray(fueling_now) && fueling_now.length > 0) || (Array.isArray(recent_logs) && recent_logs.length > 0) ? (
-        <div style={card}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', boxShadow: '0 0 10px #f87171', animation: 'pulse-ring 1.5s infinite' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>Eventos ao Vivo</div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Abastecimentos em andamento e recentes</div>
+          {/* Card: Alertas Recentes */}
+          <div style={{ ...panelStyle, padding: '18px 20px', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={15} color="#EF4444" />
+                <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Alertas Recentes</span>
+              </div>
+              <Link to="/alerts" style={{ color: '#00D4FF', fontSize: '12px', fontWeight: 700, textDecoration: 'none' }}>
+                Ver todos →
+              </Link>
+            </div>
+
+            {al ? (
+              <div style={{ padding: '24px 12px', display: 'flex', justifyContent: 'center' }}>
+                <LoadingSpinner />
+              </div>
+            ) : ae ? (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.28)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <AlertTriangle size={20} color="#EF4444" style={{ flexShrink: 0 }} />
+                <span style={{ color: '#EF4444', fontSize: '13px', fontWeight: 600 }}>
+                  Não foi possível carregar os alertas
+                </span>
+              </div>
+            ) : activeAlerts.length === 0 ? (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.06)',
+                border: '1px solid rgba(16, 185, 129, 0.22)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <CheckCircle size={20} color="#10B981" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ color: '#FFFFFF', fontWeight: 700, fontSize: '13px' }}>
+                    Nenhum alerta no momento.
+                  </div>
+                  <div style={{ color: '#8A9BB2', fontSize: '11px', marginTop: '2px' }}>
+                    A frota está operando sem divergências ativas.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                {activeAlerts.map((alert) => {
+                  const meta = getAlertMeta(alert.type);
+                  const Icon = meta.icon;
+                  const sev = getSeverityBadge(alert.severity);
+                  return (
+                    <div
+                      key={alert.id}
+                      style={{
+                        background: 'rgba(6, 12, 24, 0.65)',
+                        border: `1px solid ${sev.border}`,
+                        borderRadius: '11px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
+                          background: sev.bg,
+                          border: `1px solid ${sev.border}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <Icon size={14} color={sev.color} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {alert.message || meta.label}
+                          </div>
+                          {alert.plate && (
+                            <div style={{ color: '#8A9BB2', fontSize: '11px', fontFamily: 'monospace' }}>
+                              {alert.plate} {alert.model ? `• ${alert.model}` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        color: sev.color,
+                        background: sev.bg,
+                        border: `1px solid ${sev.border}`,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        flexShrink: 0,
+                      }}>
+                        {sev.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUMN 3: ATIVIDADE DA FROTA + ÚLTIMOS ABASTECIMENTOS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Card: Atividade da Frota (Glowing Donut Gauge) */}
+          <div style={{ ...panelStyle, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={15} color="#00D4FF" />
+                <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Atividade da Frota</span>
+              </div>
+              <Link to="/fleet" style={{ color: '#00D4FF', fontSize: '12px', fontWeight: 700, textDecoration: 'none' }}>
+                Ver todos →
+              </Link>
+            </div>
+
+            <DonutChart percent={enRoutePercent} />
+
+            {/* Donut Legend */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11.5px', color: '#8A9BB2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00D4FF', boxShadow: '0 0 6px #00D4FF' }} />
+                <span>Em rota: <strong style={{ color: '#FFFFFF' }}>{enRoute}</strong></span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8' }} />
+                <span>Parados: <strong style={{ color: '#FFFFFF' }}>{Math.max(0, totalTrucks - enRoute)}</strong></span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
+                <span>Comb. baixo: <strong style={{ color: '#FFFFFF' }}>{critical}</strong></span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+                <span>Operacionais: <strong style={{ color: '#FFFFFF' }}>{statuses.ok}</strong></span>
               </div>
             </div>
           </div>
-          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {Array.isArray(fueling_now) && fueling_now.map(t => (
-              <div key={t.id} onClick={() => handleSelectTruck(t.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', background: selectedTruckId === t.id ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.08)', border: '1px solid', borderColor: selectedTruckId === t.id ? '#f87171' : 'rgba(248,113,113,0.3)', cursor: 'pointer', transition: 'all 0.2s' }}
-              >
-                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(248,113,113,0.15)', border: '2px solid rgba(248,113,113,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse-ring 1.2s infinite' }}>
-                  <Fuel size={16} color="#f87171" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontFamily: 'monospace' }}>{t.plate}</span>
-                    <span style={{ fontSize: '10px', background: '#f87171', color: '#000', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>⛽ ABASTECENDO AGORA</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{t.model}</div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '12px', color: '#f87171', fontFamily: 'monospace', fontWeight: 700 }}>
-                    {t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0}%
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>nível atual</div>
-                </div>
+
+          {/* Card: Últimos Abastecimentos */}
+          <div style={{ ...panelStyle, padding: '18px 20px', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={15} color="#00D4FF" />
+                <span style={{ fontWeight: 800, fontSize: '14px', color: '#FFFFFF' }}>Últimos Abastecimentos</span>
               </div>
-            ))}
-
-            {Array.isArray(recent_logs) && recent_logs.map(log => {
-              const mins = Math.round((Date.now() - new Date(log.timestamp).getTime()) / 60000);
-              const timeStr = mins < 1 ? 'agora' : mins < 60 ? `${mins}min atrás` : `${Math.floor(mins/60)}h atrás`;
-              const liters = (parseFloat(log.level_after) - parseFloat(log.level_before)).toFixed(0);
-              return (
-                <div key={log.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)' }}
-                >
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Zap size={14} color="#38BDF8" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontFamily: 'monospace' }}>{log.plate}</span>
-                      <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>+{liters}L</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{log.model} • {log.driver_name || 'Desconhecido'}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, fontSize: '11px', color: '#64748b' }}>
-                    {timeStr}
-                  </div>
-                </div>
-              );
-            })}
+              <Link to="/fueling" style={{ color: '#00D4FF', fontSize: '12px', fontWeight: 700, textDecoration: 'none' }}>
+                Ver todos →
+              </Link>
+            </div>
+            {logs.length === 0 ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: '#8A9BB2', fontSize: '13px' }}>
+                Nenhum abastecimento registrado
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ color: '#64748B', borderBottom: '1px solid rgba(0, 212, 255, 0.1)' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>DATA / HORA</th>
+                    <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 700 }}>MOTORISTA</th>
+                    <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 700 }}>VEÍCULO</th>
+                    <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 700 }}>VOLUME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.slice(0, 5).map((log, idx) => {
+                    const d = log.timestamp ? new Date(log.timestamp) : new Date();
+                    const dateFormatted = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <tr key={log.id || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                        <td style={{ padding: '8px 4px', color: '#94A3B8', fontFamily: 'monospace' }}>
+                          {dateFormatted}
+                        </td>
+                        <td style={{ padding: '8px 4px', color: '#FFFFFF', fontWeight: 600 }}>
+                          {log.driver_name || 'Motorista'}
+                        </td>
+                        <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                          <span style={{
+                            background: 'rgba(0, 212, 255, 0.12)',
+                            color: '#00D4FF',
+                            border: '1px solid rgba(0, 212, 255, 0.3)',
+                            borderRadius: '6px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            fontFamily: 'monospace',
+                          }}>
+                            {log.truck_plate || '—'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 4px', textAlign: 'right', color: '#10B981', fontWeight: 800, fontFamily: 'monospace' }}>
+                          {log.level_after != null ? `${parseFloat(log.level_after).toFixed(1)} L` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
-        </div>
-      ) : null}
 
-      {is3DOpen && selectedTruck && (
-        <Simulation3DModal isOpen={is3DOpen} truck={selectedTruck} onClose={() => setIs3DOpen(false)} />
-      )}
+        </div>
+
+      </div>
+
     </div>
   );
 }
