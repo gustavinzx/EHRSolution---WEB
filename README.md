@@ -3,7 +3,7 @@
 <div align="center">
 
 ![CI Status](https://img.shields.io/badge/CI%2FCD-passing-brightgreen?style=for-the-badge&logo=github-actions)
-![Testes](https://img.shields.io/badge/Testes-554%2F554%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
+![Testes](https://img.shields.io/badge/Testes-611%2F611%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
 ![Backend](https://img.shields.io/badge/Backend-Node.js%20%7C%20Express%20%7C%20PostgreSQL-339933?style=for-the-badge&logo=node.js)
 ![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20Leaflet-61DAFB?style=for-the-badge&logo=react)
 ![Mobile](https://img.shields.io/badge/Mobile-React%20Native%20%7C%20Expo-000020?style=for-the-badge&logo=expo)
@@ -172,14 +172,14 @@ EHR-Solutions-Web/
 │   │   ├── middleware/      # JWT, Hardware Auth (SHA-256), Rate Limiter, RBAC
 │   │   ├── routes/          # Definição das rotas REST da plataforma
 │   │   └── services/        # Motor de Anomalias, ANP Sync, Haversine Matcher e Virtual Hardware
-│   └── tests/               # 20 suítes de testes automatizados Jest (265 testes)
+│   └── tests/               # 31 suítes de testes automatizados Jest (328 testes)
 │
 ├── frontend/         # Painel Web do Gestor (React 18 + Vite + Leaflet + Glassmorphism)
 │   ├── src/
 │   │   ├── components/      # Modais de Motorista, Cartão de Hardware Key, Mapas, TopBar, Sidebar
 │   │   ├── pages/           # Dashboard, Frota, Motoristas, Postos ANP, Investigação, Relatórios
 │   │   └── store/           # Gerenciamento de estado com Zustand e WebSocket em tempo real
-│   └── tests/               # 10 suítes de testes Vitest (45 testes)
+│   └── tests/               # 15 suítes de testes Vitest (68 testes)
 │
 ├── mobile/           # Aplicativo do Motorista (React Native + Expo)
 │   ├── src/
@@ -202,7 +202,7 @@ EHR-Solutions-Web/
 
 1. **Hardware Virtual e Simulador Embutido:** O sistema possui um módulo completo de hardware virtual (`virtualHardware.js`) e simulador de telemetria rodoviária (`simulator.js`). Toda a plataforma pode ser operada e testada de ponta a ponta sem necessidade imediata da placa física conectada.
 2. **Integração Plug-and-Play:** A documentação completa de contratos de API, payloads de telemetria e especificações elétricas/lógicas da trava solenoide está consolidada em [`docs/GUIA_INTEGRACAO_HARDWARE.md`](docs/GUIA_INTEGRACAO_HARDWARE.md).
-3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 585 testes para qualquer merge.
+3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 611 testes para qualquer merge.
 
 ---
 

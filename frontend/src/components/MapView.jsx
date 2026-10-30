@@ -208,9 +208,29 @@ function FloatingMapControls({ mapType, setMapType }) {
 const EMPTY_TRUCKS = [];
 
 export default function MapView({ trucks = EMPTY_TRUCKS }) {
+  const token = getMapboxToken();
   const navigate = useNavigate();
   const { truckRoutes, selectedTruckId, setSelectedTruckId } = useFleetState();
   const [mapType, setMapType] = React.useState('satellite');
+
+  if (!token) {
+    return (
+      <div
+        data-testid="mapbox-token-missing"
+        className="rounded-lg shadow-sm border border-gray-200 overflow-hidden relative flex items-center justify-center text-center p-6"
+        style={{ height: '100%', minHeight: '300px', background: '#0B1420', color: '#94a3b8' }}
+      >
+        <div>
+          <p style={{ fontWeight: 600, fontSize: '14px', color: '#f87171', marginBottom: '4px' }}>
+            Token do Mapbox não configurado
+          </p>
+          <p style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Defina a variável VITE_MAPBOX_TOKEN no ambiente para exibir o mapa.
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   const getLevelPct = (t) =>
     t.capacity_liters > 0 ? Math.round((t.current_level_liters / t.capacity_liters) * 100) : 0;

@@ -24,6 +24,8 @@ services:
         value: 8h
       - key: NODE_ENV
         value: staging
+      - key: VITE_APP_ENV
+        value: staging
       - key: TRUST_PROXY
         value: "1"
       - key: SERVE_FRONTEND

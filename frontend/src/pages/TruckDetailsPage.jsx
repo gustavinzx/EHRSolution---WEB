@@ -691,7 +691,11 @@ export default function TruckDetailsPage() {
                <span style={{ color: '#8899A6', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#00D4FF" /> Rota telemétrica</span>
             </div>
             <div style={{ flex: 1, background: '#060B13' }}>
-              {routePoints.length > 0 ? (
+              {!getMapboxToken() ? (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', fontWeight: 600 }}>
+                  Token do Mapbox não configurado
+                </div>
+              ) : routePoints.length > 0 ? (
                 <MapContainer center={[parseFloat(truck.lat), parseFloat(truck.lng)]} zoom={15} style={{ height: '100%', width: '100%' }}>
                     <CenterOnTruck lat={truck.lat} lng={truck.lng} />
                   <TileLayer 

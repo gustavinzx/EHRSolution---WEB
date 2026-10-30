@@ -6,6 +6,8 @@ RUN npm ci
 COPY frontend/ ./
 ARG VITE_MAPBOX_TOKEN=""
 ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
+ARG VITE_APP_ENV=""
+ENV VITE_APP_ENV=$VITE_APP_ENV
 RUN npm run build
 
 # ─── Estágio 2: Servidor Unificado (Backend API + Socket.IO + Painel Web) ────

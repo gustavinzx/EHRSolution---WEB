@@ -43,9 +43,11 @@ docker compose -f docker-compose.staging.yml up -d --build
 ```
 
 ### Passo 2.4 — Popular os Dados Iniciais (Apenas na 1ª Vez)
-Para criar o banco inicial de demonstração (`gestor@ehr.com` / `motorista@ehr.com` com senha `Demo@1234`, caminhão `EHR-0001` e posto de teste):
+Para criar o banco inicial de demonstração (`gestor@ehr.com` / `motorista@ehr.com`, caminhão `EHR-0001` e posto de teste):
 ```bash
-docker exec -e ALLOW_SEED_WIPE=true ehr_backend_staging npm run seed
+# As senhas podem ser definidas pelas variáveis SEED_ADMIN_PASSWORD e SEED_DRIVER_PASSWORD.
+# Se omitidas, o seed gera senhas aleatórias fortes (16+ caracteres) e as imprime uma única vez no log.
+docker exec -e ALLOW_SEED_WIPE=true -e SEED_ADMIN_PASSWORD="sua_senha_segura" -e SEED_DRIVER_PASSWORD="sua_senha_segura" ehr_backend_staging npm run seed
 ```
 *(Ou, se preferir começar com o banco limpo e criar apenas o seu usuário Gestor Administrador personalizado):*
 ```bash
@@ -97,12 +99,22 @@ Com o arquivo [`mobile/eas.json`](../mobile/eas.json) já configurado no projeto
    ```
 3. Ao terminar, o EAS fornecerá um **link de download do `.apk`** (e um QR Code). Basta enviar esse link no WhatsApp da empresa: eles instalam o aplicativo **EHR Motorista** direto no Android, sem precisar do Expo Go e sem depender do seu PC!
 
+### Perfil de Produção vs Preview no EAS (`eas.json`)
+O perfil `preview` em `mobile/eas.json` inclui o endpoint do servidor de homologação para testes internos e geração rápida do `.apk`. Já o perfil `production` **não** herda nenhum endereço de homologação no repositório. Ao compilar a versão final para publicação na Google Play ou App Store, defina a variável `EXPO_PUBLIC_API_URL` apontando para o seu backend oficial de produção através das Environment Variables do painel do Expo (`https://expo.dev`) ou via EAS Secrets (`eas secret:create`).
+
 ### Opção 2 — Testar pelo Expo Go (SDK 58 — Android e iPhone)
 Como o projeto já está atualizado para o **Expo SDK 58**, basta apontar o `mobile/.env` para `https://frota.suaempresa.com.br/api` e iniciar com `npx expo start --tunnel`.
 
 ---
 
 ## 5. Como a Empresa Faz o Teste Completo (Fluxo Sem Placa Física)
+
+### Configuração no Render.com e Variáveis de Ambiente
+Ao realizar o deploy no Render (via `Dockerfile` ou blueprint `render.yaml`), certifique-se de configurar as seguintes variáveis no painel de Environment do serviço:
+- `VITE_MAPBOX_TOKEN`: **Obrigatório para mapas interativos**. Token público da sua conta Mapbox. Ele é repassado no build do frontend (`ARG/ENV VITE_MAPBOX_TOKEN` no `Dockerfile`). Se ausente, o sistema exibe a mensagem orientativa `"Token do Mapbox não configurado"` nos componentes de mapa e autocomplete sem quebrar a aplicação.
+- `SEED_ADMIN_PASSWORD`: (Opcional) Senha inicial da conta do gestor (`gestor@ehr.com`). Se não configurada, o seed gera uma senha forte de 16+ caracteres e a imprime uma única vez no log.
+- `SEED_DRIVER_PASSWORD`: (Opcional) Senha inicial da conta do motorista (`motorista@ehr.com`). Se não configurada, o seed gera uma senha forte de 16+ caracteres e a imprime uma única vez no log.
+
 
 1. **No Painel Web (`https://frota.suaempresa.com.br`):**
    - A empresa faz login como Gestor, cadastra motoristas (anotando a senha temporária gerada), cadastra caminhões e vincula o motorista ao caminhão.

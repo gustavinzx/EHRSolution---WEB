@@ -75,9 +75,41 @@ export default function AuthorizedStationsMap({
     : [-15.793889, -47.882778];
 
   const mapboxToken = getMapboxToken();
-  const tileUrl = mapboxToken
-    ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  if (!mapboxToken) {
+    return (
+      <div
+        data-testid="mapbox-token-missing"
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          minHeight: '480px',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: '#0B1420',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#94a3b8',
+          padding: '20px',
+          textAlign: 'center',
+        }}
+      >
+        <div>
+          <p style={{ fontWeight: 600, fontSize: '14px', color: '#f87171', marginBottom: '4px' }}>
+            Token do Mapbox não configurado
+          </p>
+          <p style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Defina a variável VITE_MAPBOX_TOKEN para visualizar o mapa de postos autorizados.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const tileUrl = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`;
+
+
 
   return (
     <div

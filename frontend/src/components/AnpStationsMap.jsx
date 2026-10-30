@@ -40,6 +40,36 @@ export default function AnpStationsMap({
   onBoundsChange,
   onSelectStation,
 }) {
+  const mapboxToken = getMapboxToken();
+  if (!mapboxToken) {
+    return (
+      <div
+        data-testid="mapbox-token-missing"
+        style={{
+          height: '320px',
+          width: '100%',
+          borderRadius: '16px',
+          background: '#0B1420',
+          border: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '20px',
+        }}
+      >
+        <div>
+          <p style={{ fontWeight: 600, fontSize: '14px', color: '#f87171', marginBottom: '4px' }}>
+            Token do Mapbox não configurado
+          </p>
+          <p style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Defina a variável VITE_MAPBOX_TOKEN para visualizar os postos ANP.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -104,7 +134,7 @@ export default function AnpStationsMap({
         >
           <TileLayer
             attribution='&copy; OpenStreetMap'
-            url={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${getMapboxToken()}`}
+            url={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`}
           />
           {onBoundsChange && <BoundsWatcher onBoundsChange={onBoundsChange} />}
           {stations.map(st => {

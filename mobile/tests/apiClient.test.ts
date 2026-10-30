@@ -47,7 +47,7 @@ describe('apiClient', () => {
       }),
     });
 
-    const res = await apiClient.login('motorista1@ehr.com', 'Demo@1234');
+    const res = await apiClient.login('motorista1@ehr.com', 'SenhaTeste@2026');
     expect(res.token).toBe('mock_jwt_token');
     expect(res.driver).toEqual({
       id: 1,
@@ -67,7 +67,7 @@ describe('apiClient', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'motorista1@ehr.com', password: 'Demo@1234' })
+        body: JSON.stringify({ email: 'motorista1@ehr.com', password: 'SenhaTeste@2026' })
       })
     );
   });
@@ -87,7 +87,7 @@ describe('apiClient', () => {
       }),
     });
 
-    const res = await apiClient.login('motorista2@ehr.com', 'Demo@1234');
+    const res = await apiClient.login('motorista2@ehr.com', 'SenhaTeste@2026');
     expect(res.token).toBe('mock_jwt_token_2');
     expect(res.vehicle).toBeNull();
   });
