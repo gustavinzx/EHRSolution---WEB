@@ -19,6 +19,7 @@ import SettingsPage     from './pages/SettingsPage';
 import UsersPage        from './pages/UsersPage';
 import Sidebar          from './components/Sidebar';
 import TopBar           from './components/TopBar';
+import StagingBanner    from './components/StagingBanner';
 import useFleetState    from './store/useFleetState';
 
 export const RequireAdmin = ({ children }) => {
@@ -29,6 +30,8 @@ export const RequireAdmin = ({ children }) => {
 
 export const ProtectedLayout = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const isStaging = import.meta.env?.VITE_APP_ENV === 'staging';
+
   useEffect(() => {
     if (!isAuthenticated) return;
     useFleetState.getState().connectSocket();
@@ -40,8 +43,10 @@ export const ProtectedLayout = ({ children }) => {
     <div style={{
       display: 'flex',
       minHeight: '100vh',
+      paddingTop: isStaging ? '28px' : 0,
       background: 'radial-gradient(circle at 75% 10%, rgba(0, 212, 255, 0.06) 0%, transparent 45%), radial-gradient(circle at 20% 85%, rgba(0, 196, 208, 0.05) 0%, transparent 45%), #060B13',
     }}>
+      <StagingBanner />
       <Sidebar />
       <div style={{ flex: 1, marginLeft: '240px', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <TopBar />

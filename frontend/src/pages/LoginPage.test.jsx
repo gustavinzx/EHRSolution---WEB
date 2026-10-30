@@ -41,4 +41,29 @@ describe('LoginPage - Remocao de credenciais demo', () => {
     expect(screen.queryByText(/Demo@\d+/i)).toBeNull();
     expect(screen.queryByText(/gestor@ehr.com/i)).toBeNull();
   });
+
+  it('na tela de login: com VITE_APP_ENV=staging a faixa de homologacao aparece', () => {
+    vi.stubEnv('VITE_APP_ENV', 'staging');
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    const banner = screen.getByTestId('staging-banner');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toContain('AMBIENTE DE HOMOLOGAÇÃO — dados simulados');
+  });
+
+  it('na tela de login: sem VITE_APP_ENV a faixa de homologacao NÃO aparece', () => {
+    vi.stubEnv('VITE_APP_ENV', undefined);
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    expect(screen.queryByTestId('staging-banner')).toBeNull();
+    expect(screen.queryByText(/AMBIENTE DE HOMOLOGAÇÃO/i)).toBeNull();
+  });
 });

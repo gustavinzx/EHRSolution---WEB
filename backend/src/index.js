@@ -194,9 +194,20 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
+function checkNonProductionWarning(env = process.env, logger = console) {
+  if (env.NODE_ENV !== 'production' && env.DATABASE_URL) {
+    if (logger && typeof logger.warn === 'function') {
+      logger.warn('[AMBIENTE NÃO-PRODUTIVO] Reconhecimento facial MOCK, hardware virtual e CORS aberto: NÃO use dados reais.');
+    }
+    return true;
+  }
+  return false;
+}
+
 require('./services/stationMatcher').validateStationMatchRadius(process.env.STATION_MATCH_RADIUS_M);
 
 if (process.env.NODE_ENV !== 'test') {
+  checkNonProductionWarning(process.env, console);
   require('./services/jwtValidator').validateJwtSecret(process.env.JWT_SECRET, process.env.NODE_ENV);
   server.listen(PORT, async () => {
     console.log('Server running on port ' + PORT);
@@ -226,4 +237,4 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-module.exports = { app, server, io };
+module.exports = { app, server, io, checkNonProductionWarning };

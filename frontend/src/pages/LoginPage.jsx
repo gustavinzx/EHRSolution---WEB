@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ArrowRight, Shield, Gauge, Bell, Radio } from 'lucide-react';
+import StagingBanner from '../components/StagingBanner';
 
 const features = [
   { icon: Gauge,  label: 'Telemetria telemática contínua e rastreamento em tempo real' },
@@ -37,12 +38,16 @@ export default function LoginPage() {
     fontFamily: 'Inter, sans-serif',
   };
 
+  const isStaging = import.meta.env?.VITE_APP_ENV === 'staging';
+
   return (
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      paddingTop: isStaging ? '28px' : 0,
       background: 'radial-gradient(ellipse at 15% 50%, rgba(0, 212, 255, 0.12) 0%, transparent 55%), radial-gradient(ellipse at 85% 15%, rgba(0, 114, 255, 0.12) 0%, transparent 55%), #060B13',
     }}>
+      <StagingBanner />
       {/* Left: branding */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
