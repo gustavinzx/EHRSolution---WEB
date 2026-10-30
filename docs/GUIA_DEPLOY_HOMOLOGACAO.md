@@ -99,6 +99,9 @@ Com o arquivo [`mobile/eas.json`](../mobile/eas.json) já configurado no projeto
    ```
 3. Ao terminar, o EAS fornecerá um **link de download do `.apk`** (e um QR Code). Basta enviar esse link no WhatsApp da empresa: eles instalam o aplicativo **EHR Motorista** direto no Android, sem precisar do Expo Go e sem depender do seu PC!
 
+### Perfil de Produção vs Preview no EAS (`eas.json`)
+O perfil `preview` em `mobile/eas.json` inclui o endpoint do servidor de homologação para testes internos e geração rápida do `.apk`. Já o perfil `production` **não** herda nenhum endereço de homologação no repositório. Ao compilar a versão final para publicação na Google Play ou App Store, defina a variável `EXPO_PUBLIC_API_URL` apontando para o seu backend oficial de produção através das Environment Variables do painel do Expo (`https://expo.dev`) ou via EAS Secrets (`eas secret:create`).
+
 ### Opção 2 — Testar pelo Expo Go (SDK 58 — Android e iPhone)
 Como o projeto já está atualizado para o **Expo SDK 58**, basta apontar o `mobile/.env` para `https://frota.suaempresa.com.br/api` e iniciar com `npx expo start --tunnel`.
 
