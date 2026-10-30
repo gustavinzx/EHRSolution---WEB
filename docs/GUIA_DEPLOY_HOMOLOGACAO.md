@@ -104,6 +104,11 @@ Como o projeto já está atualizado para o **Expo SDK 58**, basta apontar o `mob
 
 ## 5. Como a Empresa Faz o Teste Completo (Fluxo Sem Placa Física)
 
+### Configuração no Render.com e Variáveis de Ambiente
+Ao realizar o deploy no Render (via `Dockerfile` ou blueprint `render.yaml`), certifique-se de configurar as seguintes variáveis no painel de Environment do serviço:
+- `VITE_MAPBOX_TOKEN`: **Obrigatório para mapas interativos**. Token público da sua conta Mapbox. Ele é repassado no build do frontend (`ARG/ENV VITE_MAPBOX_TOKEN` no `Dockerfile`). Se ausente, o sistema exibe a mensagem orientativa `"Token do Mapbox não configurado"` nos componentes de mapa e autocomplete sem quebrar a aplicação.
+
+
 1. **No Painel Web (`https://frota.suaempresa.com.br`):**
    - A empresa faz login como Gestor, cadastra motoristas (anotando a senha temporária gerada), cadastra caminhões e vincula o motorista ao caminhão.
 2. **No Celular (App EHR Motorista):**
