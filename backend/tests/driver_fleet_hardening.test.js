@@ -602,3 +602,133 @@ describe('BLOCO D5 — Virtual Hardware Unit Tests', () => {
   });
 });
 
+describe('Senha Temporária Única — Criar e Redefinir', () => {
+  it('devolve temporaryPassword forte (12+ chars, sem caracteres ambíguos) só no criar/redefinir, grava apenas hash bcrypt, nunca vaza em GET listagem/detalhe nem logs, auditor recebe 403, duas redefinições geram senhas diferentes e login funciona', async () => {
+    const capturedLogs = [];
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origError = console.error;
+    console.log = (...args) => capturedLogs.push(args.map(String).join(' '));
+    console.warn = (...args) => capturedLogs.push(args.map(String).join(' '));
+    console.error = (...args) => capturedLogs.push(args.map(String).join(' '));
+
+    try {
+      // 1. Auditor tentando criar => 403
+      const rAudCreate = await request(app)
+        .post('/api/drivers')
+        .set('Authorization', 'Bearer ' + tokenAuditor)
+        .send({ name: 'Motorista Bloqueado Auditor', email: 'aud_block@test.com' });
+      expect(rAudCreate.status).toBe(403);
+
+      // 2. Criar motorista sem senha => devolve temporaryPassword uma vez
+      const rCreate = await request(app)
+        .post('/api/drivers')
+        .set('Authorization', 'Bearer ' + tokenManager)
+        .send({ name: 'Motorista Temp Once', email: 'temp_once@test.com' });
+      expect(rCreate.status).toBe(201);
+
+      const createdTempPass = rCreate.body.temporaryPassword;
+      expect(typeof createdTempPass).toBe('string');
+      expect(createdTempPass.length).toBeGreaterThanOrEqual(12);
+      expect(createdTempPass).not.toMatch(/[0O1lI]/);
+
+      const driverId = rCreate.body.id;
+
+      // 3. No banco: apenas password_hash e bcrypt.compare confere
+      const { rows: dbRowsCreate } = await db.query('SELECT * FROM drivers WHERE id = $1', [driverId]);
+      expect(dbRowsCreate.length).toBe(1);
+      expect(dbRowsCreate[0].password_hash).not.toBe(createdTempPass);
+      expect(await bcrypt.compare(createdTempPass, dbRowsCreate[0].password_hash)).toBe(true);
+      expect(JSON.stringify(dbRowsCreate[0])).not.toContain(createdTempPass);
+
+      // 4. Login funciona com a senha temporária criada
+      const rLogin1 = await request(app)
+        .post('/api/auth/driver/login')
+        .send({ email: 'temp_once@test.com', password: createdTempPass });
+      expect(rLogin1.status).toBe(200);
+      expect(rLogin1.body.token).toBeDefined();
+
+      // 5. Auditor tentando redefinir senha => 403
+      const rAudReset = await request(app)
+        .post(`/api/drivers/${driverId}/reset-password`)
+        .set('Authorization', 'Bearer ' + tokenAuditor);
+      expect(rAudReset.status).toBe(403);
+
+      // 6. Duas redefinições geram senhas diferentes e atualizam o hash
+      const rReset1 = await request(app)
+        .post(`/api/drivers/${driverId}/reset-password`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      expect(rReset1.status).toBe(200);
+      const resetPass1 = rReset1.body.temporaryPassword;
+      expect(typeof resetPass1).toBe('string');
+      expect(resetPass1.length).toBeGreaterThanOrEqual(12);
+      expect(resetPass1).not.toMatch(/[0O1lI]/);
+      expect(resetPass1).not.toBe(createdTempPass);
+
+      const rReset2 = await request(app)
+        .post(`/api/drivers/${driverId}/reset-password`)
+        .set('Authorization', 'Bearer ' + tokenAdmin);
+      expect(rReset2.status).toBe(200);
+      const resetPass2 = rReset2.body.temporaryPassword;
+      expect(typeof resetPass2).toBe('string');
+      expect(resetPass2.length).toBeGreaterThanOrEqual(12);
+      expect(resetPass2).not.toMatch(/[0O1lI]/);
+      expect(resetPass2).not.toBe(resetPass1);
+
+      // Hash no banco confere com a última senha redefinida
+      const { rows: dbRowsReset } = await db.query('SELECT * FROM drivers WHERE id = $1', [driverId]);
+      expect(await bcrypt.compare(resetPass2, dbRowsReset[0].password_hash)).toBe(true);
+      expect(await bcrypt.compare(resetPass1, dbRowsReset[0].password_hash)).toBe(false);
+      expect(JSON.stringify(dbRowsReset[0])).not.toContain(resetPass2);
+
+      // Login funciona com a nova senha temporária e falha com a anterior
+      const rLoginOld = await request(app)
+        .post('/api/auth/driver/login')
+        .send({ email: 'temp_once@test.com', password: resetPass1 });
+      expect(rLoginOld.status).toBe(401);
+
+      const rLoginNew = await request(app)
+        .post('/api/auth/driver/login')
+        .send({ email: 'temp_once@test.com', password: resetPass2 });
+      expect(rLoginNew.status).toBe(200);
+      expect(rLoginNew.body.token).toBeDefined();
+
+      // 7. A senha nunca aparece em GET de listagem nem de detalhe
+      const rList = await request(app)
+        .get('/api/drivers')
+        .set('Authorization', 'Bearer ' + tokenManager);
+      expect(rList.status).toBe(200);
+      const listSerialized = JSON.stringify(rList.body);
+      expect(listSerialized).not.toContain(createdTempPass);
+      expect(listSerialized).not.toContain(resetPass1);
+      expect(listSerialized).not.toContain(resetPass2);
+      const fromList = rList.body.find(d => d.id === driverId);
+      expect(fromList.temporaryPassword).toBeUndefined();
+      expect(fromList.temporary_password).toBeUndefined();
+      expect(fromList.password_hash).toBeUndefined();
+
+      const rDetail = await request(app)
+        .get(`/api/drivers/${driverId}`)
+        .set('Authorization', 'Bearer ' + tokenManager);
+      expect(rDetail.status).toBe(200);
+      const detailSerialized = JSON.stringify(rDetail.body);
+      expect(detailSerialized).not.toContain(createdTempPass);
+      expect(detailSerialized).not.toContain(resetPass1);
+      expect(detailSerialized).not.toContain(resetPass2);
+      expect(rDetail.body.temporaryPassword).toBeUndefined();
+      expect(rDetail.body.temporary_password).toBeUndefined();
+      expect(rDetail.body.password_hash).toBeUndefined();
+
+      // 8. A senha não aparece nos logs capturados
+      const allLogs = capturedLogs.join('\n');
+      expect(allLogs).not.toContain(createdTempPass);
+      expect(allLogs).not.toContain(resetPass1);
+      expect(allLogs).not.toContain(resetPass2);
+    } finally {
+      console.log = origLog;
+      console.warn = origWarn;
+      console.error = origError;
+    }
+  });
+});
+
