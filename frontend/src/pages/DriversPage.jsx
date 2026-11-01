@@ -20,6 +20,9 @@ import {
   XCircle,
   X,
   ScanFace,
+  Key,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 const glass = {
@@ -48,6 +51,7 @@ export default function DriversPage() {
     updateDriver,
     deactivateDriver,
     activateDriver,
+    resetDriverPassword,
     assignTruck,
     unassignTruck,
     deleteDriver,
@@ -61,6 +65,8 @@ export default function DriversPage() {
   const [editingDriver, setEditingDriver] = useState(null);
   const [assigning, setAssigning] = useState({});
   const [enrollDriverTarget, setEnrollDriverTarget] = useState(null);
+  const [tempPasswordModal, setTempPasswordModal] = useState(null);
+  const [tempPasswordCopied, setTempPasswordCopied] = useState(false);
 
   const filtered = drivers
     .filter(d => {
@@ -82,13 +88,31 @@ export default function DriversPage() {
       ? await updateDriver(editingDriver.id, data)
       : await createDriver(data);
     if (res) {
-      if (!res.temporary_password) {
+      const generatedPass = res.temporaryPassword || res.temporary_password;
+      if (!generatedPass) {
         setIsModalOpen(false);
         setEditingDriver(null);
       }
       return res;
     }
     return null;
+  };
+
+  const handleResetPassword = async driver => {
+    const res = await resetDriverPassword(driver.id);
+    const generatedPass = res?.temporaryPassword || res?.temporary_password;
+    if (generatedPass) {
+      setTempPasswordCopied(false);
+      setTempPasswordModal({
+        driverName: driver.name,
+        password: generatedPass,
+      });
+    }
+  };
+
+  const handleCloseTempPasswordModal = () => {
+    setTempPasswordModal(null);
+    setTempPasswordCopied(false);
   };
 
   const handleToggleActive = async driver => {
@@ -641,24 +665,46 @@ export default function DriversPage() {
                     Tel: {d.phone || '—'}
                   </div>
 
-                  {user?.role !== 'auditor' && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(d)}
-                      style={{
-                        background: d.is_active ? 'rgba(239, 68, 68, 0.12)' : 'rgba(0, 245, 160, 0.12)',
-                        border: d.is_active ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(0, 245, 160, 0.35)',
-                        color: d.is_active ? '#EF4444' : '#00F5A0',
-                        borderRadius: '8px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        padding: '6px 12px',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {d.is_active ? 'Bloquear Acesso' : 'Reativar Acesso'}
-                    </button>
+                  {(user?.role === 'admin' || user?.role === 'manager') && (
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleResetPassword(d)}
+                        style={{
+                          background: 'rgba(47, 190, 181, 0.12)',
+                          border: '1px solid rgba(47, 190, 181, 0.35)',
+                          color: '#2FBEB5',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: '6px 10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <Key size={12} /> Redefinir senha
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(d)}
+                        style={{
+                          background: d.is_active ? 'rgba(239, 68, 68, 0.12)' : 'rgba(0, 245, 160, 0.12)',
+                          border: d.is_active ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(0, 245, 160, 0.35)',
+                          color: d.is_active ? '#EF4444' : '#00F5A0',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: '6px 12px',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {d.is_active ? 'Bloquear Acesso' : 'Reativar Acesso'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -685,6 +731,114 @@ export default function DriversPage() {
         onClose={() => setEnrollDriverTarget(null)}
         onEnroll={enrollFace}
       />
+
+      {tempPasswordModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={e => e.target === e.currentTarget && handleCloseTempPasswordModal()}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="temp-password-modal-title"
+            style={{
+              background: 'rgba(11,20,36,0.98)',
+              border: '1px solid rgba(47,190,181,0.35)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '460px',
+              padding: '26px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2FBEB5', fontWeight: 700, fontSize: '16px' }}>
+              <Key size={18} />
+              <span id="temp-password-modal-title">Senha Temporária — {tempPasswordModal.driverName}</span>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '13px', color: '#fbbf24', fontWeight: 600, lineHeight: 1.5 }}>
+              Esta senha aparece só agora. Anote ou copie antes de fechar.
+            </p>
+
+            <div
+              data-testid="reset-temporary-password-value"
+              style={{
+                background: 'rgba(0,0,0,0.45)',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                fontFamily: 'monospace',
+                fontSize: '16px',
+                color: '#2FBEB5',
+                wordBreak: 'break-all',
+                border: '1px solid rgba(47,190,181,0.3)',
+              }}
+            >
+              {tempPasswordModal.password}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator?.clipboard?.writeText) {
+                    navigator.clipboard.writeText(tempPasswordModal.password);
+                  }
+                  setTempPasswordCopied(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  background: tempPasswordCopied ? '#34d399' : '#2FBEB5',
+                  color: '#0b1424',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {tempPasswordCopied ? <Check size={16} /> : <Copy size={16} />}
+                {tempPasswordCopied ? 'Copiado!' : 'Copiar'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseTempPasswordModal}
+                style={{
+                  flex: 1,
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

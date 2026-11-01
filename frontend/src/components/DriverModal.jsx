@@ -135,8 +135,9 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
     }
 
     const res = await onSave(payload);
-    if (res && res.temporary_password) {
-      setTemporaryPassword(res.temporary_password);
+    const generatedPass = res?.temporaryPassword || res?.temporary_password;
+    if (generatedPass) {
+      setTemporaryPassword(generatedPass);
     }
   };
 
@@ -193,6 +194,9 @@ export default function DriverModal({ isOpen, onClose, onSave, driver, trucks = 
               </div>
               <p style={{ margin: 0, fontSize: '14px', color: '#e2e8f0', lineHeight: 1.6 }}>
                 {`Senha temporária do app: ${temporaryPassword}. Copie agora; ela não será exibida de novo.`}
+              </p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#fbbf24', fontWeight: 600 }}>
+                Esta senha aparece só agora. Anote ou copie antes de fechar.
               </p>
               <div style={{
                 background: 'rgba(0,0,0,0.4)',

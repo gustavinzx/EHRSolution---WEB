@@ -75,6 +75,17 @@ export function useDrivers() {
     }
   };
 
+  const resetDriverPassword = async (id) => {
+    try {
+      const response = await client.post(`/drivers/${id}/reset-password`);
+      toast.success('Senha temporária gerada com sucesso');
+      return response.data;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao redefinir senha');
+      return null;
+    }
+  };
+
   const unassignTruck = async (driverId, truckId) => {
     try {
       await client.delete(`/drivers/${driverId}/trucks/${truckId}`);
@@ -163,6 +174,7 @@ export function useDrivers() {
     createDriver, 
     updateDriver, 
     deactivateDriver, activateDriver,
+    resetDriverPassword,
     assignTruck,
     unassignTruck,
     deleteDriver,
