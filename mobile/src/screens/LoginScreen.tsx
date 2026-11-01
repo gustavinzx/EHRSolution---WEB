@@ -21,6 +21,7 @@ try {
 }
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
 import { getBiometricLabel, getBiometricIcon } from '../utils/biometricLabel';
@@ -174,6 +175,7 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <View style={styles.screenWrapper}>
+      <ConnectionStatus respectTopInset />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

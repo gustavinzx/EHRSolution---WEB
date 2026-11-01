@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
+import { ConnectionProvider } from '../contexts/ConnectionContext';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -14,6 +15,7 @@ export const AppNavigator: React.FC = () => {
   const { signed } = useAuth();
 
   return (
+    <ConnectionProvider>
     <Stack.Navigator screenOptions={{ headerShown: true }}>
       {!signed ? (
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -25,5 +27,6 @@ export const AppNavigator: React.FC = () => {
         </>
       )}
     </Stack.Navigator>
+    </ConnectionProvider>
   );
 };
