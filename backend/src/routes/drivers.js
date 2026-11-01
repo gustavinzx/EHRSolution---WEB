@@ -10,6 +10,7 @@ const router = express.Router();
 router.get('/', driversController.list);
 router.get('/ranking', driversController.ranking);
 router.get('/:id/score', driversController.getScore);
+router.get('/:id', driversController.getById);
 
 router.post('/', requireRole, [
   body('name').notEmpty().withMessage('Name is required'),
@@ -33,6 +34,7 @@ router.put('/:id', requireRole, [
 
 router.patch('/:id/deactivate', requireRole, driversController.deactivate);
 router.patch('/:id/activate', requireRole, driversController.activate);
+router.post('/:id/reset-password', requireRole, driversController.resetPassword);
 
 router.post('/:id/face/enroll', requireRole, driversController.enrollFace);
 router.delete('/:id/face', requireRole, driversController.removeFace);

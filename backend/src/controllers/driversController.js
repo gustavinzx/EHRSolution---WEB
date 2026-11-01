@@ -7,6 +7,17 @@ const { validateImageBase64 } = require('../services/imageValidation');
 const dataProvider = require('../services/fleetDataProvider');
 const { releaseTruckIfIdle } = require('../services/sessionRelease');
 
+const UNAMBIGUOUS_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+function generateTemporaryPassword(length = 14) {
+  const bytes = crypto.randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += UNAMBIGUOUS_ALPHABET[bytes[i] % UNAMBIGUOUS_ALPHABET.length];
+  }
+  return out;
+}
+
 const safeDriver = (driver, actorRole) => {
   if (!driver) return driver;
   const isPanelUser = ['admin', 'manager', 'auditor'].includes(actorRole);
@@ -57,6 +68,30 @@ exports.list = async (req, res) => {
     res.json(rows.map(d => safeDriver(d, req.user?.role)));
   } catch (error) {
     console.error('List drivers error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await db.query(
+      `SELECT d.id, d.name, d.phone, d.email, d.is_active, d.face_enrolled,
+              d.face_consent_at, d.face_consent_version, d.created_at, d.face_photo,
+              COALESCE(json_agg(json_build_object('id', t.id, 'plate', t.plate, 'model', t.model)) FILTER (WHERE t.id IS NOT NULL), '[]') as assigned_trucks
+       FROM drivers d
+       LEFT JOIN driver_trucks dt ON d.id = dt.driver_id
+       LEFT JOIN trucks t ON dt.truck_id = t.id
+       WHERE d.id = $1 AND (d.status IS NULL OR d.status != 'deleted')
+       GROUP BY d.id`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    res.json(safeDriver(rows[0], req.user?.role));
+  } catch (error) {
+    console.error('Get driver error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -160,7 +195,7 @@ exports.create = async (req, res) => {
     if (password && String(password).trim()) {
       rawPass = String(password).trim();
     } else {
-      temporaryPassword = crypto.randomBytes(8).toString('hex');
+      temporaryPassword = generateTemporaryPassword(14);
       rawPass = temporaryPassword;
     }
     const password_hash = await bcrypt.hash(rawPass, 10);
@@ -190,6 +225,7 @@ exports.create = async (req, res) => {
 
     const response = safeDriver(newDriver, req.user?.role);
     if (temporaryPassword) {
+      response.temporaryPassword = temporaryPassword;
       response.temporary_password = temporaryPassword;
     }
     res.status(201).json(response);
@@ -598,6 +634,42 @@ exports.getScore = async (req, res) => {
     res.json(score);
   } catch (error) {
     console.error('Driver score error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    if (!['admin', 'manager'].includes(req.user?.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { id } = req.params;
+    const { rows: existing } = await db.query(
+      'SELECT id, status FROM drivers WHERE id = $1',
+      [id]
+    );
+    if (existing.length === 0 || existing[0].status === 'deleted') {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+
+    const temporaryPassword = generateTemporaryPassword(14);
+    const password_hash = await bcrypt.hash(temporaryPassword, 10);
+
+    const { rows } = await db.query(
+      `UPDATE drivers
+       SET password_hash = $1
+       WHERE id = $2
+       RETURNING id, name, phone, email, is_active, face_enrolled, face_consent_at, face_consent_version, created_at, face_photo`,
+      [password_hash, id]
+    );
+
+    const response = safeDriver(rows[0], req.user?.role);
+    response.temporaryPassword = temporaryPassword;
+    response.temporary_password = temporaryPassword;
+    res.json(response);
+  } catch (error) {
+    console.error('Reset driver password error');
     res.status(500).json({ error: 'Internal server error' });
   }
 };
