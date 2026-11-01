@@ -25,6 +25,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { secureStorage } from '../storage/secureStorage';
 import { Button } from '../components/Button';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { apiClient } from '../services/api/apiClient';
@@ -641,6 +642,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <ConnectionStatus />
       {/* Next-Gen IoT Top Brand Bar */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
