@@ -3,7 +3,7 @@
 <div align="center">
 
 ![CI Status](https://img.shields.io/badge/CI%2FCD-passing-brightgreen?style=for-the-badge&logo=github-actions)
-![Testes](https://img.shields.io/badge/Testes-611%2F611%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
+![Testes](https://img.shields.io/badge/Testes-622%2F622%20passed%20(100%25)-success?style=for-the-badge&logo=jest)
 ![Backend](https://img.shields.io/badge/Backend-Node.js%20%7C%20Express%20%7C%20PostgreSQL-339933?style=for-the-badge&logo=node.js)
 ![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20Leaflet-61DAFB?style=for-the-badge&logo=react)
 ![Mobile](https://img.shields.io/badge/Mobile-React%20Native%20%7C%20Expo-000020?style=for-the-badge&logo=expo)
@@ -106,17 +106,17 @@ flowchart LR
 
 ---
 
-## 🧪 4. Cobertura de Testes e Qualidade (554 Testes Automatizados)
+## 🧪 4. Cobertura de Testes e Qualidade (622 Testes Automatizados)
 
 O projeto conta com **100% de testes automatizados passando com sucesso** em todas as camadas da aplicação:
 
 | Módulo | Ferramenta | Escopo dos Testes | Status |
 |---|---|---|---|
-| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **312 passed** (28 suítes) |
-| **Frontend Web** | Vitest + Testing Library | Painel, Rotas, Modais protegidos, Detalhes do Caminhão, Mapas Leaflet, Máscaras e Tabela ANP | ✅ **58 passed** (13 suítes) |
-| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **215 passed** (14 suítes) |
+| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **328 passed** (31 suítes) |
+| **Frontend Web** | Vitest + Testing Library | Painel, Rotas, Modais protegidos, Detalhes do Caminhão, Mapas Leaflet, Máscaras e Tabela ANP | ✅ **68 passed** (15 suítes) |
+| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **226 passed** (15 suítes) |
 | **Frontend Lint** | ESLint | Análise estática de código e integridade de tipos | ✅ **0 erros / 0 avisos** |
-| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **585 / 585 (100% GREEN)** |
+| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **622 / 622 (100% GREEN)** |
 
 ---
 
@@ -185,7 +185,7 @@ EHR-Solutions-Web/
 │   ├── src/
 │   │   ├── contexts/        # Contexto de autenticação e sessão com SecureStore
 │   │   └── screens/         # Login, Câmera Facial Biométrica, Status da Trava e Histórico
-│   └── tests/               # 14 suítes de testes Jest (215 testes)
+│   └── tests/               # 15 suítes de testes Jest (226 testes)
 │
 ├── docs/             # Manuais Oficiais e Documentação Executiva
 │   ├── ARQUITETURA.md                 # Arquitetura detalhada, fluxos e tabelas
@@ -202,7 +202,7 @@ EHR-Solutions-Web/
 
 1. **Hardware Virtual e Simulador Embutido:** O sistema possui um módulo completo de hardware virtual (`virtualHardware.js`) e simulador de telemetria rodoviária (`simulator.js`). Toda a plataforma pode ser operada e testada de ponta a ponta sem necessidade imediata da placa física conectada.
 2. **Integração Plug-and-Play:** A documentação completa de contratos de API, payloads de telemetria e especificações elétricas/lógicas da trava solenoide está consolidada em [`docs/GUIA_INTEGRACAO_HARDWARE.md`](docs/GUIA_INTEGRACAO_HARDWARE.md).
-3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 611 testes para qualquer merge.
+3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 622 testes para qualquer merge.
 
 ---
 
