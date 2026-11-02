@@ -201,15 +201,15 @@ sequenceDiagram
 
 ### 4.4 `POST /api/fueling/sessions/:id/pump-reading` — litros medidos na bomba
 
-- **Quando:** **depois** do `finish`. **[verificado]** Se a sessão ainda estiver `authorized`, a resposta é `409 {"error":"Sessão não está ativa nem concluída"}`.
+- **Quando:** **depois** do `finish`. **[verificado]** Se a sessão ainda estiver `authorized`, a resposta é `409 {"error":"Sessão não está ativa nem concluída"}`. Quando a sessão estiver `completed`, a leitura é aceita apenas dentro da janela de até 10 minutos após a conclusão (configurável no backend via `PUMP_READING_WINDOW_MIN`, padrão 10). Fora da janela, responde `409 {"error":"Janela para leitura da bomba encerrada"}` e a placa só deve reenviar se estiver dentro da janela.
 - **Corpo:**
   ```json
   { "pump_liters": 59.8 }
   ```
 - **Resposta 200:** `{ "success": true, "pump_liters": 59.8 }`.
 - **Efeito:** grava a leitura no registro do abastecimento e dispara a avaliação de divergência (litros da bomba × variação do tanque). **Não altera o nível do tanque nem o status da sessão.**
-- **Pode repetir:** a leitura é sobrescrita.
-- **Erros:** `400 {"error":"pump_liters é obrigatório e numérico"}`; `400 {"error":"pump_liters inválido (fora do limite da capacidade)"}`; `403 {"error":"Hardware API Key não pertence a este caminhão"}`; `404 {"error":"Sessão não encontrada"}`; `409 {"error":"Sessão não está ativa nem concluída"}`.
+- **Pode repetir:** a leitura é sobrescrita (a placa só deve reenviar se estiver dentro da janela).
+- **Erros:** `400 {"error":"pump_liters é obrigatório e numérico"}`; `400 {"error":"pump_liters inválido (fora do limite da capacidade)"}`; `403 {"error":"Hardware API Key não pertence a este caminhão"}`; `404 {"error":"Sessão não encontrada"}`; `409 {"error":"Sessão não está ativa nem concluída"}`; `409 {"error":"Janela para leitura da bomba encerrada"}`.
 
 ### 4.5 `POST /api/fleet/:id/telemetry` — telemetria do caminhão
 
