@@ -42,6 +42,9 @@ describe('DriverModal - Senha Temporária', () => {
     expect(
       screen.getByText(/Senha temporária do app: test_temp_pass_xyz\. Copie agora; ela não será exibida de novo\./i)
     ).not.toBeNull();
+    expect(
+      screen.getByText('Esta senha aparece só agora. Anote ou copie antes de fechar.')
+    ).not.toBeNull();
 
     const copyBtn = screen.getByRole('button', { name: /Copiar/i });
     expect(copyBtn).not.toBeNull();

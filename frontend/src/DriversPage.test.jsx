@@ -31,7 +31,8 @@ describe('DriversPage', () => {
       enrollFace: vi.fn().mockResolvedValue(true),
       removeFace: vi.fn(),
       deactivateDriver: vi.fn(),
-      activateDriver: vi.fn()
+      activateDriver: vi.fn(),
+      resetDriverPassword: vi.fn()
     });
     // mock window.confirm
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -81,9 +82,70 @@ describe('DriversPage', () => {
       enrollFace: vi.fn(),
       removeFace: vi.fn(),
       deactivateDriver: vi.fn(),
-      activateDriver: vi.fn()
+      activateDriver: vi.fn(),
+      resetDriverPassword: vi.fn()
     });
     render(<DriversPage />);
     expect(screen.getByText('XYZ-9876')).not.toBeNull();
+  });
+
+  it('redefinir senha abre modal com aviso unico, copiar funciona e fechar limpa o estado', async () => {
+    const resetDriverPassword = vi.fn().mockResolvedValue({
+      id: 1,
+      name: 'João Silva',
+      temporaryPassword: 'TempPassNoAmbiguous789',
+    });
+    useDrivers.mockReturnValue({
+      drivers: [
+        { id: 1, name: 'João Silva', is_active: true, face_enrolled: true },
+      ],
+      loading: false,
+      error: null,
+      fetchDrivers: vi.fn(),
+      enrollFace: vi.fn(),
+      removeFace: vi.fn(),
+      deactivateDriver: vi.fn(),
+      activateDriver: vi.fn(),
+      resetDriverPassword,
+    });
+
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    render(<DriversPage />);
+
+    const resetBtn = screen.getByRole('button', { name: /Redefinir senha/i });
+    expect(resetBtn).not.toBeNull();
+
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(resetDriverPassword).toHaveBeenCalledWith(1);
+    });
+
+    expect(screen.getByText('Esta senha aparece só agora. Anote ou copie antes de fechar.')).not.toBeNull();
+    expect(screen.getByText('TempPassNoAmbiguous789')).not.toBeNull();
+
+    const copyBtn = screen.getByRole('button', { name: /Copiar/i });
+    fireEvent.click(copyBtn);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('TempPassNoAmbiguous789');
+    expect(screen.getByText('Copiado!')).not.toBeNull();
+
+    const closeBtn = screen.getByRole('button', { name: /Fechar/i });
+    fireEvent.click(closeBtn);
+
+    expect(screen.queryByText('TempPassNoAmbiguous789')).toBeNull();
+    expect(JSON.stringify(window.localStorage)).not.toContain('TempPassNoAmbiguous789');
+  });
+
+  it('auditor nao ve o botao Redefinir senha', () => {
+    useAuth.mockReturnValue({
+      user: { role: 'auditor', name: 'Auditor Teste' },
+    });
+    render(<DriversPage />);
+    expect(screen.queryByRole('button', { name: /Redefinir senha/i })).toBeNull();
   });
 });
