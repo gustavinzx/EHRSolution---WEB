@@ -353,37 +353,117 @@ describe('Hardware Faults & Edge Cases (Blocos 2, 3, 4)', () => {
       expect(resText.body.error).toMatch(/obrigatório e numérico/i);
     });
 
-    it('7. pump-reading enviado muito depois (sessão já completed): documente o comportamento real', async () => {
-      // Cria sessão e conclui via finish
-      const sessionId = await createSession('active');
+    it('7. pump-reading enviado muito depois (sessão já completed): dentro da janela responde 200, fora responde 409', async () => {
+      // 7a. Dentro da janela (completed_at de 1 minuto atrás): responde 200 e atualiza o log e sessão
+      const sessionIdIn = await createSession('active');
       await request(app)
-        .post(`/api/fueling/sessions/${sessionId}/finish`)
+        .post(`/api/fueling/sessions/${sessionIdIn}/finish`)
         .set('x-api-key', apiKey1)
         .send({ level_before: 100, level_after: 150 });
 
-      // Simula passagem de tempo no banco (envelhece completed_at em 2 horas)
       await db.query(
-        "UPDATE fueling_sessions SET completed_at = NOW() - INTERVAL '2 hours' WHERE id = $1",
-        [sessionId]
+        "UPDATE fueling_sessions SET completed_at = NOW() - INTERVAL '1 minute' WHERE id = $1",
+        [sessionIdIn]
       );
 
-      // Envia pump-reading após a conclusão tardia
-      const res = await request(app)
-        .post(`/api/fueling/sessions/${sessionId}/pump-reading`)
+      const resIn = await request(app)
+        .post(`/api/fueling/sessions/${sessionIdIn}/pump-reading`)
         .set('x-api-key', apiKey1)
         .send({ pump_liters: 50 });
 
-      // Comportamento real: o endpoint aceita (status 200), pois status = 'completed',
-      // atualiza o pump_liters no fueling_logs e reavalia as regras de combustível (evaluateFuelingLog).
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.pump_liters).toBe(50);
+      expect(resIn.status).toBe(200);
+      expect(resIn.body.success).toBe(true);
+      expect(resIn.body.pump_liters).toBe(50);
 
-      const { rows: logs } = await db.query(
+      const { rows: logsIn } = await db.query(
         'SELECT pump_liters FROM fueling_logs WHERE session_id = $1',
-        [sessionId]
+        [sessionIdIn]
       );
-      expect(Number(logs[0].pump_liters)).toBe(50);
+      expect(Number(logsIn[0].pump_liters)).toBe(50);
+
+      const { rows: sessIn } = await db.query(
+        'SELECT pump_liters FROM fueling_sessions WHERE id = $1',
+        [sessionIdIn]
+      );
+      expect(Number(sessIn[0].pump_liters)).toBe(50);
+
+      // 7b. Fora da janela (completed_at de 2 horas atrás): responde 409 com erro de janela encerrada,
+      // pump_liters da sessão e do log NÃO mudam, e nenhum alerta novo é criado
+      const sessionIdOut = await createSession('active');
+      await request(app)
+        .post(`/api/fueling/sessions/${sessionIdOut}/finish`)
+        .set('x-api-key', apiKey1)
+        .send({ level_before: 100, level_after: 150 });
+
+      await db.query(
+        "UPDATE fueling_sessions SET completed_at = NOW() - INTERVAL '2 hours' WHERE id = $1",
+        [sessionIdOut]
+      );
+
+      const { rows: alertsBefore } = await db.query(
+        'SELECT COUNT(*) FROM fleet_alerts WHERE truck_id = $1',
+        [truck1Id]
+      );
+      const alertCountBefore = parseInt(alertsBefore[0].count, 10);
+
+      const resOut = await request(app)
+        .post(`/api/fueling/sessions/${sessionIdOut}/pump-reading`)
+        .set('x-api-key', apiKey1)
+        .send({ pump_liters: 50 });
+
+      expect(resOut.status).toBe(409);
+      expect(resOut.body.error).toBe('Janela para leitura da bomba encerrada');
+
+      const { rows: logsOut } = await db.query(
+        'SELECT pump_liters FROM fueling_logs WHERE session_id = $1',
+        [sessionIdOut]
+      );
+      expect(logsOut[0].pump_liters).toBeNull();
+
+      const { rows: sessOut } = await db.query(
+        'SELECT pump_liters FROM fueling_sessions WHERE id = $1',
+        [sessionIdOut]
+      );
+      expect(sessOut[0].pump_liters).toBeNull();
+
+      const { rows: alertsAfter } = await db.query(
+        'SELECT COUNT(*) FROM fleet_alerts WHERE truck_id = $1',
+        [truck1Id]
+      );
+      const alertCountAfter = parseInt(alertsAfter[0].count, 10);
+      expect(alertCountAfter).toBe(alertCountBefore);
+    });
+
+    it('8. pump-reading respeita PUMP_READING_WINDOW_MIN customizado por variável de ambiente', async () => {
+      const prevEnv = process.env.PUMP_READING_WINDOW_MIN;
+      process.env.PUMP_READING_WINDOW_MIN = '1';
+      try {
+        const sessionId = await createSession('active');
+        await request(app)
+          .post(`/api/fueling/sessions/${sessionId}/finish`)
+          .set('x-api-key', apiKey1)
+          .send({ level_before: 100, level_after: 150 });
+
+        // completed_at há 2 minutos (fora da janela de 1 min)
+        await db.query(
+          "UPDATE fueling_sessions SET completed_at = NOW() - INTERVAL '2 minutes' WHERE id = $1",
+          [sessionId]
+        );
+
+        const res = await request(app)
+          .post(`/api/fueling/sessions/${sessionId}/pump-reading`)
+          .set('x-api-key', apiKey1)
+          .send({ pump_liters: 50 });
+
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('Janela para leitura da bomba encerrada');
+      } finally {
+        if (prevEnv !== undefined) {
+          process.env.PUMP_READING_WINDOW_MIN = prevEnv;
+        } else {
+          delete process.env.PUMP_READING_WINDOW_MIN;
+        }
+      }
     });
   });
 
