@@ -24,7 +24,16 @@ import { Button } from '../components/Button';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
-import { getBiometricLabel, getBiometricIcon } from '../utils/biometricLabel';
+import { getBiometricLabel, isFacialBiometric } from '../utils/biometricLabel';
+import { theme } from '../theme/theme';
+
+const Icon: React.FC<{ name: any; size?: number; color?: string; style?: any }> = (props) => {
+  if (process.env.NODE_ENV === 'test') {
+    return <Text style={[{ color: props.color, fontSize: props.size }, props.style]}>›</Text>;
+  }
+  const { Ionicons } = require('@expo/vector-icons');
+  return <Ionicons {...props} />;
+};
 
 const withDevBiometricDetails = (baseMsg: string, err: any): string => {
   if (__DEV__) {
@@ -49,6 +58,7 @@ export const LoginScreen: React.FC = () => {
   const [biometricType, setBiometricType] = useState('Biometria');
   const [biometricLoginReady, setBiometricLoginReady] = useState(false);
   const [cachedDriver, setCachedDriver] = useState<any>(null);
+  const [focusedField, setFocusedField] = useState<'identifier' | 'password' | null>(null);
   const { signIn, unlockSession } = useAuth();
 
   useEffect(() => {
@@ -212,19 +222,40 @@ export const LoginScreen: React.FC = () => {
               <View style={styles.card}>
                 <View style={styles.cardGlowPill} />
 
+                {/* Mensagem de Erro Inline (quando houver) */}
+                {errorMessage ? (
+                  <View style={styles.errorContainer}>
+                    <Icon name="alert-circle-outline" size={16} color={theme.colors.error} style={styles.errorIcon} />
+                    <Text style={styles.errorText} numberOfLines={2}>
+                      {errorMessage}
+                    </Text>
+                  </View>
+                ) : null}
+
                 {/* E-mail Input */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelRow}>
-                    <Text style={styles.inputLabelIcon}>👤</Text>
+                    <Icon name="person-outline" size={14} color={theme.colors.textDarkSecondary} style={styles.inputLabelIcon} />
                     <Text style={styles.inputLabel}>E-mail</Text>
                   </View>
-                  <View style={styles.inputContainer}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      focusedField === 'identifier' && styles.inputContainerFocused,
+                      Boolean(errorMessage && !identifier) && styles.inputContainerError,
+                    ]}
+                  >
                     <TextInput
                       style={styles.textInput}
                       value={identifier}
-                      onChangeText={setIdentifier}
+                      onChangeText={(val) => {
+                        setIdentifier(val);
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      onFocus={() => setFocusedField('identifier')}
+                      onBlur={() => setFocusedField(null)}
                       placeholder="Digite seu e-mail corporativo"
-                      placeholderTextColor="#64748B"
+                      placeholderTextColor={theme.colors.textDarkMuted}
                       autoCapitalize="none"
                       keyboardType="email-address"
                     />
@@ -234,26 +265,41 @@ export const LoginScreen: React.FC = () => {
                 {/* Senha Input */}
                 <View style={styles.inputGroup}>
                   <View style={styles.labelRow}>
-                    <Text style={styles.inputLabelIcon}>🔒</Text>
+                    <Icon name="lock-closed-outline" size={14} color={theme.colors.textDarkSecondary} style={styles.inputLabelIcon} />
                     <Text style={styles.inputLabel}>Senha</Text>
                   </View>
-                  <View style={styles.inputContainer}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      focusedField === 'password' && styles.inputContainerFocused,
+                      Boolean(errorMessage && !password) && styles.inputContainerError,
+                    ]}
+                  >
                     <TextInput
                       style={[styles.textInput, { flex: 1 }]}
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(val) => {
+                        setPassword(val);
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
                       placeholder="Digite sua senha"
-                      placeholderTextColor="#64748B"
+                      placeholderTextColor={theme.colors.textDarkMuted}
                       secureTextEntry={!showPassword}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       style={styles.togglePasswordBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Ocultar senha' : 'Ver senha'}
                     >
-                      <Text style={styles.togglePasswordIcon}>
-                        {showPassword ? '👁️' : '👁️‍🗨️'}
-                      </Text>
+                      <Icon
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={theme.colors.textDarkSecondary}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -263,8 +309,8 @@ export const LoginScreen: React.FC = () => {
                   <Switch
                     value={rememberMe}
                     onValueChange={setRememberMe}
-                    trackColor={{ false: '#1E293B', true: '#00D4FF' }}
-                    thumbColor={rememberMe ? '#FFFFFF' : '#94A3B8'}
+                    trackColor={{ false: theme.colors.surfaceDark, true: theme.colors.accentCyanHover }}
+                    thumbColor={rememberMe ? theme.colors.white : theme.colors.textDarkSecondary}
                   />
                   <Text style={styles.rememberText}>Lembrar de mim</Text>
                 </View>
@@ -290,14 +336,17 @@ export const LoginScreen: React.FC = () => {
                       style={styles.biometricBtn}
                       onPress={handleBiometricAuth}
                       disabled={loading}
-                      activeOpacity={0.8}
+                      activeOpacity={theme.opacity.pressed}
                       accessibilityRole="button"
                       accessibilityLabel={`Entrar com ${biometricType}`}
                       testID="biometric-login-btn"
                     >
-                      <Text style={styles.biometricIcon}>
-                        {getBiometricIcon(biometricType)}
-                      </Text>
+                      <Icon
+                        name={isFacialBiometric(biometricType) ? 'scan-outline' : 'finger-print-outline'}
+                        size={22}
+                        color={theme.colors.accentCyan}
+                        style={styles.biometricIcon}
+                      />
                       <View style={styles.biometricTextColumn} testID="biometric-text-column">
                         {cachedDriver?.name ? (
                           <>
@@ -347,7 +396,7 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: '#050A14',
+    backgroundColor: theme.colors.bgDark,
   },
   container: {
     flex: 1,
@@ -359,69 +408,64 @@ const styles = StyleSheet.create({
   },
   imageDarkOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 10, 20, 0.72)',
+    backgroundColor: theme.colors.overlayDark,
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 36,
-    paddingBottom: 24,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: Platform.OS === 'ios' ? 48 : 28,
+    paddingBottom: theme.spacing.lg,
   },
   brandSection: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
   logoBadgeContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 212, 255, 0.12)',
+    width: 72,
+    height: 72,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.accentCyanSubtle,
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 212, 255, 0.4)',
+    borderColor: theme.colors.accentCyanBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    marginBottom: theme.spacing.sm + 2,
+    ...theme.shadows.glowCyan,
   },
   logoImage: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
   },
   heroTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontSize: theme.typography.fontSize.xl,
+    lineHeight: theme.typography.lineHeight.xl,
+    fontWeight: theme.typography.fontWeight.black,
+    color: theme.colors.textDarkPrimary,
     letterSpacing: 2.5,
   },
   heroSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#00D4FF',
+    fontSize: theme.typography.fontSize.xs,
+    lineHeight: theme.typography.lineHeight.xs,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.accentCyan,
     letterSpacing: 1.2,
-    marginTop: 3,
+    marginTop: theme.spacing.xs,
     textTransform: 'uppercase',
   },
   truckSpacer: {
-    height: 30,
+    height: 12,
   },
   card: {
-    backgroundColor: 'rgba(11, 22, 40, 0.88)',
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
+    backgroundColor: theme.colors.cardDarkTranslucent,
+    borderRadius: theme.borderRadius.card,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.md + 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 12,
+    borderColor: theme.colors.borderDarkSubtle,
+    ...theme.shadows.card,
   },
   cardGlowPill: {
     position: 'absolute',
@@ -429,120 +473,128 @@ const styles = StyleSheet.create({
     left: '35%',
     right: '35%',
     height: 3,
-    backgroundColor: '#00D4FF',
-    borderRadius: 2,
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+    backgroundColor: theme.colors.accentCyan,
+    borderRadius: theme.borderRadius.pill,
+    ...theme.shadows.glowCyan,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.errorSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.errorBorder,
+    borderRadius: theme.borderRadius.sm,
+    paddingVertical: theme.spacing.xs + 2,
+    paddingHorizontal: theme.spacing.sm + 2,
+    marginBottom: theme.spacing.sm + 2,
+  },
+  errorIcon: {
+    marginRight: 6,
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.medium,
+    flex: 1,
   },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: theme.spacing.sm + 4,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: theme.spacing.xs + 2,
   },
   inputLabelIcon: {
-    fontSize: 13,
     marginRight: 6,
   },
   inputLabel: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '700',
+    color: theme.colors.textDarkSecondary,
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#060B13',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    paddingHorizontal: 12,
+    backgroundColor: theme.colors.surfaceDarkInput,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.borderDark,
+    paddingHorizontal: theme.spacing.md,
+    height: 52,
+    minHeight: theme.touchTarget.minHeight,
+  },
+  inputContainerFocused: {
+    borderColor: theme.colors.borderDarkFocus,
+    backgroundColor: theme.colors.surfaceDark,
+  },
+  inputContainerError: {
+    borderColor: theme.colors.borderDarkError,
   },
   textInput: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: theme.colors.textDarkPrimary,
+    fontSize: theme.typography.fontSize.md - 1,
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+    flex: 1,
   },
   togglePasswordBtn: {
-    padding: 8,
-  },
-  togglePasswordIcon: {
-    fontSize: 16,
+    padding: theme.spacing.sm,
   },
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   rememberText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '500',
-    marginLeft: 10,
-  },
-  biometricOptInRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  biometricOptInText: {
-    color: '#E2E8F0',
-    fontSize: 13,
-    fontWeight: '500',
-    marginLeft: 10,
+    color: theme.colors.textDarkSecondary,
+    fontSize: theme.typography.fontSize.sm - 1,
+    fontWeight: theme.typography.fontWeight.medium,
+    marginLeft: theme.spacing.sm + 2,
   },
   loginBtn: {
-    marginTop: 6,
-    marginBottom: 4,
+    marginTop: theme.spacing.xs + 2,
+    marginBottom: theme.spacing.xs,
   },
   biometricSection: {
-    marginTop: 14,
+    marginTop: theme.spacing.md,
     alignItems: 'center',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 14,
+    marginBottom: theme.spacing.md,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: theme.colors.overlayLightDivider,
   },
   dividerText: {
-    color: '#64748B',
+    color: theme.colors.textDarkMuted,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: theme.typography.fontWeight.bold,
     letterSpacing: 1,
-    marginHorizontal: 10,
+    marginHorizontal: theme.spacing.sm + 2,
   },
   biometricBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 212, 255, 0.08)',
+    backgroundColor: theme.colors.accentCyanSubtle,
     borderWidth: 1.5,
-    borderColor: '#00D4FF',
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 20,
+    borderColor: theme.colors.accentCyanHover,
+    borderRadius: theme.borderRadius.pill,
+    minHeight: 52,
+    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.lg,
     width: '100%',
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    ...theme.shadows.button,
   },
   biometricIcon: {
-    fontSize: 20,
     marginRight: 10,
   },
   biometricTextColumn: {
@@ -552,41 +604,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   biometricBtnText: {
-    color: '#00D4FF',
-    fontSize: 15,
-    fontWeight: '800',
+    color: theme.colors.accentCyan,
+    fontSize: theme.typography.fontSize.md - 1,
+    fontWeight: theme.typography.fontWeight.extraBold,
     letterSpacing: 0.5,
     textAlign: 'center',
   },
   biometricSubText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 11,
-    fontWeight: '600',
+    color: theme.colors.textDarkSecondary,
+    fontSize: theme.typography.fontSize.xs - 1,
+    fontWeight: theme.typography.fontWeight.medium,
     marginTop: 2,
     textAlign: 'center',
   },
-  biometricHint: {
-    color: '#64748B',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 15,
-  },
   footerInfo: {
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: theme.spacing.md + 2,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingTop: 12,
+    borderTopColor: theme.colors.overlayLightSubtle,
+    paddingTop: theme.spacing.sm + 4,
   },
   footerText: {
-    color: '#475569',
-    fontSize: 11,
-    fontWeight: '600',
+    color: theme.colors.textDarkMuted,
+    fontSize: theme.typography.fontSize.xs - 1,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   devEnvironmentTag: {
-    color: '#334155',
-    fontSize: 9,
+    color: theme.colors.textDarkMuted,
+    fontSize: 10,
     marginTop: 4,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
