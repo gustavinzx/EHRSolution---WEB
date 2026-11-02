@@ -866,7 +866,7 @@ exports.reportPumpReading = async (req, res) => {
     const val = parseFloat(pump_liters);
     
     const { rows: sessions } = await db.query(
-      "SELECT s.id, s.truck_id, s.status, t.capacity_liters FROM fueling_sessions s JOIN trucks t ON s.truck_id = t.id WHERE s.id=$1",
+      "SELECT s.id, s.truck_id, s.status, s.completed_at, t.capacity_liters FROM fueling_sessions s JOIN trucks t ON s.truck_id = t.id WHERE s.id=$1",
       [id]
     );
     if (!sessions.length) return res.status(404).json({ error: "Sessão não encontrada" });
@@ -883,6 +883,16 @@ exports.reportPumpReading = async (req, res) => {
 
     if (!['active', 'completed'].includes(session.status)) {
       return res.status(409).json({ error: "Sessão não está ativa nem concluída" });
+    }
+
+    if (session.status === 'completed' && session.completed_at) {
+      const parsedWindow = parseInt(process.env.PUMP_READING_WINDOW_MIN, 10);
+      const windowMin = Number.isInteger(parsedWindow) && parsedWindow > 0 ? parsedWindow : 10;
+      const completedAtTime = session.completed_at ? new Date(session.completed_at).getTime() : 0;
+      const diffMinutes = (Date.now() - completedAtTime) / (60 * 1000);
+      if (diffMinutes > windowMin) {
+        return res.status(409).json({ error: "Janela para leitura da bomba encerrada" });
+      }
     }
 
     await db.query("UPDATE fueling_sessions SET pump_liters = $1 WHERE id = $2", [val, id]);
