@@ -1,5 +1,6 @@
 export const theme = {
   colors: {
+    // Tokens originais preservados
     primary: '#0B1523',
     accent: '#00C4D0',
     accentHover: '#00ADC0',
@@ -14,6 +15,47 @@ export const theme = {
     textPrimary: '#0F172A',
     textSecondary: '#64748B',
     textMuted: '#94A3B8',
+
+    // Cores canônicas da fundação escura (BLOCO 2)
+    accentCyan: '#00E5FF',
+    accentCyanHover: '#00D4FF',
+    accentCyanPressed: '#00ADC0',
+    accentCyanSubtle: 'rgba(0, 229, 255, 0.12)',
+    accentCyanBorder: 'rgba(0, 229, 255, 0.4)',
+    accentCyanGlow: 'rgba(0, 229, 255, 0.25)',
+
+    bgDark: '#050A14',
+    cardDark: '#0B1628',
+    cardDarkTranslucent: 'rgba(11, 22, 40, 0.88)',
+    surfaceDark: '#1E293B',
+    surfaceDarkElevated: '#334155',
+    surfaceDarkInput: '#060B13',
+
+    textDarkPrimary: '#FFFFFF',
+    textDarkSecondary: '#94A3B8',
+    textDarkMuted: '#64748B',
+    textDarkDisabled: '#64748B',
+
+    borderDark: '#1E293B',
+    borderDarkSubtle: 'rgba(255, 255, 255, 0.12)',
+    borderDarkLight: '#64748B',
+    borderDarkFocus: '#00E5FF',
+    borderDarkError: '#EF4444',
+
+    overlayDark: 'rgba(5, 10, 20, 0.72)',
+    overlayBackdrop: 'rgba(0, 0, 0, 0.6)',
+    overlayLightSubtle: 'rgba(255, 255, 255, 0.06)',
+    overlayLightDivider: 'rgba(255, 255, 255, 0.1)',
+
+    black: '#000000',
+
+    // Status canônicos e fundos sutis
+    successSubtle: 'rgba(16, 185, 129, 0.15)',
+    successBorder: '#059669',
+    errorSubtle: 'rgba(239, 68, 68, 0.15)',
+    errorBorder: '#DC2626',
+    warningSubtle: 'rgba(245, 158, 11, 0.15)',
+    infoSubtle: 'rgba(0, 229, 255, 0.15)',
   },
   spacing: {
     xs: 4,
@@ -29,6 +71,8 @@ export const theme = {
     lg: 20,
     xl: 28,
     full: 9999,
+    card: 24,
+    pill: 9999,
   },
   typography: {
     fontSize: {
@@ -39,10 +83,59 @@ export const theme = {
       xl: 24,
       xxl: 32,
     },
+    lineHeight: {
+      xs: 16,
+      sm: 20,
+      md: 24,
+      lg: 28,
+      xl: 32,
+      xxl: 40,
+    },
     fontWeight: {
       regular: '400' as const,
       medium: '600' as const,
       bold: '700' as const,
+      extraBold: '800' as const,
+      black: '900' as const,
     },
+  },
+  shadows: {
+    card: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.6,
+      shadowRadius: 20,
+      elevation: 12,
+    },
+    glowCyan: {
+      shadowColor: '#00E5FF',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      elevation: 8,
+    },
+    button: {
+      shadowColor: '#00E5FF',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    subtle: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+  },
+  touchTarget: {
+    minHeight: 48,
+    minWidth: 48,
+  },
+  opacity: {
+    pressed: 0.8,
+    disabled: 0.5,
+    subtle: 0.12,
   },
 };

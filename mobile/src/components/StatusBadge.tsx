@@ -8,35 +8,54 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ label, type = 'info' }) => {
-  const getColor = () => {
+  const getBadgeStyle = () => {
     switch (type) {
       case 'success':
-        return theme.colors.success;
+        return {
+          backgroundColor: theme.colors.successSubtle,
+          color: theme.colors.success,
+        };
       case 'warning':
-        return theme.colors.warning;
+        return {
+          backgroundColor: theme.colors.warningSubtle,
+          color: theme.colors.warning,
+        };
       case 'error':
-        return theme.colors.error;
+        return {
+          backgroundColor: theme.colors.errorSubtle,
+          color: theme.colors.error,
+        };
       default:
-        return theme.colors.secondary;
+        return {
+          backgroundColor: theme.colors.infoSubtle,
+          color: theme.colors.accentCyan,
+        };
     }
   };
 
+  const scheme = getBadgeStyle();
+
   return (
-    <View style={[styles.badge, { backgroundColor: getColor() + '20' }]}>
-      <Text style={[styles.text, { color: getColor() }]}>{label}</Text>
+    <View style={[styles.badge, { backgroundColor: scheme.backgroundColor }]}>
+      <Text style={[styles.text, { color: scheme.color }]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm + 2,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.pill,
     alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     fontSize: theme.typography.fontSize.xs,
     fontWeight: theme.typography.fontWeight.bold,
+    letterSpacing: 0.5,
   },
 });

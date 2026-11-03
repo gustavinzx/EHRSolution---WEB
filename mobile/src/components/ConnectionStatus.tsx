@@ -37,7 +37,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ respectTopIn
       style={[
         styles.bar,
         { paddingTop: topPadding },
-        { backgroundColor: isOffline ? theme.colors.textSecondary : theme.colors.warning },
+        { backgroundColor: isOffline ? theme.colors.textDarkMuted : theme.colors.warning },
       ]}
     >
       <Text style={styles.text} numberOfLines={1} ellipsizeMode="tail" maxFontSizeMultiplier={1.3}>
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    color: theme.colors.white,
+    color: theme.colors.textDarkPrimary,
     fontSize: theme.typography.fontSize.xs,
     fontWeight: theme.typography.fontWeight.medium,
   },
