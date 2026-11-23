@@ -48,16 +48,13 @@ Token: `mac = HMAC-SHA256(chave, "UNLOCK:<truck_id>:<session_id>:<exp>")` em hex
 - **LoRa:** `UNLOCK|<session_id>|<exp>|<mac>` → resposta `ACK|<truck>|UNLOCK` ou `NAK|<truck>|<motivo>`.
 - **Wi-Fi local:** `POST http://192.168.4.1/unlock` com `session`, `exp`, `mac`. `GET /status` é somente leitura.
 - Recusado se: relógio inválido, token expirado, validade > 15 min, `session_id` ≤ última sessão destravada (anti-replay, persistida), MAC incorreto. 5 falhas seguidas bloqueiam 5 min.
-- **Quem gera o token:** o backend ainda **não** gera esse token (a chave HMAC não existe no servidor). Isso é o item 4 do plano (modo offline no app). Até lá, só o caminho "backend via GPRS" destrava; LoRa/Wi-Fi só funcionam com token gerado manualmente (ver `scripts` abaixo).
+- **Quem gera o token:** o backend emite o token em `POST /api/fueling/sessions/:id/offline-token` (`backend/src/services/offlineUnlockService.js`) para sessões `authorized` ou `active`, e o aplicativo mobile o envia via `localLockClient.unlockWithToken()` quando o motorista aciona **"Liberar via Wi-Fi da Trava (Sem Sinal)"** na tela de operação.
 
-Gerar um token de teste (Node):
+Obter o `HMAC_KEY_HEX` de um caminhão para o `config.h` (Node, na pasta `backend/`):
 
 ```js
-const c = require('crypto');
-const key = Buffer.from(process.env.HMAC_KEY_HEX, 'hex');
-const exp = Math.floor(Date.now() / 1000) + 600;
-const msg = `UNLOCK:${process.env.TRUCK_ID}:${process.env.SESSION}:${exp}`;
-console.log(exp, c.createHmac('sha256', key).update(msg).digest('hex'));
+const { deriveTruckHmacKeyHex } = require('./src/services/offlineUnlockService');
+console.log(deriveTruckHmacKeyHex(1)); // troque 1 pelo id do caminhão
 ```
 
 ## Configuração

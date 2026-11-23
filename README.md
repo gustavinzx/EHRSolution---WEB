@@ -106,17 +106,17 @@ flowchart LR
 
 ---
 
-## 🧪 4. Cobertura de Testes e Qualidade (677 Testes Automatizados)
+## 🧪 4. Cobertura de Testes e Qualidade (692 Testes Automatizados)
 
 O projeto conta com **100% de testes automatizados passando com sucesso** em todas as camadas da aplicação:
 
 | Módulo | Ferramenta | Escopo dos Testes | Status |
 |---|---|---|---|
-| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **365 passed** (34 suítes) |
+| **Backend API** | Jest | Contrato de API, Autenticação, RBAC, Criptografia SHA-256, Geofencing, Detecção de Anomalias, ANP Sync, Carteira e Hardware | ✅ **370 passed** (35 suítes) |
 | **Frontend Web** | Vitest + Testing Library | Painel, Rotas, Modais protegidos, Detalhes do Caminhão, Mapas Leaflet, Máscaras e Tabela ANP | ✅ **70 passed** (15 suítes) |
-| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **242 passed** (16 suítes) |
+| **Mobile App** | Jest + React Native Testing | Fluxo da Câmera Facial, SecureStore, Máquina de Estados, Fallback BLE, Carteira Sicoob e Biometria Nativa | ✅ **252 passed** (17 suítes) |
 | **Frontend Lint** | ESLint | Análise estática de código e integridade de tipos | ✅ **0 erros / 0 avisos** |
-| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **677 / 677 (100% GREEN)** |
+| **Total Global** | — | **Varredura completa de ponta a ponta** | 🏆 **692 / 692 (100% GREEN)** |
 
 ---
 
@@ -172,7 +172,7 @@ EHR-Solutions-Web/
 │   │   ├── middleware/      # JWT, Hardware Auth (SHA-256), Rate Limiter, RBAC
 │   │   ├── routes/          # Definição das rotas REST da plataforma
 │   │   └── services/        # Motor de Anomalias, ANP Sync, Haversine Matcher e Virtual Hardware
-│   └── tests/               # 34 suítes de testes automatizados Jest (365 testes)
+│   └── tests/               # 35 suítes de testes automatizados Jest (370 testes)
 │
 ├── frontend/         # Painel Web do Gestor (React 18 + Vite + Leaflet + Glassmorphism)
 │   ├── src/
@@ -185,7 +185,7 @@ EHR-Solutions-Web/
 │   ├── src/
 │   │   ├── contexts/        # Contexto de autenticação e sessão com SecureStore
 │   │   └── screens/         # Login, Câmera Facial Biométrica, Status da Trava e Histórico
-│   └── tests/               # 16 suítes de testes Jest (242 testes)
+│   └── tests/               # 17 suítes de testes Jest (252 testes)
 │
 ├── docs/             # Manuais Oficiais e Documentação Executiva
 │   ├── ARQUITETURA.md                 # Arquitetura detalhada, fluxos e tabelas
@@ -202,7 +202,7 @@ EHR-Solutions-Web/
 
 1. **Hardware Virtual e Simulador Embutido:** O sistema possui um módulo completo de hardware virtual (`virtualHardware.js`) e simulador de telemetria rodoviária (`simulator.js`). Toda a plataforma pode ser operada e testada de ponta a ponta sem necessidade imediata da placa física conectada.
 2. **Integração Plug-and-Play:** A documentação completa de contratos de API, payloads de telemetria e especificações elétricas/lógicas da trava solenoide está consolidada em [`docs/GUIA_INTEGRACAO_HARDWARE.md`](docs/GUIA_INTEGRACAO_HARDWARE.md).
-3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 677 testes para qualquer merge.
+3. **Branch Protection & CI:** A branch `main` é protegida e exige passagem integral de todos os 692 testes para qualquer merge.
 
 ---
 

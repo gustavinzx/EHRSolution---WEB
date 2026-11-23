@@ -272,6 +272,20 @@ Usado para reconciliar o `/ehr_audit.csv` gravado no cartão MicroSD enquanto a 
 - **Idempotência:** reenviar o arquivo inteiro (ou parte dele) não duplica registros; as repetidas voltam em `duplicates`. É seguro reenviar o arquivo após qualquer falha de rede.
 - **Erros:** `400 {"error":"CSV vazio ou ausente"}`; `413 {"error":"CSV excede o limite de 5000 linhas"}`; `415 {"error":"Content-Type deve ser text/csv"}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
 
+### 4.10 `POST /api/fueling/sessions/:id/offline-token` — token HMAC para destrave local (Wi-Fi / LoRa)
+
+Quando a trava não possui sinal 2G/GPRS no momento do abastecimento, o aplicativo do motorista solicita um token criptográfico de curta duração após a sessão estar `authorized` ou `active` e o envia diretamente para o ponto de acesso Wi-Fi local da trava (`http://192.168.4.1/unlock`).
+
+- **Quem chama:** motorista dono da sessão ou gestor (`Authorization: Bearer <jwt>`).
+- **Resposta 200:**
+  ```json
+  { "truck_id": 1, "session_id": 42, "exp": 1763930000, "mac": "a1b2c3..." }
+  ```
+  - `exp`: época UTC em segundos (validade máxima de 15 minutos, limitada ao `expires_at` da sessão).
+  - `mac`: `HMAC-SHA256(chave_caminhao, "UNLOCK:<truck_id>:<session_id>:<exp>")` em hexadecimal minúsculo (64 caracteres), validado por `verifyUnlockToken()` no firmware `TravaEHR_R4.ino`.
+  - A chave HMAC de 32 bytes de cada caminhão é derivada deterministicamente por `deriveTruckHmacKeyHex(truckId)` (`HMAC-SHA256(HARDWARE_HMAC_SECRET || JWT_SECRET, "EHR_TRUCK_HMAC_R4:<truckId>")`), valor que deve ser gravado em `HMAC_KEY_HEX` no `config.h` da placa.
+- **Erros:** `401` (sem autenticação); `403 {"error":"Sessão pertence a outro motorista"}`; `404 {"error":"Sessão não encontrada"}`; `409 {"error":"Sessão não está autorizada para desbloqueio local"}`.
+
 ---
 
 ## 5. Origem dos dados e detecção de furto
