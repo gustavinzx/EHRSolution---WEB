@@ -41,11 +41,39 @@
 #if T_PULSO_MS > 5000 || T_PULSO_MS < 500
 #error "T_PULSO_MS deve ficar entre 500 e 5000 ms (maximo absoluto do descritivo: 5 s)."
 #endif
+// Aliases de bancada (Guia de Montagem Trava EHR, p. 31-34)
+#if defined(CAMINHAO_ID) && !defined(TRUCK_ID)
+#define TRUCK_ID CAMINHAO_ID
+#endif
+#if defined(SERVIDOR_HOST) && !defined(API_HOST)
+#define API_HOST SERVIDOR_HOST
+#endif
+#if defined(SERVIDOR_PORTA) && !defined(API_PORT)
+#define API_PORT SERVIDOR_PORTA
+#endif
+#if defined(SERVIDOR_TLS) && !defined(API_USE_TLS)
+#define API_USE_TLS SERVIDOR_TLS
+#endif
+#if defined(WIFI_SSID) && !defined(WIFI_STA_SSID)
+#define WIFI_STA_SSID WIFI_SSID
+#endif
+#if defined(WIFI_SENHA) && !defined(WIFI_STA_PASS)
+#define WIFI_STA_PASS WIFI_SENHA
+#endif
 #ifndef WIFI_STA_SSID
 #define WIFI_STA_SSID ""
 #endif
 #ifndef WIFI_STA_PASS
 #define WIFI_STA_PASS ""
+#endif
+#ifndef USAR_GSM
+#define USAR_GSM true
+#endif
+#ifndef USAR_LORA
+#define USAR_LORA true
+#endif
+#ifndef USAR_BUZZER
+#define USAR_BUZZER true
 #endif
 
 // ============================ PINOS (descritivo 10.1) ========================
@@ -471,8 +499,9 @@ static void sendLockState(bool withCommand) {
 }
 
 static void alertTamper(const char* detail) {
+  Serial.println("EVENTO tamper");  // Guia de Montagem p. 32 item 7
   eventLog(detail);
-  digitalWrite(PIN_BUZZER, HIGH);
+  if (USAR_BUZZER) digitalWrite(PIN_BUZZER, HIGH);
   char path[48], body[200];
   snprintf(path, sizeof(path), "/api/fleet/%d/security-events", TRUCK_ID);
   snprintf(body, sizeof(body),
@@ -545,14 +574,17 @@ static void powerSupervisionService() {
   }
 #if !BENCH_MODE
   float vb = readVbat();
-  float minV = vb > 18.0f ? 20.0f : 10.5f;
-  if (vb < minV && !vbatLowLogged) {
-    vbatLowLogged = true;
-    char m[64];
-    snprintf(m, sizeof(m), "queda de VBAT detectada (%.1f V)", vb);
-    eventLog(m);
-  } else if (vb >= minV + 0.8f) {
-    vbatLowLogged = false;
+  // Guia de Montagem p. 31: leitura abaixo de 3 V (D32 ligado ao GND por 10k) = "sem sensor" na bancada
+  if (vb >= 3.0f) {
+    float minV = vb > 18.0f ? 20.0f : 10.5f;
+    if (vb < minV && !vbatLowLogged) {
+      vbatLowLogged = true;
+      char m[64];
+      snprintf(m, sizeof(m), "queda de VBAT detectada (%.1f V)", vb);
+      eventLog(m);
+    } else if (vb >= minV + 0.8f) {
+      vbatLowLogged = false;
+    }
   }
 #endif
 }
@@ -572,12 +604,15 @@ static bool startUnlock(long session, const char* origin) {
   if (!pulseRateOk(now)) { eventLog("destravar recusado: limite termico de pulsos"); return false; }
 #if !BENCH_MODE
   float vbat = readVbat();
-  float minV = vbat > 18.0f ? 20.0f : 10.5f;
-  if (vbat < minV) {
-    char m[64];
-    snprintf(m, sizeof(m), "destravar recusado: VBAT baixa (%.1f V)", vbat);
-    eventLog(m);
-    return false;
+  // Guia de Montagem p. 31: leitura abaixo de 3 V é tratada como "sem sensor" no Teste 1 de bancada
+  if (vbat >= 3.0f) {
+    float minV = vbat > 18.0f ? 20.0f : 10.5f;
+    if (vbat < minV) {
+      char m[64];
+      snprintf(m, sizeof(m), "destravar recusado: VBAT baixa (%.1f V)", vbat);
+      eventLog(m);
+      return false;
+    }
   }
 #endif
   char m[72];
@@ -980,8 +1015,8 @@ static bool runJob(const NetJob& job) {
 }
 
 static void netTask(void*) {
-  netTaskGsmOk = gsmInit();
-  Serial.printf("[NET] modem %s\n", netTaskGsmOk ? "registrado" : "SEM REDE");
+  netTaskGsmOk = USAR_GSM ? gsmInit() : false;
+  Serial.printf("[NET] modem %s\n", !USAR_GSM ? "DESABILITADO (USAR_GSM=false)" : (netTaskGsmOk ? "registrado" : "SEM REDE"));
   uint32_t lastPoll = 0;
   for (;;) {
     NetJob job;
@@ -1097,16 +1132,20 @@ void setup() {
   sdOk = SD.begin(PIN_SD_CS);
   Serial.printf("[SD] %s\n", sdOk ? "ok" : "FALHA (sem log offline)");
 
-  LoRa.setPins(PIN_LORA_NSS, PIN_LORA_RST, PIN_LORA_DIO0);
-  loraOk = LoRa.begin(915E6);
-  if (loraOk) {
-    LoRa.setSpreadingFactor(9);
-    LoRa.setSignalBandwidth(125E3);
-    LoRa.setCodingRate4(5);
-    LoRa.setSyncWord(0x12);
-    LoRa.setTxPower(17);
+  if (USAR_LORA) {
+    LoRa.setPins(PIN_LORA_NSS, PIN_LORA_RST, PIN_LORA_DIO0);
+    loraOk = LoRa.begin(915E6);
+    if (loraOk) {
+      LoRa.setSpreadingFactor(9);
+      LoRa.setSignalBandwidth(125E3);
+      LoRa.setCodingRate4(5);
+      LoRa.setSyncWord(0x12);
+      LoRa.setTxPower(17);
+    }
+  } else {
+    loraOk = false;
   }
-  Serial.printf("[LORA] %s\n", loraOk ? "ok" : "FALHA");
+  Serial.printf("[LORA] %s\n", !USAR_LORA ? "DESABILITADO (USAR_LORA=false)" : (loraOk ? "ok" : "FALHA"));
 
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
@@ -1117,6 +1156,59 @@ void setup() {
   setupWebServer();
   eventLog("partida");
   wdtInit(15);
+}
+
+// Comandos do Monitor Serial (Guia de Montagem p. 31-32: 's' = status, 'n' = tensões VBAT/KL15, 't' = teste pulso 3s)
+static void serialConsoleService() {
+  while (Serial.available()) {
+    char c = (char)Serial.read();
+    if (c == 's' || c == 'S') {
+      float vb = readVbat(), vk = readKl15();
+      Serial.printf("[STATUS] Caminhao=%d | Estado=%s | SW1=%s | SW2=%s | Pulso=%s | Violacao=%s\n",
+                    TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO",
+                    sw1.stable ? "TRAVADO(0)" : "ABERTO(1)", sw2.stable ? "TRAVADO(0)" : "ABERTO(1)",
+                    pulseOn ? "ATIVO" : "OFF", tamperLatched ? "SIM" : "NAO");
+      Serial.printf("[REDE/BAT] VBAT=%.2fV (%s) | KL15=%.2fV (ign=%s) | WiFiSTA=%s | GSM=%s | LoRa=%s | SD=%s | GPS=%s\n",
+                    vb, vb < 3.0f ? "sem sensor" : "ok", vk, ignitionOn ? "ON" : "OFF",
+                    WiFi.status() == WL_CONNECTED ? "CONECTADO" : "OFF",
+                    netTaskGsmOk ? "OK" : "OFF", loraOk ? "OK" : "OFF", sdOk ? "OK" : "OFF", gpsFix ? "FIX" : "NO-FIX");
+    } else if (c == 'n' || c == 'N') {
+      uint32_t mvBat = analogReadMilliVolts(PIN_VBAT_ADC);
+      uint32_t mvKl = analogReadMilliVolts(PIN_KL15_ADC);
+      float vb = readVbat(), vk = readKl15();
+      Serial.printf("[ADC] D32(VBAT): %lu mV -> %.2f V (%s) | VN(KL15): %lu mV -> %.2f V (ign=%s)\n",
+                    (unsigned long)mvBat, vb, vb < 3.0f ? "sem sensor" : "sensor ativo",
+                    (unsigned long)mvKl, vk, ignitionOn ? "LIGADA" : "DESLIGADA");
+    } else if (c == 't' || c == 'T') {
+      long testSess = lastUnlockedSession + 1;
+      Serial.println("[TESTE] Acionando pulso de teste nas duas travas (3 s)...");
+      startUnlock(testSess, "serial-teste");
+    }
+  }
+}
+
+// Código visual do LED azul (GPIO 2 — Guia de Montagem p. 32):
+// - Violação: pisca muito rápido
+// - Liberando (pulso): pisca rápido
+// - Abastecendo (janela aberta / destravado): pisca devagar
+// - Travada: aceso parado (ou apaga 0,1 s a cada 2 s se sem resposta do servidor há > 1 min)
+static void updateStatusLed(uint32_t now) {
+  bool ledOn = false;
+  if (tamperLatched) {
+    ledOn = ((now / 80) % 2) == 0;
+  } else if (pulseOn) {
+    ledOn = ((now / 160) % 2) == 0;
+  } else if (!prevLockConfirmed || (windowEndMs != 0 && (int32_t)(windowEndMs - now) > 0)) {
+    ledOn = ((now / 700) % 2) == 0;
+  } else {
+    uint32_t age = now - pollRes.atMs;
+    if (!pollRes.valid && now > 60000UL && age > 60000UL) {
+      ledOn = (now % 2000UL) >= 100UL;  // apaga 0,1 s a cada 2 s
+    } else {
+      ledOn = true;                     // aceso parado = Travada
+    }
+  }
+  digitalWrite(PIN_LED, ledOn ? HIGH : LOW);
 }
 
 void loop() {
@@ -1138,9 +1230,10 @@ void loop() {
   loraService();
   gpsService();
   server.handleClient();
+  serialConsoleService();
   beaconService();
   periodicService();
 
-  digitalWrite(PIN_LED, (now / (prevLockConfirmed ? 1500 : 300)) % 2);
+  updateStatusLed(now);
   delay(1);
 }
