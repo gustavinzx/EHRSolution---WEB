@@ -257,6 +257,21 @@ sequenceDiagram
 - **Erros:** `400 {"error":"Campo sol1 deve ser booleano"}` (idem para os outros três); `400 {"error":"command deve ser \"lock\" ou \"unlock\""}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
 - **[sugestão]** Enviar a cada mudança de estado dos fins de curso, e ao concluir cada comando de travar/destravar.
 
+### 4.9 `POST /api/fleet/:id/audit-import` — importar o log offline do cartão SD
+
+Usado para reconciliar o `/ehr_audit.csv` gravado no cartão MicroSD enquanto a placa estava sem rede.
+
+- **Content-Type:** `text/csv` (limite de 1 MB e 5000 linhas por envio). Autenticação por `x-api-key`, como nos demais endpoints da placa.
+- **Formato da linha:** `data;lat;lng;evento;resultado[;seq]`
+  - `data`: `YYYY-MM-DD HH:MM:SS`, interpretada como **UTC** (o RTC deve gravar em UTC). Datas mais de 24 h no futuro são rejeitadas.
+  - `lat`/`lng`: decimais dentro de ±90 / ±180.
+  - `evento`: `TRAVAR` ou `DESTRAVAR`. `resultado`: `SUCESSO` ou `FALHA`.
+  - `seq` (opcional): contador sequencial da placa. Sem ele, duas linhas idênticas com o mesmo carimbo são tratadas como a mesma. **[sugestão]** gravar sempre o `seq`.
+  - Cabeçalho (primeira linha começando com `data;`), linhas em branco e CRLF são aceitos.
+- **Resposta 201:** `{ "success": true, "imported": 2, "duplicates": 0, "rejected": [ { "line": 5, "reason": "evento desconhecido" } ] }`. Linhas válidas são importadas mesmo que outras sejam rejeitadas.
+- **Idempotência:** reenviar o arquivo inteiro (ou parte dele) não duplica registros; as repetidas voltam em `duplicates`. É seguro reenviar o arquivo após qualquer falha de rede.
+- **Erros:** `400 {"error":"CSV vazio ou ausente"}`; `413 {"error":"CSV excede o limite de 5000 linhas"}`; `415 {"error":"Content-Type deve ser text/csv"}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
+
 ---
 
 ## 5. Origem dos dados e detecção de furto
