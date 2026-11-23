@@ -22,6 +22,7 @@ try {
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { ConnectionStatus } from '../components/ConnectionStatus';
+import { ServidorLocalConfig } from '../components/ServidorLocalConfig';
 import { getBaseUrl, apiClient } from '../services/api/apiClient';
 import { secureStorage } from '../storage/secureStorage';
 import { getBiometricLabel, isFacialBiometric } from '../utils/biometricLabel';
@@ -383,6 +384,7 @@ export const LoginScreen: React.FC = () => {
                   {__DEV__ && (
                     <Text style={styles.devEnvironmentTag}>API: {getBaseUrl()}</Text>
                   )}
+                  <ServidorLocalConfig />
                 </View>
               </View>
             </ScrollView>

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // secureStorage removed: in-memory session token is used instead
 import { ApiError, LoginResponse } from '../../types/auth';
 import { Driver } from '../../types/driver';
@@ -30,7 +31,61 @@ const getHostFromConstants = (): string | null => {
   return null;
 };
 
+export const LOCAL_SERVER_STORAGE_KEY = 'ehr_local_server_url';
+let serverOverrideUrl: string | null = null;
+let overrideVersion = 0;
+
+export const normalizeServerUrl = (raw: string): string => {
+  let u = typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
+  if (!u) return '';
+  if (!/^https?:\/\//i.test(u)) {
+    u = `http://${u}`;
+  }
+  const withoutProto = u.replace(/^https?:\/\//i, '');
+  if (!withoutProto.includes(':') && !withoutProto.includes('/')) {
+    u = `${u}:3001`;
+  }
+  if (!/\/api$/i.test(u)) {
+    u = `${u}/api`;
+  }
+  return u;
+};
+
+export const getServerOverride = (): string | null => serverOverrideUrl;
+
+export const loadServerOverride = async (): Promise<string | null> => {
+  const verAtStart = overrideVersion;
+  try {
+    const saved = await AsyncStorage.getItem(LOCAL_SERVER_STORAGE_KEY);
+    if (overrideVersion !== verAtStart) {
+      return serverOverrideUrl;
+    }
+    const norm = saved ? normalizeServerUrl(saved) : '';
+    serverOverrideUrl = norm || null;
+    return serverOverrideUrl;
+  } catch {
+    return serverOverrideUrl;
+  }
+};
+
+export const saveServerOverride = async (raw: string | null): Promise<string | null> => {
+  overrideVersion += 1;
+  const norm = raw ? normalizeServerUrl(raw) : '';
+  serverOverrideUrl = norm || null;
+  try {
+    if (serverOverrideUrl) {
+      await AsyncStorage.setItem(LOCAL_SERVER_STORAGE_KEY, serverOverrideUrl);
+    } else {
+      await AsyncStorage.removeItem(LOCAL_SERVER_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return serverOverrideUrl;
+};
+
 export const getBaseUrl = (): string => {
+  if (serverOverrideUrl) return serverOverrideUrl;
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!__DEV__) {
     if (envUrl && envUrl.startsWith('https://')) return envUrl;
