@@ -1,5 +1,6 @@
 const request = require('supertest');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { app } = require('../src/index');
 const db = require('../src/config/db');
 const authHardware = require('../src/middleware/authHardware');
@@ -13,6 +14,7 @@ if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
 describe('Importação do log de auditoria do cartão SD (CSV)', () => {
   let truckId;
   let otherTruckId;
+  let mgrToken;
   const key = crypto.randomBytes(16).toString('hex');
   const otherKey = crypto.randomBytes(16).toString('hex');
 
@@ -23,6 +25,10 @@ describe('Importação do log de auditoria do cartão SD (CSV)', () => {
 
   beforeAll(async () => {
     await clean();
+    const u = await db.query(
+      "INSERT INTO users (name, email, password_hash, role) VALUES ('Mgr', 'mgr.aud@test.com', 'h', 'manager') RETURNING id"
+    );
+    mgrToken = jwt.sign({ id: u.rows[0].id, email: 'mgr.aud@test.com', role: 'manager' }, process.env.JWT_SECRET);
     truckId = (await db.query(
       `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key)
        VALUES ('AUD-0001','Volvo FH',500,250,$1) RETURNING id`, [key])).rows[0].id;
@@ -125,5 +131,28 @@ describe('Importação do log de auditoria do cartão SD (CSV)', () => {
     await send(truckId, L1);
     const r = await send(otherTruckId, L1, otherKey);
     expect(r.body.imported).toBe(1);
+  });
+
+  it('GET /api/fleet/:id/audit-entries: consulta histórico do cartão SD com paginação por cursor', async () => {
+    await send(truckId, `${L1};1\n${L2};2\n${L1};3\n`);
+
+    const page1 = await request(app)
+      .get(`/api/fleet/${truckId}/audit-entries?limit=2`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(page1.status).toBe(200);
+    expect(page1.body.items).toHaveLength(2);
+    expect(page1.body.next_cursor).not.toBeNull();
+
+    const page2 = await request(app)
+      .get(`/api/fleet/${truckId}/audit-entries?limit=2&cursor=${page1.body.next_cursor}`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(page2.status).toBe(200);
+    expect(page2.body.items).toHaveLength(1);
+    expect(page2.body.next_cursor).toBeNull();
+
+    const badCursor = await request(app)
+      .get(`/api/fleet/${truckId}/audit-entries?cursor=-1`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(badCursor.status).toBe(400);
   });
 });

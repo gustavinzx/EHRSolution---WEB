@@ -1,0 +1,8 @@
+{
+  "name": "ehr-banco-local",
+  "private": true,
+  "description": "PostgreSQL portátil para o servidor local EHR (binários do pacote embedded-postgres)",
+  "dependencies": {
+    "@embedded-postgres/windows-x64": "18.6.0-beta.19"
+  }
+}

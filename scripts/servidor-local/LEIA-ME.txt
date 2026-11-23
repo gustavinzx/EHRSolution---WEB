@@ -1,0 +1,89 @@
+﻿SERVIDOR LOCAL EHR SOLUTIONS - PARA TESTE DA TRAVA EHR
+=======================================================
+
+Liga no seu computador o sistema EHR Solutions completo (banco de dados,
+servidor/API e painel web), para testar o app EHR Motorista e a placa ESP32
+sem depender do Render.
+
+COMO LIGAR
+----------
+1. Dê dois cliques em INICIAR_SERVIDOR.bat.
+2. Na primeira vez ele baixa e instala tudo sozinho (Node.js portátil,
+   PostgreSQL portátil e as dependências). Leva de 5 a 15 minutos, conforme
+   a internet. Das próximas vezes liga em menos de 1 minuto.
+3. O Windows vai pedir permissão de administrador uma vez, para liberar as
+   portas 3001 e 5173 para a rede local. Aceite, senão o celular não conecta.
+4. No fim aparecem os endereços e as senhas, e o painel abre no navegador.
+   Os mesmos dados ficam no arquivo ENDERECOS.txt desta pasta.
+
+Pode fechar a janela: o servidor continua rodando até você usar
+PARAR_SERVIDOR.bat ou desligar o computador. Depois de reiniciar o
+computador, dê dois cliques em INICIAR_SERVIDOR.bat de novo.
+
+LOGINS DE TESTE
+---------------
+Painel web (gestor):   gestor@ehr.com      senha EhrGestor2026
+App (motorista):       motorista@ehr.com   senha EhrMotorista2026
+
+APP EHR MOTORISTA (versão Local)
+--------------------------------
+Baixe e instale o EHR-Motorista-Local.apk. Abra este link NO CELULAR
+(também está no atalho BAIXAR_APP_MOTORISTA_LOCAL desta pasta):
+  https://github.com/Ailton-Soares-Silva/EHR_TRAVA_SEGURAN-A/releases/download/motorista-local-2/EHR-Motorista-Local.apk
+Permita "instalar apps de fontes desconhecidas" quando o Android pedir.
+Ele fica ao lado do app EHR Motorista original, não substitui.
+
+Na tela de login do app, toque em "Alterar servidor", digite o endereço
+que aparece em ENDERECOS.txt (formato http://192.168.x.x:3001/api) e
+toque em "Salvar e testar". O app guarda o endereço.
+O celular precisa estar no MESMO Wi-Fi deste computador.
+
+A verificação facial está em modo de teste: qualquer foto é aceita.
+
+PLACA ESP32
+-----------
+O servidor local só é alcançado pela rede local. A placa precisa usar o
+Wi-Fi (o GSM não chega no seu computador). No config.h:
+  SERVIDOR_HOST  "192.168.x.x"   (o IP de ENDERECOS.txt)
+  SERVIDOR_PORTA 3001
+  SERVIDOR_TLS   false
+  WIFI_SSID / WIFI_SENHA  = a rede deste computador
+  API_KEY        gere no painel: Frota > caminhão > Chave do hardware
+
+ARQUIVOS
+--------
+INICIAR_SERVIDOR.bat   liga tudo
+PARAR_SERVIDOR.bat     desliga tudo (os dados ficam guardados)
+VER_STATUS.bat         mostra o que está ligado
+CORRIGIR_REDE.bat      corrige o firewall e gera DIAGNOSTICO_REDE.txt
+ENDERECOS.txt          endereços e senhas (criado ao ligar)
+EHRSolution-WEB\       código do sistema (repositório gustavinzx/EHRSolution---WEB)
+scripts\               script do servidor
+
+O servidor roda a partir de uma cópia em
+  %LOCALAPPDATA%\EHR-Local
+(banco de dados, dependências e registros). Ela fica fora do Google Drive
+porque são dezenas de milhares de arquivos. Se mudar algo no código desta
+pasta, a mudança é copiada para lá no próximo INICIAR_SERVIDOR.bat.
+
+PROBLEMAS
+---------
+- O celular não alcança o servidor:
+  1. No navegador do celular, abra http://IP-DO-PC:3001/api/health
+     (o IP está em ENDERECOS.txt). Deve aparecer {"status":"ok"}.
+  2. Se não abrir, dê dois cliques em CORRIGIR_REDE.bat e aceite o pedido
+     de administrador. Ele remove bloqueios do Node.js no firewall, libera
+     as portas e grava o relatório DIAGNOSTICO_REDE.txt nesta pasta.
+  3. Confira se o celular está no MESMO Wi-Fi (não nos dados móveis e não
+     numa rede de "convidados", que isola os aparelhos).
+- O IP muda quando o roteador reinicia: veja o novo em ENDERECOS.txt. Para
+  fixar, reserve o IP do computador no roteador.
+- Algo falhou: os registros estão em %LOCALAPPDATA%\EHR-Local\logs
+  (servidor.log, painel.log, banco.log).
+- Apagar tudo e começar do zero: PARAR_SERVIDOR.bat e depois apague a pasta
+  %LOCALAPPDATA%\EHR-Local
+- Remover a liberação do firewall: Windows Defender Firewall > Regras de
+  entrada > "EHR Servidor Local (teste)" > Excluir.
+
+ATENÇÃO: este servidor é só para teste. As senhas são conhecidas e a
+verificação facial aceita qualquer foto. Não use com dados reais.

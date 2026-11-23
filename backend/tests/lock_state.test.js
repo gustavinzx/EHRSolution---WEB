@@ -1,5 +1,6 @@
 const request = require('supertest');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { app } = require('../src/index');
 const db = require('../src/config/db');
 const authHardware = require('../src/middleware/authHardware');
@@ -13,6 +14,7 @@ if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
 describe('Lock state R4 (solenoides + fins de curso)', () => {
   let truckId;
   let otherTruckId;
+  let mgrToken;
   const key = crypto.randomBytes(16).toString('hex');
   const otherKey = crypto.randomBytes(16).toString('hex');
   const LOCKED = { sol1: false, sol2: false, fc_locked: true, fc_unlocked: false };
@@ -23,6 +25,10 @@ describe('Lock state R4 (solenoides + fins de curso)', () => {
 
   beforeAll(async () => {
     await clean();
+    const u = await db.query(
+      "INSERT INTO users (name, email, password_hash, role) VALUES ('Mgr', 'mgr.lck@test.com', 'h', 'manager') RETURNING id"
+    );
+    mgrToken = jwt.sign({ id: u.rows[0].id, email: 'mgr.lck@test.com', role: 'manager' }, process.env.JWT_SECRET);
     const a = await db.query(
       `INSERT INTO trucks (plate, model, capacity_liters, current_level_liters, api_key)
        VALUES ('LCK-0001','Volvo FH',500,250,$1) RETURNING id`, [key]);
@@ -120,5 +126,30 @@ describe('Lock state R4 (solenoides + fins de curso)', () => {
     expect(cross.status).toBe(403);
     const { rows } = await db.query('SELECT count(*)::int AS n FROM lock_state_logs WHERE truck_id = $1', [otherTruckId]);
     expect(rows[0].n).toBe(0);
+  });
+
+  it('GET /api/fleet/:id/lock-state: lista histórico com paginação por cursor e rejeita cursor inválido', async () => {
+    await post(truckId, { ...LOCKED, command: 'lock' });
+    await post(truckId, { ...UNLOCKED, command: 'unlock' });
+    await post(truckId, { ...LOCKED, command: 'lock' });
+
+    const page1 = await request(app)
+      .get(`/api/fleet/${truckId}/lock-state?limit=2`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(page1.status).toBe(200);
+    expect(page1.body.items).toHaveLength(2);
+    expect(page1.body.next_cursor).not.toBeNull();
+
+    const page2 = await request(app)
+      .get(`/api/fleet/${truckId}/lock-state?limit=2&cursor=${page1.body.next_cursor}`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(page2.status).toBe(200);
+    expect(page2.body.items).toHaveLength(1);
+    expect(page2.body.next_cursor).toBeNull();
+
+    const badCursor = await request(app)
+      .get(`/api/fleet/${truckId}/lock-state?cursor=abc`)
+      .set('Authorization', `Bearer ${mgrToken}`);
+    expect(badCursor.status).toBe(400);
   });
 });
