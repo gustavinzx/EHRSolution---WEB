@@ -19,11 +19,25 @@ export function getAlertMeta(type) {
     case 'facial_auth_failed':
       return { label: 'Falha na Biometria Facial', icon: UserX };
     case 'facial_auth_locked':
+    case 'security_facial_auth_locked':
       return { label: 'Biometria Facial Bloqueada', icon: UserX };
     case 'ble_fallback_used':
       return { label: 'BLE Fallback Utilizado', icon: Bluetooth };
     case 'unauthorized_fueling_attempt':
+    case 'security_unauthorized_fueling_attempt':
       return { label: 'Tentativa Bloqueada (Geofence)', icon: ShieldAlert };
+    case 'lock_state_mismatch':
+    case 'security_lock_state_mismatch':
+      return { label: 'Divergência Física da Trava (Fim de Curso)', icon: ShieldAlert };
+    case 'tamper':
+    case 'security_tamper':
+      return { label: 'Violação Física da Trava (Tamper)', icon: ShieldAlert };
+    case 'gps_position_divergence':
+    case 'security_gps_position_divergence':
+      return { label: 'Divergência de Posição GPS', icon: ShieldAlert };
+    case 'manager_override':
+    case 'security_manager_override':
+      return { label: 'Liberação Manual pelo Gestor', icon: ShieldAlert };
     default:
       return { label: type, icon: AlertTriangle };
   }
