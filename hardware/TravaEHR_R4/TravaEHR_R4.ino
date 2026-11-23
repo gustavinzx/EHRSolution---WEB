@@ -552,7 +552,20 @@ static float readVbat() {
 // Descritivo 10.5: Vkl15 = mV * 16 / 1000. Ignição LIGADA se > 8 V; DESLIGADA se < 4 V (histerese).
 static bool ignitionOn = false;
 static bool vbatLowLogged = false;
+static bool economyMode = false;
+static uint32_t klOffSinceMs = 0;
+static uint32_t incompleteSinceMs = 0;
+static bool incompleteLatched = false;
 static uint32_t lastPowerCheckMs = 0;
+
+static void wakeFromEconomy(const char* reason) {
+  if (!economyMode) return;
+  economyMode = false;
+  klOffSinceMs = millis();
+  char m[64];
+  snprintf(m, sizeof(m), "saiu do modo economia (%s)", reason);
+  eventLog(m);
+}
 
 static float readKl15() {
   uint32_t sum = 0;
@@ -567,10 +580,22 @@ static void powerSupervisionService() {
   float vkl = readKl15();
   if (!ignitionOn && vkl > 8.0f) {
     ignitionOn = true;
+    wakeFromEconomy("ignicao");
     eventLog("ignicao LIGADA (KL15 > 8V)");
   } else if (ignitionOn && vkl < 4.0f) {
     ignitionOn = false;
+    klOffSinceMs = now;
     eventLog("ignicao DESLIGADA (KL15 < 4V)");
+  }
+  // Descritivo 10.7 + Simulador R4: ignição desligada por 60s com trava fechada -> modo economia
+  if (!ignitionOn && prevLockConfirmed && !tamperLatched) {
+    if (klOffSinceMs == 0) klOffSinceMs = now;
+    if (!economyMode && now - klOffSinceMs >= 60000UL) {
+      economyMode = true;
+      eventLog("modo economia ativado: ignicao desligada ha 1 min");
+    }
+  } else {
+    klOffSinceMs = now;
   }
 #if !BENCH_MODE
   float vb = readVbat();
@@ -674,8 +699,28 @@ static void lockLogic() {
   if (prevLockConfirmed && !confirmed && !authorized && !tamperLatched) {
     if (!(sw1.stable && sw2.stable)) {  // só se algum sensor realmente abriu
       tamperLatched = true;
+      wakeFromEconomy("violacao");
       alertTamper("sensor de trava abriu sem destravamento autorizado");
     }
+  }
+
+  // Descritivo 10.4 + Simulador R4: Tampa fechada com um sensor aberto por > 3 s -> alarme "travamento incompleto"
+  if (!pulseOn && (sw1.stable != sw2.stable)) {
+    if (incompleteSinceMs == 0) incompleteSinceMs = millis();
+    if (!incompleteLatched && millis() - incompleteSinceMs >= 3000UL) {
+      incompleteLatched = true;
+      lastCommand = "lock";
+      eventLog(sw1.stable ? "travamento incompleto: SW2 aberto" : "travamento incompleto: SW1 aberto");
+      if (loraOk) {
+        LoRa.beginPacket();
+        LoRa.printf("EHR1|%d|INCOMPLETO|%s", TRUCK_ID, sw1.stable ? "SW2" : "SW1");
+        LoRa.endPacket();
+      }
+      sendLockState(true);
+    }
+  } else {
+    incompleteSinceMs = 0;
+    if (confirmed) incompleteLatched = false;
   }
 
   if (confirmed && !prevLockConfirmed) {
@@ -769,12 +814,14 @@ static void loraService() {
 }
 
 static void beaconService() {
-  if (!loraOk || millis() - lastBeaconMs < BEACON_MS) return;
+  uint32_t interval = economyMode ? (BEACON_MS * 2) : BEACON_MS;
+  if (!loraOk || millis() - lastBeaconMs < interval) return;
   lastBeaconMs = millis();
   uint32_t e = rtcEpoch();
+  const char* st = prevLockConfirmed ? "TRAVADO" : (incompleteLatched ? "INCOMPLETO" : "ABERTO");
   LoRa.beginPacket();
   // Descritivo 10.6: ID do caminhão, estado, VBAT, KL15, lat/lon, hora e contador
-  LoRa.printf("EHR1|%d|%s|%.2f|%d|%.5f|%.5f|%lu|%lu", TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO",
+  LoRa.printf("EHR1|%d|%s|%.2f|%d|%.5f|%.5f|%lu|%lu", TRUCK_ID, st,
               readVbat(), ignitionOn ? 1 : 0, gpsLat, gpsLng, (unsigned long)e, (unsigned long)seqCounter);
   LoRa.endPacket();
 }
@@ -802,13 +849,14 @@ static void setupWebServer() {
     server.send(200, "text/html", html);
   });
   server.on("/status", HTTP_GET, []() {
-    char json[320];
+    const char* st = prevLockConfirmed ? "TRAVADO" : (incompleteLatched ? "INCOMPLETO" : "ABERTO");
+    char json[360];
     snprintf(json, sizeof(json),
              "{\"truck_id\":%d,\"estado\":\"%s\",\"pulso\":%s,\"sw1_travado\":%s,\"sw2_travado\":%s,"
-             "\"vbat\":%.2f,\"kl15_v\":%.2f,\"ignicao\":%s,\"gps_fix\":%s,\"sd\":%s,\"lora\":%s}",
-             TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO", pulseOn ? "true" : "false",
+             "\"vbat\":%.2f,\"kl15_v\":%.2f,\"ignicao\":%s,\"economia\":%s,\"gps_fix\":%s,\"sd\":%s,\"lora\":%s}",
+             TRUCK_ID, st, pulseOn ? "true" : "false",
              sw1.stable ? "true" : "false", sw2.stable ? "true" : "false",
-             readVbat(), readKl15(), ignitionOn ? "true" : "false",
+             readVbat(), readKl15(), ignitionOn ? "true" : "false", economyMode ? "true" : "false",
              gpsFix ? "true" : "false", sdOk ? "true" : "false", loraOk ? "true" : "false");
     server.send(200, "application/json", json);
   });
