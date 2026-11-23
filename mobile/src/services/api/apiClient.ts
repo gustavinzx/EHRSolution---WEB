@@ -7,6 +7,7 @@ import { Vehicle } from '../../types/vehicle';
 import { Session, ReleaseMethod } from '../../types/session';
 import { HistoryResponse } from '../../types/history';
 import { WalletResponse, DriverCard, CreateCardPayload } from '../../types/wallet';
+import { OfflineUnlockToken } from '../hardware/localLockClient';
 
 const isLoopbackHost = (host: string): boolean => host === 'localhost' || host === '127.0.0.1';
 
@@ -182,6 +183,12 @@ export const apiClient = {
     return await request<Session>(`/fueling/sessions/${sessionId}/authorize`, {
       method: 'POST',
       body: JSON.stringify(coords || {})
+    });
+  },
+
+  async getOfflineUnlockToken(sessionId: number): Promise<OfflineUnlockToken> {
+    return await request<OfflineUnlockToken>(`/fueling/sessions/${sessionId}/offline-token`, {
+      method: 'POST'
     });
   },
 

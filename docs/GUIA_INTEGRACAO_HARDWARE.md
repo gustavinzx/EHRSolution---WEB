@@ -242,6 +242,50 @@ sequenceDiagram
 - **Unidades de medida:** Todas as grandezas volumétricas são informadas em **litros (decimal)** (`fuelingController.js:462`, `fuelingController.js:512-514`, `migrations/003_web_hardening.sql:8`).
 - **Fail-safe da trava:** Em qualquer falha de rede, timeout ou erro na consulta de destrave (`GET /api/fueling/sessions/:truckId/active`), a trava solenoide permanece **FECHADA**. O destrave ocorre exclusivamente com resposta HTTP 200 contendo `unlock: true` (`fuelingController.js:789-820`).
 
+### 4.8 `POST /api/fleet/:id/lock-state` — estado físico da trava (solenoides e fins de curso)
+
+- **Corpo (os quatro campos booleanos são obrigatórios; `command` é opcional):**
+  ```json
+  { "command": "unlock", "sol1": true, "sol2": false, "fc_locked": false, "fc_unlocked": true }
+  ```
+  - `command`: `lock` ou `unlock` — o último comando executado pela placa. Omita se não houve comando.
+  - `sol1`, `sol2`: estado de acionamento dos solenoides (GPIO 25 e 26 na revisão R4).
+  - `fc_locked`, `fc_unlocked`: fins de curso que confirmam a posição física da lingueta (GPIO 35 e 36).
+- **Estado derivado pelo servidor:** só `fc_locked` → `locked`; só `fc_unlocked` → `unlocked`; nenhum → `moving` (transitório, não gera alerta); ambos → `fault` (sensor defeituoso).
+- **Resposta 201:** `{ "success": true, "state": "unlocked", "mismatch": false, "alert_id": null }`.
+- **Divergência:** se o comando contradiz o sensor (`unlock` com `locked`, `lock` com `unlocked`) ou o estado é `fault`, o servidor grava `mismatch: true` e abre o alerta `security_lock_state_mismatch`. O alerta é aberto só na transição para divergência; reenvios iguais não duplicam. Esse alerta é um aviso e **não** muda o caminhão para `security_alert`.
+- **Erros:** `400 {"error":"Campo sol1 deve ser booleano"}` (idem para os outros três); `400 {"error":"command deve ser \"lock\" ou \"unlock\""}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
+- **[sugestão]** Enviar a cada mudança de estado dos fins de curso, e ao concluir cada comando de travar/destravar.
+
+### 4.9 `POST /api/fleet/:id/audit-import` — importar o log offline do cartão SD
+
+Usado para reconciliar o `/ehr_audit.csv` gravado no cartão MicroSD enquanto a placa estava sem rede.
+
+- **Content-Type:** `text/csv` (limite de 1 MB e 5000 linhas por envio). Autenticação por `x-api-key`, como nos demais endpoints da placa.
+- **Formato da linha:** `data;lat;lng;evento;resultado[;seq]`
+  - `data`: `YYYY-MM-DD HH:MM:SS`, interpretada como **UTC** (o RTC deve gravar em UTC). Datas mais de 24 h no futuro são rejeitadas.
+  - `lat`/`lng`: decimais dentro de ±90 / ±180.
+  - `evento`: `TRAVAR` ou `DESTRAVAR`. `resultado`: `SUCESSO` ou `FALHA`.
+  - `seq` (opcional): contador sequencial da placa. Sem ele, duas linhas idênticas com o mesmo carimbo são tratadas como a mesma. **[sugestão]** gravar sempre o `seq`.
+  - Cabeçalho (primeira linha começando com `data;`), linhas em branco e CRLF são aceitos.
+- **Resposta 201:** `{ "success": true, "imported": 2, "duplicates": 0, "rejected": [ { "line": 5, "reason": "evento desconhecido" } ] }`. Linhas válidas são importadas mesmo que outras sejam rejeitadas.
+- **Idempotência:** reenviar o arquivo inteiro (ou parte dele) não duplica registros; as repetidas voltam em `duplicates`. É seguro reenviar o arquivo após qualquer falha de rede.
+- **Erros:** `400 {"error":"CSV vazio ou ausente"}`; `413 {"error":"CSV excede o limite de 5000 linhas"}`; `415 {"error":"Content-Type deve ser text/csv"}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
+
+### 4.10 `POST /api/fueling/sessions/:id/offline-token` — token HMAC para destrave local (Wi-Fi / LoRa)
+
+Quando a trava não possui sinal 2G/GPRS no momento do abastecimento, o aplicativo do motorista solicita um token criptográfico de curta duração após a sessão estar `authorized` ou `active` e o envia diretamente para o ponto de acesso Wi-Fi local da trava (`http://192.168.4.1/unlock`).
+
+- **Quem chama:** motorista dono da sessão ou gestor (`Authorization: Bearer <jwt>`).
+- **Resposta 200:**
+  ```json
+  { "truck_id": 1, "session_id": 42, "exp": 1763930000, "mac": "a1b2c3..." }
+  ```
+  - `exp`: época UTC em segundos (validade máxima de 15 minutos, limitada ao `expires_at` da sessão).
+  - `mac`: `HMAC-SHA256(chave_caminhao, "UNLOCK:<truck_id>:<session_id>:<exp>")` em hexadecimal minúsculo (64 caracteres), validado por `verifyUnlockToken()` no firmware `TravaEHR_R4.ino`.
+  - A chave HMAC de 32 bytes de cada caminhão é derivada deterministicamente por `deriveTruckHmacKeyHex(truckId)` (`HMAC-SHA256(HARDWARE_HMAC_SECRET || JWT_SECRET, "EHR_TRUCK_HMAC_R4:<truckId>")`), valor que deve ser gravado em `HMAC_KEY_HEX` no `config.h` da placa.
+- **Erros:** `401` (sem autenticação); `403 {"error":"Sessão pertence a outro motorista"}`; `404 {"error":"Sessão não encontrada"}`; `409 {"error":"Sessão não está autorizada para desbloqueio local"}`.
+
 ---
 
 ## 5. Origem dos dados e detecção de furto

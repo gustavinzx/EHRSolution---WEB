@@ -1,5 +1,6 @@
 const express = require("express");
 const fuelingController = require("../controllers/fuelingController");
+const offlineUnlockController = require("../controllers/offlineUnlockController");
 const stationsController = require("../controllers/stationsController");
 const authMiddleware = require("../middleware/auth");
 const { allow } = require("../middleware/authAny");
@@ -54,6 +55,7 @@ router.post("/sessions/:id/cancel", managerOrDriver, fuelingController.cancelSes
 router.post("/sessions/:id/verify-face", driverOnly, fuelingController.verifyFace);
 router.post("/sessions/:id/ble-confirmed", allow({ hardware: true }), fuelingController.bleConfirmed);
 router.post("/sessions/:id/authorize", managerOrDriver, fuelingController.authorizeSession);
+router.post("/sessions/:id/offline-token", managerOrDriver, offlineUnlockController.issueToken);
 router.post("/sessions/:id/finish", anyActor, fuelingController.finishSession);
 router.post("/sessions/:id/facial-failure", driverOnly, fuelingController.reportFacialFailure);
 router.post("/sessions/:id/emergency-unlock", managerOnly, fuelingController.emergencyUnlockSession);

@@ -8,6 +8,7 @@ import { sessionReducer, initialSessionState } from '../session/sessionMachine';
 import { useAuth } from '../hooks/useAuth';
 import * as Location from 'expo-location';
 import { getBleLock } from '../services/bluetooth/bleLock';
+import { localLockClient, OfflineUnlockToken } from '../services/hardware/localLockClient';
 import { Session } from '../types/session';
 import { getCancelErrorMessage } from '../utils/cancelError';
 
@@ -74,6 +75,8 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
   const [canRetryFacial, setCanRetryFacial] = useState(false);
   const [networkNotice, setNetworkNotice] = useState(false);
   const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
+  const [cachedUnlockToken, setCachedUnlockToken] = useState<OfflineUnlockToken | null>(null);
+  const [localUnlockLoading, setLocalUnlockLoading] = useState(false);
   const consecutiveFailures = useRef(0);
   const isFetching = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -301,6 +304,33 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
 
   const canCancel = state.status === 'AUTHORIZING' || state.status === 'WAITING_HARDWARE' || state.status === 'BLOCKED_NEEDS_MANAGER';
 
+  const handleLocalWifiUnlock = async () => {
+    if (localUnlockLoading) return;
+    setLocalUnlockLoading(true);
+    try {
+      let token = cachedUnlockToken;
+      if (!token) {
+        if (typeof apiClient.getOfflineUnlockToken !== 'function') {
+          throw new Error('Serviço de token offline indisponível.');
+        }
+        token = await apiClient.getOfflineUnlockToken(sessionId);
+        setCachedUnlockToken(token);
+      }
+      await localLockClient.unlockWithToken(token);
+      dispatch({ type: 'POLL_ACTIVE' });
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : 'Falha ao comunicar com a trava.';
+      Alert.alert(
+        'Wi-Fi da Trava',
+        cachedUnlockToken
+          ? `${msg}\n\nConecte o celular ao Wi-Fi TRAVA-EHR-01 e toque novamente.`
+          : msg
+      );
+    } finally {
+      setLocalUnlockLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -365,6 +395,17 @@ export const OperationResultScreen: React.FC<Props> = ({ navigation, route }) =>
                 <Text style={[styles.stepText, styles.stepTextPending]}>Liberando abastecimento</Text>
               </View>
             </View>
+
+            {state.status === 'WAITING_HARDWARE' && (
+              <Button
+                testID="local-wifi-unlock-btn"
+                title={cachedUnlockToken ? 'Enviar Destrave via Wi-Fi da Trava' : 'Liberar via Wi-Fi da Trava (Sem Sinal)'}
+                variant="secondary"
+                loading={localUnlockLoading}
+                onPress={handleLocalWifiUnlock}
+                style={styles.cancelActionBtn}
+              />
+            )}
 
             <Button
               testID="cancel-btn"
