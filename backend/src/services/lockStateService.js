@@ -77,4 +77,28 @@ async function recordLockState({ truckId, body, io }) {
   return { log: rows[0], alert };
 }
 
-module.exports = { recordLockState, parseLockState, deriveState, isMismatch };
+async function listLockStates({ truckId, cursorId = null, limit = 50 }) {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+  const parsedCursor = cursorId !== null && cursorId !== undefined && cursorId !== '' ? Number(cursorId) : null;
+  if (parsedCursor !== null && (!Number.isInteger(parsedCursor) || parsedCursor <= 0)) {
+    throw new ValidationError('cursor inválido');
+  }
+
+  const params = parsedCursor ? [truckId, parsedCursor, safeLimit] : [truckId, safeLimit];
+  const whereCursor = parsedCursor ? 'AND id < $2' : '';
+  const limitPlaceholder = parsedCursor ? '$3' : '$2';
+
+  const { rows } = await db.query(
+    `SELECT id, truck_id, command, sol1, sol2, fc_locked, fc_unlocked, derived_state, mismatch, created_at
+       FROM lock_state_logs
+      WHERE truck_id = $1 ${whereCursor}
+      ORDER BY id DESC
+      LIMIT ${limitPlaceholder}`,
+    params
+  );
+
+  const nextCursor = rows.length === safeLimit ? Number(rows[rows.length - 1].id) : null;
+  return { items: rows, next_cursor: nextCursor };
+}
+
+module.exports = { recordLockState, listLockStates, parseLockState, deriveState, isMismatch };

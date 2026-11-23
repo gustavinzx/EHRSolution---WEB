@@ -255,6 +255,7 @@ sequenceDiagram
 - **Resposta 201:** `{ "success": true, "state": "unlocked", "mismatch": false, "alert_id": null }`.
 - **Divergência:** se o comando contradiz o sensor (`unlock` com `locked`, `lock` com `unlocked`) ou o estado é `fault`, o servidor grava `mismatch: true` e abre o alerta `security_lock_state_mismatch`. O alerta é aberto só na transição para divergência; reenvios iguais não duplicam. Esse alerta é um aviso e **não** muda o caminhão para `security_alert`.
 - **Erros:** `400 {"error":"Campo sol1 deve ser booleano"}` (idem para os outros três); `400 {"error":"command deve ser \"lock\" ou \"unlock\""}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
+- **Consulta pelo painel/auditoria:** `GET /api/fleet/:id/lock-state?limit=50&cursor=<id>` (`authMiddleware`) retorna `{ "items": [...], "next_cursor": 123 | null }` em ordem decrescente com paginação por cursor.
 - **[sugestão]** Enviar a cada mudança de estado dos fins de curso, e ao concluir cada comando de travar/destravar.
 
 ### 4.9 `POST /api/fleet/:id/audit-import` — importar o log offline do cartão SD
@@ -270,6 +271,7 @@ Usado para reconciliar o `/ehr_audit.csv` gravado no cartão MicroSD enquanto a 
   - Cabeçalho (primeira linha começando com `data;`), linhas em branco e CRLF são aceitos.
 - **Resposta 201:** `{ "success": true, "imported": 2, "duplicates": 0, "rejected": [ { "line": 5, "reason": "evento desconhecido" } ] }`. Linhas válidas são importadas mesmo que outras sejam rejeitadas.
 - **Idempotência:** reenviar o arquivo inteiro (ou parte dele) não duplica registros; as repetidas voltam em `duplicates`. É seguro reenviar o arquivo após qualquer falha de rede.
+- **Consulta pelo painel/auditoria:** `GET /api/fleet/:id/audit-entries?limit=50&cursor=<id>` (`authMiddleware`) retorna `{ "items": [...], "next_cursor": 123 | null }` em ordem decrescente com paginação por cursor.
 - **Erros:** `400 {"error":"CSV vazio ou ausente"}`; `413 {"error":"CSV excede o limite de 5000 linhas"}`; `415 {"error":"Content-Type deve ser text/csv"}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
 
 ### 4.10 `POST /api/fueling/sessions/:id/offline-token` — token HMAC para destrave local (Wi-Fi / LoRa)

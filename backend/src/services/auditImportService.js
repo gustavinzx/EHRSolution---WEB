@@ -107,4 +107,28 @@ async function importAudit({ truckId, csv }) {
   return { imported, duplicates: valid.length - imported, rejected };
 }
 
-module.exports = { importAudit, parseAuditCsv, lineHash, ImportError, MAX_LINES };
+async function listAuditEntries({ truckId, cursorId = null, limit = 50 }) {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+  const parsedCursor = cursorId !== null && cursorId !== undefined && cursorId !== '' ? Number(cursorId) : null;
+  if (parsedCursor !== null && (!Number.isInteger(parsedCursor) || parsedCursor <= 0)) {
+    throw new ImportError('cursor inválido', 400);
+  }
+
+  const params = parsedCursor ? [truckId, parsedCursor, safeLimit] : [truckId, safeLimit];
+  const whereCursor = parsedCursor ? 'AND id < $2' : '';
+  const limitPlaceholder = parsedCursor ? '$3' : '$2';
+
+  const { rows } = await db.query(
+    `SELECT id, truck_id, occurred_at, lat, lng, event, result, seq, imported_at
+       FROM hardware_audit_entries
+      WHERE truck_id = $1 ${whereCursor}
+      ORDER BY id DESC
+      LIMIT ${limitPlaceholder}`,
+    params
+  );
+
+  const nextCursor = rows.length === safeLimit ? Number(rows[rows.length - 1].id) : null;
+  return { items: rows, next_cursor: nextCursor };
+}
+
+module.exports = { importAudit, listAuditEntries, parseAuditCsv, lineHash, ImportError, MAX_LINES };

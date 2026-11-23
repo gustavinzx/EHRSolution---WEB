@@ -28,7 +28,9 @@ router.post("/:id/force-fueling", authMiddleware, requireRole, fleetController.f
 // Hardware Endpoints
 router.post("/:id/security-events", authHardware, fleetController.securityEvent);
 router.post("/:id/telemetry", authHardware, fleetController.ingestTelemetry);
+router.get("/:id/lock-state", authMiddleware, lockStateController.list);
 router.post("/:id/lock-state", authHardware, lockStateController.ingest);
+router.get("/:id/audit-entries", authMiddleware, auditImportController.list);
 router.post("/:id/audit-import", authHardware, express.text({ type: 'text/csv', limit: '1mb' }), auditImportController.importCsv);
 
 router.patch("/alerts/:id/resolve", authMiddleware, requireRole, alertsController.resolve);

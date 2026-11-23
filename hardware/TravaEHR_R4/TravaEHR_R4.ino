@@ -54,6 +54,7 @@
 #define PIN_FC_TRAVA1   35   // LOW = lingueta estendida (travada). Só entrada, pull-up EXTERNO 4k7
 #define PIN_FC_TRAVA2   36   // LOW = travada. Só entrada, pull-up externo. Ler por varredura (errata)
 #define PIN_VBAT_ADC    32
+#define PIN_KL15_ADC    39   // Pós-chave / ignição (descritivo 10.1 e 10.5)
 #define PIN_LED         2
 #define PIN_BUZZER      15
 #define PIN_LORA_NSS    5
@@ -519,6 +520,43 @@ static float readVbat() {
   return (sum / 16.0f) * 16.0f / 1000.0f + 0.35f;
 }
 
+// Descritivo 10.5: Vkl15 = mV * 16 / 1000. Ignição LIGADA se > 8 V; DESLIGADA se < 4 V (histerese).
+static bool ignitionOn = false;
+static bool vbatLowLogged = false;
+static uint32_t lastPowerCheckMs = 0;
+
+static float readKl15() {
+  uint32_t sum = 0;
+  for (int i = 0; i < 16; i++) sum += analogReadMilliVolts(PIN_KL15_ADC);
+  return (sum / 16.0f) * 16.0f / 1000.0f;
+}
+
+static void powerSupervisionService() {
+  uint32_t now = millis();
+  if (now - lastPowerCheckMs < 1000) return;
+  lastPowerCheckMs = now;
+  float vkl = readKl15();
+  if (!ignitionOn && vkl > 8.0f) {
+    ignitionOn = true;
+    eventLog("ignicao LIGADA (KL15 > 8V)");
+  } else if (ignitionOn && vkl < 4.0f) {
+    ignitionOn = false;
+    eventLog("ignicao DESLIGADA (KL15 < 4V)");
+  }
+#if !BENCH_MODE
+  float vb = readVbat();
+  float minV = vb > 18.0f ? 20.0f : 10.5f;
+  if (vb < minV && !vbatLowLogged) {
+    vbatLowLogged = true;
+    char m[64];
+    snprintf(m, sizeof(m), "queda de VBAT detectada (%.1f V)", vb);
+    eventLog(m);
+  } else if (vb >= minV + 0.8f) {
+    vbatLowLogged = false;
+  }
+#endif
+}
+
 static bool pulseRateOk(uint32_t now) {
   if (lastPulseEndMs != 0 && now - lastPulseEndMs < PULSE_MIN_GAP_MS) return false;
   uint8_t inLastMinute = 0;
@@ -700,8 +738,9 @@ static void beaconService() {
   lastBeaconMs = millis();
   uint32_t e = rtcEpoch();
   LoRa.beginPacket();
-  LoRa.printf("EHR1|%d|%s|%.2f|%.5f|%.5f|%lu|%lu", TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO",
-              readVbat(), gpsLat, gpsLng, (unsigned long)e, (unsigned long)seqCounter);
+  // Descritivo 10.6: ID do caminhão, estado, VBAT, KL15, lat/lon, hora e contador
+  LoRa.printf("EHR1|%d|%s|%.2f|%d|%.5f|%.5f|%lu|%lu", TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO",
+              readVbat(), ignitionOn ? 1 : 0, gpsLat, gpsLng, (unsigned long)e, (unsigned long)seqCounter);
   LoRa.endPacket();
 }
 
@@ -714,10 +753,27 @@ static void setupWebServer() {
     WiFi.mode(WIFI_AP);
   }
   WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+  server.on("/", HTTP_GET, []() {
+    char html[520];
+    snprintf(html, sizeof(html),
+             "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+             "<title>Trava EHR R4</title></head><body style='font-family:sans-serif;background:#0b1628;color:#fff;padding:24px'>"
+             "<h2>Trava EHR R4 (Caminhao #%d)</h2><p>Estado: <b>%s</b> | SW1: %s | SW2: %s</p>"
+             "<p>VBAT: %.2f V | KL15 (Ignicao): %s | GPS Fix: %s | SD: %s | LoRa: %s</p></body></html>",
+             TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO",
+             sw1.stable ? "TRAVADO" : "ABERTO", sw2.stable ? "TRAVADO" : "ABERTO",
+             readVbat(), ignitionOn ? "LIGADA" : "DESLIGADA",
+             gpsFix ? "SIM" : "NAO", sdOk ? "OK" : "FALHA", loraOk ? "OK" : "FALHA");
+    server.send(200, "text/html", html);
+  });
   server.on("/status", HTTP_GET, []() {
-    char json[200];
-    snprintf(json, sizeof(json), "{\"truck_id\":%d,\"estado\":\"%s\",\"pulso\":%s,\"gps_fix\":%s,\"sd\":%s,\"lora\":%s}",
+    char json[320];
+    snprintf(json, sizeof(json),
+             "{\"truck_id\":%d,\"estado\":\"%s\",\"pulso\":%s,\"sw1_travado\":%s,\"sw2_travado\":%s,"
+             "\"vbat\":%.2f,\"kl15_v\":%.2f,\"ignicao\":%s,\"gps_fix\":%s,\"sd\":%s,\"lora\":%s}",
              TRUCK_ID, prevLockConfirmed ? "TRAVADO" : "ABERTO", pulseOn ? "true" : "false",
+             sw1.stable ? "true" : "false", sw2.stable ? "true" : "false",
+             readVbat(), readKl15(), ignitionOn ? "true" : "false",
              gpsFix ? "true" : "false", sdOk ? "true" : "false", loraOk ? "true" : "false");
     server.send(200, "application/json", json);
   });
@@ -1077,6 +1133,7 @@ void loop() {
   }
   pulseService();
   lockLogic();
+  powerSupervisionService();
   pollService();
   loraService();
   gpsService();
