@@ -25,6 +25,12 @@
 #define WIFI_AP_SSID        "TRAVA-EHR-01"
 #define WIFI_AP_PASS        "TROQUE-POR-SENHA-FORTE"   // mínimo 8 caracteres, única por placa
 
+// ---- Wi-Fi da oficina / Servidor Local (opcional, para bancada sem usar 2G/GPRS) ----
+// Se WIFI_STA_SSID não for vazio e conectar, o HTTP com a API usa o Wi-Fi local (ex.: 192.168.x.x:3001)
+// e faz fallback automático para o GPRS (SIM800L) quando estiver fora do alcance do Wi-Fi.
+#define WIFI_STA_SSID       ""
+#define WIFI_STA_PASS       ""
+
 // ---- Autenticação de comandos de destravar (LoRa e Wi-Fi) ----
 // 64 caracteres hexadecimais (32 bytes). Gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 #define HMAC_KEY_HEX        "0000000000000000000000000000000000000000000000000000000000000000"

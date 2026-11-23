@@ -19,6 +19,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <WebServer.h>
 #include <SPI.h>
 #include <Wire.h>
@@ -39,6 +40,12 @@
 #endif
 #if T_PULSO_MS > 5000 || T_PULSO_MS < 500
 #error "T_PULSO_MS deve ficar entre 500 e 5000 ms (maximo absoluto do descritivo: 5 s)."
+#endif
+#ifndef WIFI_STA_SSID
+#define WIFI_STA_SSID ""
+#endif
+#ifndef WIFI_STA_PASS
+#define WIFI_STA_PASS ""
 #endif
 
 // ============================ PINOS (descritivo 10.1) ========================
@@ -700,7 +707,12 @@ static void beaconService() {
 
 // ============================ WI-FI LOCAL ====================================
 static void setupWebServer() {
-  WiFi.mode(WIFI_AP);
+  if (strlen(WIFI_STA_SSID) > 0) {
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(WIFI_STA_SSID, WIFI_STA_PASS);
+  } else {
+    WiFi.mode(WIFI_AP);
+  }
   WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
   server.on("/status", HTTP_GET, []() {
     char json[200];
@@ -777,7 +789,7 @@ static bool gprsOpen() {
 }
 
 // Retorna o status HTTP (200...), ou negativo em falha de modem/GPRS.
-static int gsmHttp(bool post, const char* path, const char* body, char* resp, size_t respLen) {
+static int gsmHttp(bool post, const char* path, const char* body, const char* contentType, char* resp, size_t respLen) {
   if (!gprsUp && !gprsOpen()) return -1;
   atCmd("AT+HTTPTERM", "OK", 1500);
   if (!atCmd("AT+HTTPINIT", "OK", 3000)) { gprsUp = false; return -2; }
@@ -788,7 +800,8 @@ static int gsmHttp(bool post, const char* path, const char* body, char* resp, si
 #if API_USE_TLS
   atCmd("AT+HTTPSSL=1", "OK", 1000);
 #endif
-  atCmd("AT+HTTPPARA=\"CONTENT\",\"application/json\"", "OK", 1000);
+  snprintf(cmd, sizeof(cmd), "AT+HTTPPARA=\"CONTENT\",\"%s\"", contentType ? contentType : "application/json");
+  atCmd(cmd, "OK", 1000);
   // O SIM800L interpreta a sequência \r\n escrita literalmente como separador de cabeçalho.
   snprintf(cmd, sizeof(cmd), "AT+HTTPPARA=\"USERDATA\",\"x-api-key: %s\\r\\n\"", API_KEY);
   atCmd(cmd, "OK", 1000);
@@ -824,6 +837,35 @@ static int gsmHttp(bool post, const char* path, const char* body, char* resp, si
   }
   atCmd("AT+HTTPTERM", "OK", 1500);
   return status;
+}
+
+// HTTP via Wi-Fi Station (usado quando conectado à rede do Servidor Local / bancada, com fallback para GPRS)
+static int wifiStaHttp(bool post, const char* path, const char* body, const char* contentType, char* resp, size_t respLen) {
+  if (WiFi.status() != WL_CONNECTED) return -10;
+  WiFiClient client;
+  HTTPClient http;
+  char url[180];
+  snprintf(url, sizeof(url), "http://%s:%d%s", API_HOST, API_PORT, path);
+  http.setTimeout(5000);
+  if (!http.begin(client, url)) return -11;
+  http.addHeader("x-api-key", API_KEY);
+  if (post) http.addHeader("Content-Type", contentType ? contentType : "application/json");
+  int st = post ? http.POST(body ? body : "") : http.GET();
+  if (st > 0 && resp && respLen) {
+    String s = http.getString();
+    strncpy(resp, s.c_str(), respLen - 1);
+    resp[respLen - 1] = 0;
+  }
+  http.end();
+  return st;
+}
+
+static int backendHttp(bool post, const char* path, const char* body, const char* contentType, char* resp, size_t respLen) {
+  if (WiFi.status() == WL_CONNECTED) {
+    int st = wifiStaHttp(post, path, body, contentType, resp, respLen);
+    if (st > 0) return st;
+  }
+  return gsmHttp(post, path, body, contentType, resp, respLen);
 }
 
 static bool gsmSendSms(const char* text) {
@@ -870,7 +912,8 @@ static RetrySlot retrySlots[4];
 
 static bool runJob(const NetJob& job) {
   if (job.type == J_SMS) return gsmSendSms(job.body);
-  int st = gsmHttp(true, job.path, job.body, nullptr, 0);
+  const char* ct = (job.type == J_AUDIT) ? "text/csv" : "application/json";
+  int st = backendHttp(true, job.path, job.body, ct, nullptr, 0);
   bool ok = (st >= 200 && st < 300) || (st == 409 || st == 404);  // 409/404: já processado (guia 4.7)
   if (job.type == J_AUDIT && ok) {
     NetResult r = {job.arg};
@@ -905,7 +948,7 @@ static void netTask(void*) {
       lastPoll = millis();
       char path[64], resp[300];
       snprintf(path, sizeof(path), "/api/fueling/sessions/%d/active", TRUCK_ID);
-      int st = gsmHttp(false, path, nullptr, resp, sizeof(resp));
+      int st = backendHttp(false, path, nullptr, "application/json", resp, sizeof(resp));
       portENTER_CRITICAL(&pollMux);
       if (st == 200) {
         bool unlock = false;
