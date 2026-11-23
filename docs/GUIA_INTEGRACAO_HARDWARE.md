@@ -242,6 +242,21 @@ sequenceDiagram
 - **Unidades de medida:** Todas as grandezas volumétricas são informadas em **litros (decimal)** (`fuelingController.js:462`, `fuelingController.js:512-514`, `migrations/003_web_hardening.sql:8`).
 - **Fail-safe da trava:** Em qualquer falha de rede, timeout ou erro na consulta de destrave (`GET /api/fueling/sessions/:truckId/active`), a trava solenoide permanece **FECHADA**. O destrave ocorre exclusivamente com resposta HTTP 200 contendo `unlock: true` (`fuelingController.js:789-820`).
 
+### 4.8 `POST /api/fleet/:id/lock-state` — estado físico da trava (solenoides e fins de curso)
+
+- **Corpo (os quatro campos booleanos são obrigatórios; `command` é opcional):**
+  ```json
+  { "command": "unlock", "sol1": true, "sol2": false, "fc_locked": false, "fc_unlocked": true }
+  ```
+  - `command`: `lock` ou `unlock` — o último comando executado pela placa. Omita se não houve comando.
+  - `sol1`, `sol2`: estado de acionamento dos solenoides (GPIO 25 e 26 na revisão R4).
+  - `fc_locked`, `fc_unlocked`: fins de curso que confirmam a posição física da lingueta (GPIO 35 e 36).
+- **Estado derivado pelo servidor:** só `fc_locked` → `locked`; só `fc_unlocked` → `unlocked`; nenhum → `moving` (transitório, não gera alerta); ambos → `fault` (sensor defeituoso).
+- **Resposta 201:** `{ "success": true, "state": "unlocked", "mismatch": false, "alert_id": null }`.
+- **Divergência:** se o comando contradiz o sensor (`unlock` com `locked`, `lock` com `unlocked`) ou o estado é `fault`, o servidor grava `mismatch: true` e abre o alerta `security_lock_state_mismatch`. O alerta é aberto só na transição para divergência; reenvios iguais não duplicam. Esse alerta é um aviso e **não** muda o caminhão para `security_alert`.
+- **Erros:** `400 {"error":"Campo sol1 deve ser booleano"}` (idem para os outros três); `400 {"error":"command deve ser \"lock\" ou \"unlock\""}`; `401` (chave ausente/inválida); `403 {"error":"API Key não pertence a este caminhão"}`.
+- **[sugestão]** Enviar a cada mudança de estado dos fins de curso, e ao concluir cada comando de travar/destravar.
+
 ---
 
 ## 5. Origem dos dados e detecção de furto
