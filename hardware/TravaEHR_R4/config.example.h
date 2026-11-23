@@ -35,6 +35,17 @@
 // 64 caracteres hexadecimais (32 bytes). Gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 #define HMAC_KEY_HEX        "0000000000000000000000000000000000000000000000000000000000000000"
 
-// ---- Ajustes ----
+// ---- Ajustes e Flags de Bancada (Guia de Montagem Trava EHR, p. 31-34) ----
 #define T_PULSO_MS          3000                  // duração do pulso nos solenoides (máx. absoluto 5000)
-#define BENCH_MODE          0                     // 1 = ignora a leitura de VBAT (SÓ para bancada sem divisor de tensão)
+#define BENCH_MODE          0                     // 1 = ignora VBAT sempre (nota: VBAT < 3,0V já é tratado como "sem sensor")
+#define USAR_GSM            true                  // false no Teste 1 de bancada sem SIM800L soldado
+#define USAR_LORA           true                  // false no Teste 1 de bancada sem SX1276 soldado
+#define USAR_BUZZER         true                  // false se o buzzer (Passo 12) não estiver montado
+
+// Alias em português compatíveis com a página 34 do Guia de Montagem (opcionais):
+// #define CAMINHAO_ID      1
+// #define SERVIDOR_HOST    "192.168.0.10"
+// #define SERVIDOR_PORTA   3001
+// #define SERVIDOR_TLS     false
+// #define WIFI_SSID        "MinhaRede2G"
+// #define WIFI_SENHA       "SenhaDoWifi"
