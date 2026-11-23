@@ -8,6 +8,7 @@ module.exports = async () => {
 
   authHardware.resetRateLimits();
   
+  await db.query('DELETE FROM lock_state_logs');
   await db.query('DELETE FROM driver_trucks');
   await db.query('DELETE FROM driver_cards');
   await db.query('DELETE FROM fueling_logs');

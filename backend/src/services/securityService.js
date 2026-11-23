@@ -56,7 +56,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
   
   const criticalTypes = CRITICAL_SECURITY_TYPES;
   // Eventos que geram alerta visível ao gestor, mas não marcam o caminhão como em risco
-  const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated', 'gps_position_divergence']);
+  const noticeTypes = new Set(['facial_auth_locked', 'manager_override', 'face_provider_error', 'driver_deactivated', 'gps_position_divergence', 'lock_state_mismatch']);
   const eventSeverity = severity || (criticalTypes.has(type) ? 'critical' : 'high');
   
   const { rows: events } = await runner.query(`INSERT INTO security_events
@@ -75,6 +75,7 @@ async function recordSecurityEvent({ truckId, type, severity, source = 'device',
       manager_override: `Trava liberada manualmente pelo gestor. Motivo: ${payload.reason || 'não informado'}.`,
       face_provider_error: 'Falha na comunicação com o provedor de biometria facial.',
       driver_deactivated: 'Motorista desativado ativamente. Operações suspensas.',
+      lock_state_mismatch: `Estado físico da trava divergente do comando (comando: ${payload.command || 'n/d'}, sensores: ${payload.derived_state || 'n/d'}).`,
       gps_position_divergence: `Posição GPS do celular do motorista divergiu em ${payload.distance_km ?? '?'} km da posição do caminhão.`
     };
     const { rows } = await runner.query(`INSERT INTO fleet_alerts
