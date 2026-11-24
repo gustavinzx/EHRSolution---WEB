@@ -1,0 +1,876 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Simulador Trava EHR</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bancada de 3 colunas — comandos | diagrama vivo + mecânica + gráficos | firmware, pinos e registros */
+:root{
+  --bg:#ECEFF1; --panel:#FFFFFF; --panel2:#F5F7F8; --ink:#1B2228; --muted:#5B6873; --line:#CED6DC;
+  --accent:#C9741F; --accent-ink:#FFFFFF;
+  --r24:#C62828; --r5:#D96C00; --r12:#9A6A00; --r33:#00838F; --spi:#8E24AA; --i2c:#2E7D32; --uart:#1E4FB8; --gnd:#6E7A84; --sig:#2F8F2F; --act:#A88400;
+  --ok:#2E7D32; --warn:#B26A00; --crit:#C62828; --off:#AAB4BB;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161A; --panel:#192026; --panel2:#1F272E; --ink:#E4EAEE; --muted:#93A1AC; --line:#2E3942;
+  --accent:#E8964A; --accent-ink:#1A1206;
+  --r24:#FF6B6B; --r5:#FF9F43; --r12:#E2B34A; --r33:#3CC6D2; --spi:#D07BE6; --i2c:#6BCB77; --uart:#7EA6FF; --gnd:#8A97A1; --sig:#6BCB77; --act:#E2C84A;
+  --ok:#6BCB77; --warn:#F0B44A; --crit:#FF6B6B; --off:#4A5660; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161A; --panel:#192026; --panel2:#1F272E; --ink:#E4EAEE; --muted:#93A1AC; --line:#2E3942;
+  --accent:#E8964A; --accent-ink:#1A1206;
+  --r24:#FF6B6B; --r5:#FF9F43; --r12:#E2B34A; --r33:#3CC6D2; --spi:#D07BE6; --i2c:#6BCB77; --uart:#7EA6FF; --gnd:#8A97A1; --sig:#6BCB77; --act:#E2C84A;
+  --ok:#6BCB77; --warn:#F0B44A; --crit:#FF6B6B; --off:#4A5660; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+h1{font-size:30px;line-height:1.05}
+h2{font-size:17px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* topo */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:12px}
+.top p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.simctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 11px;line-height:1.2}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.sm{padding:4px 8px;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:6px 10px;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.clock{font-family:var(--f-mono);font-size:13px;color:var(--muted);padding:0 4px}
+
+/* faixa de status */
+.strip{display:grid;grid-template-columns:minmax(210px,1.3fr) repeat(6,minmax(96px,1fr));gap:8px;margin-bottom:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.tile .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.tile .v{font-family:var(--f-mono);font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile .s{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.state{display:flex;flex-direction:column;justify-content:center;border-left:6px solid var(--off)}
+.state .v{font-family:var(--f-display);font-size:26px;font-weight:700;letter-spacing:.03em;line-height:1.05}
+.state[data-sev="ok"]{border-left-color:var(--ok)} .state[data-sev="warn"]{border-left-color:var(--warn)}
+.state[data-sev="crit"]{border-left-color:var(--crit)} .state[data-sev="info"]{border-left-color:var(--uart)}
+.state[data-sev="crit"] .v{color:var(--crit)}
+
+/* grade principal */
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:12px;align-items:start}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.card h2{margin-bottom:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lbl{font-size:12.5px;color:var(--muted)}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:6px 0}
+.field input[type=range]{grid-column:1/3;width:100%;accent-color:var(--accent)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--line)}
+.switch:first-of-type{border-top:0}
+.switch input{width:18px;height:18px;accent-color:var(--accent)}
+.sw-desc{font-size:12px;color:var(--muted);display:block}
+details.faults summary{cursor:pointer;font-family:var(--f-display);font-size:17px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tag{display:inline-block;font-size:10.5px;font-family:var(--f-mono);padding:1px 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);vertical-align:1px}
+.tag.r3{border-color:var(--crit);color:var(--crit)}
+
+/* diagrama */
+.diagram-wrap{overflow-x:auto}
+svg text{font-family:var(--f-mono);fill:var(--ink)}
+.blk{fill:var(--panel2);stroke:var(--line);stroke-width:1.2}
+.blk.on{stroke:var(--ink)}
+.blk.dead{fill:color-mix(in srgb,var(--crit) 18%,var(--panel2));stroke:var(--crit)}
+.bt{font-size:11px;font-weight:500}
+.bs{font-size:9.5px;fill:var(--muted)}
+.val{font-size:10.5px;font-weight:500}
+.w{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s,opacity .15s}
+.w.off{stroke:var(--off)!important;stroke-dasharray:4 4;opacity:.8}
+.w24{stroke:var(--r24)} .w5{stroke:var(--r5)} .w12{stroke:var(--r12)} .w33{stroke:var(--r33)} .wspi{stroke:var(--spi)}
+.wi2c{stroke:var(--i2c)} .wuart{stroke:var(--uart)} .wgnd{stroke:var(--gnd);stroke-dasharray:5 3} .wsig{stroke:var(--sig)} .wact{stroke:var(--act)}
+.dot{stroke:none}
+.pulse{animation:pl .5s ease-in-out infinite alternate}
+@keyframes pl{from{opacity:1}to{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.pulse{animation:none}}
+
+/* mecânica + gráficos */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+canvas{width:100%;height:150px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:3px;margin-right:4px}
+
+/* firmware */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+table.pins{width:100%;border-collapse:collapse;font-size:12px}
+table.pins th{text-align:left;font-weight:500;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding:3px 4px}
+table.pins td{border-bottom:1px solid var(--line);padding:3px 4px;vertical-align:top}
+table.pins td:nth-child(3){font-family:var(--f-mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lv{display:inline-block;min-width:26px;text-align:center;border-radius:4px;padding:0 4px;font-family:var(--f-mono);font-size:11.5px}
+.lv.h{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.lv.l{background:var(--panel2);color:var(--muted)}
+.lv.x{background:color-mix(in srgb,var(--warn) 25%,transparent);color:var(--warn)}
+.tabs{display:flex;gap:4px;margin-bottom:6px}
+.tabs button{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:4px 9px;font-size:12.5px}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.log{height:260px;overflow:auto;font-family:var(--f-mono);font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.log div{padding:1px 0;border-bottom:1px dotted var(--line);overflow-wrap:anywhere}
+.log .t{color:var(--muted)} .log .e-crit{color:var(--crit)} .log .e-warn{color:var(--warn)} .log .e-ok{color:var(--ok)} .log .e-info{color:var(--uart)}
+.note{font-size:12px;color:var(--muted);margin:6px 0 0}
+.scen{display:grid;grid-template-columns:1fr;gap:6px}
+.scen button{text-align:left}
+.scen button b{display:block;font-weight:600}
+.scen button span{font-size:12px;color:var(--muted)}
+.toast{font-size:12.5px;min-height:18px;color:var(--muted);margin-top:6px}
+
+@media (max-width:1180px){
+  .grid{grid-template-columns:280px minmax(0,1fr)}
+  .col.right{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .strip{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+}
+@media (max-width:760px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .two{grid-template-columns:minmax(0,1fr)}
+  .strip .state{grid-column:1/-1}
+}
+</style>
+
+<header class="top">
+  <div>
+    <h1>Simulador Trava EHR · Protótipo ALFA R4</h1>
+    <p>Bancada virtual do esquema R4: chicote 24 V, proteção, reguladores, ESP32 com a lógica do firmware v2.0, duas mini travas solenoide, sensores das linguetas e comunicação LoRa/GSM/Wi-Fi.</p>
+  </div>
+  <div class="simctl" role="group" aria-label="Controle da simulação">
+    <button class="btn" id="bPlay">Pausar</button>
+    <div class="seg" id="speedSeg" role="group" aria-label="Velocidade">
+      <button data-s="1" aria-pressed="true">1×</button><button data-s="5" aria-pressed="false">5×</button><button data-s="20" aria-pressed="false">20×</button>
+    </div>
+    <button class="btn" id="bRepair">Reparar hardware</button>
+    <button class="btn" id="bReset">Reiniciar</button>
+    <span class="clock" id="clock">RTC 08:00:00</span>
+  </div>
+</header>
+
+<section class="strip" aria-label="Estado atual">
+  <div class="tile state" id="stTile" data-sev="info"><div class="k">Firmware</div><div class="v" id="stName">BOOT</div><div class="s" id="stWhy">inicializando</div></div>
+  <div class="tile"><div class="k">Bateria (KL30)</div><div class="v" id="tBat">25,4 V</div><div class="s" id="tBatS">motor parado</div></div>
+  <div class="tile"><div class="k">+24V_PROT</div><div class="v" id="tProt">—</div><div class="s" id="tProtS">após F1/D1/D2</div></div>
+  <div class="tile"><div class="k">VR1 +5V</div><div class="v" id="t5">—</div><div class="s" id="t5S">lógica + GSM</div></div>
+  <div class="tile"><div class="k">VR2 V_SOL</div><div class="v" id="t12">—</div><div class="s" id="t12S">bobinas</div></div>
+  <div class="tile"><div class="k">Corrente entrada</div><div class="v" id="tI">—</div><div class="s" id="tIS">F1 3 A</div></div>
+  <div class="tile"><div class="k">Bobinas SOL1 / SOL2</div><div class="v" id="tCoil">30 / 30 °C</div><div class="s" id="tCoilS">desligadas</div></div>
+</section>
+
+<div class="grid">
+  <!-- COLUNA ESQUERDA -->
+  <div class="col">
+    <section class="card" aria-labelledby="h-truck">
+      <h2 id="h-truck">Caminhão</h2>
+      <div class="row" style="justify-content:space-between">
+        <span class="lbl">Sistema elétrico</span>
+        <div class="seg" id="sysSeg"><button data-v="24" aria-pressed="true">24 V</button><button data-v="12" aria-pressed="false">12 V</button></div>
+      </div>
+      <div class="field">
+        <label for="vbat" class="lbl">Bateria em repouso</label><span class="mono" id="vbatV">25,4 V</span>
+        <input type="range" id="vbat" min="0" max="32" step="0.1" value="25.4">
+      </div>
+      <div class="switch"><label for="kl15">Chave de ignição (KL15)<span class="sw-desc">Sinal pós-chave no J1-2</span></label><input type="checkbox" id="kl15"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm" id="bCrank">Dar partida</button>
+        <button class="btn sm" id="bStop">Desligar motor</button>
+        <button class="btn sm" id="bFast">Transiente rápido</button>
+        <button class="btn sm" id="bDump">Load dump</button>
+        <button class="btn sm" id="bRev">Inverter polaridade</button>
+      </div>
+      <p class="note">Partida exige a chave ligada. Transiente rápido: pulso de ~1 ms (ISO 7637), que o D1 absorve. Load dump: pico de centenas de ms do alternador quando a bateria se solta (até 120 V em 24 V).</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-lid">
+      <h2 id="h-lid">Tampa do tanque</h2>
+      <div class="row">
+        <button class="btn sm" id="bOpen">Abrir tampa</button>
+        <button class="btn sm" id="bClose">Fechar tampa</button>
+        <button class="btn sm" id="bForce">Forçar tampa</button>
+      </div>
+      <div class="toast" id="lidToast" role="status">Tampa fechada e travada pelas linguetas.</div>
+    </section>
+
+    <section class="card" aria-labelledby="h-cmd">
+      <h2 id="h-cmd">Comando destravar</h2>
+      <div class="row" style="justify-content:space-between">
+        <span class="lbl">Canal</span>
+        <div class="seg" id="viaSeg"><button data-v="lora" aria-pressed="true">LoRa</button><button data-v="sms" aria-pressed="false">SMS</button><button data-v="app" aria-pressed="false">App Wi-Fi</button></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary sm" id="bCmdOk">Enviar autenticado</button>
+        <button class="btn sm" id="bCmdBad">Senha errada</button>
+        <button class="btn sm" id="bCmdReplay">Reenviar pacote gravado</button>
+        <button class="btn sm" id="bAck">Reconhecer alarme</button>
+      </div>
+      <p class="note">LoRa e SMS levam HMAC + contador; o reenvio de um pacote já usado deve ser recusado.</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-scen">
+      <h2 id="h-scen">Roteiros</h2>
+      <div class="scen">
+        <button class="btn" data-scen="normal"><b>Abastecimento normal</b><span>Destravar por LoRa, abrir, abastecer, fechar</span></button>
+        <button class="btn" data-scen="arrombamento"><b>Tentativa de arrombamento</b><span>Tampa forçada com o caminhão parado</span></button>
+        <button class="btn" data-scen="partida"><b>Partida durante o destravamento</b><span>Afundamento da bateria no meio do pulso</span></button>
+        <button class="btn" data-scen="loaddump"><b>Transientes: R3 × R4</b><span>Pulso rápido, load dump no R4 e no R3</span></button>
+        <button class="btn" data-scen="replay"><b>Ataque por reenvio</b><span>Pacote LoRa gravado e reenviado</span></button>
+      </div>
+      <div class="toast" id="scenToast" role="status"></div>
+    </section>
+
+    <section class="card">
+      <details class="faults" open>
+        <summary>Falhas e modo R3</summary>
+        <div style="margin-top:6px">
+          <div class="switch"><label for="f_r3vr1"><span class="tag r3">R3</span> VR1 direto no KL30<span class="sw-desc">Sem F1, TVS e D2 na entrada do 5 V</span></label><input type="checkbox" id="f_r3vr1"></div>
+          <div class="switch"><label for="f_r3conv"><span class="tag r3">R3</span> Conversor 10–28 V comprado<span class="sw-desc">No lugar do LM2596HV (60 V)</span></label><input type="checkbox" id="f_r3conv"></div>
+          <div class="switch"><label for="f_r3zener"><span class="tag r3">R3</span> Zener DZ1 invertido<span class="sw-desc">Prende o ADC da bateria em ~0,7 V</span></label><input type="checkbox" id="f_r3zener"></div>
+          <div class="switch"><label for="f_r3pd"><span class="tag r3">R3</span> Sem pull-down em G25/G26<span class="sw-desc">Saídas flutuam durante o boot</span></label><input type="checkbox" id="f_r3pd"></div>
+          <div class="switch"><label for="f_cut1">Cabo do SW1 cortado<span class="sw-desc">Sensor da lingueta 1 lê aberto</span></label><input type="checkbox" id="f_cut1"></div>
+          <div class="switch"><label for="f_cgsm">Sem C_GSM 1000 µF<span class="sw-desc">Rajada de 2 A derruba o 5 V do modem</span></label><input type="checkbox" id="f_cgsm"></div>
+          <div class="switch"><label for="f_2g">Sem cobertura 2G<span class="sw-desc">SMS fica na fila</span></label><input type="checkbox" id="f_2g"></div>
+          <div class="switch"><label for="f_gps">GPS sem fix<span class="sw-desc">Garagem, céu encoberto</span></label><input type="checkbox" id="f_gps"></div>
+          <div class="switch"><label for="f_ant">LoRa sem antena<span class="sw-desc">Potência refletida no estágio de saída</span></label><input type="checkbox" id="f_ant"></div>
+          <div class="switch"><label for="f_sd">Conflito SD × LoRa no SPI<span class="sw-desc">Módulo SD com MISO sempre ativo</span></label><input type="checkbox" id="f_sd"></div>
+          <div class="switch"><label for="f_nolim">Firmware sem limite de pulso<span class="sw-desc">Bobina fica energizada até fechar</span></label><input type="checkbox" id="f_nolim"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="h-par">
+      <h2 id="h-par">Parâmetros estimados</h2>
+      <div class="field"><label for="pR" class="lbl">Resistência da bobina</label><span class="mono" id="pRV">18 Ω</span><input type="range" id="pR" min="8" max="40" step="1" value="18"></div>
+      <div class="field"><label for="pT" class="lbl">T_PULSO</label><span class="mono" id="pTV">3,0 s</span><input type="range" id="pT" min="1" max="5" step="0.5" value="3"></div>
+      <div class="field"><label for="pPI" class="lbl">Tensão mínima de atração</label><span class="mono" id="pPIV">8,5 V</span><input type="range" id="pPI" min="6" max="11" step="0.5" value="8.5"></div>
+      <p class="note">Meça a bobina real (seção 9.5 do descritivo) e ajuste aqui.</p>
+    </section>
+  </div>
+
+  <!-- COLUNA CENTRAL -->
+  <div class="col">
+    <section class="card" aria-labelledby="h-dia">
+      <h2 id="h-dia">Esquema R4 em operação</h2>
+      <div class="diagram-wrap">
+      <svg id="dia" viewBox="0 0 960 560" width="100%" style="min-width:720px" role="img" aria-label="Diagrama de blocos do sistema com tensões ao vivo">
+        <!-- fios (desenhados primeiro) -->
+        <g id="wires">
+          <path id="wBat" class="w w24" d="M80 70 H110"/>
+          <path id="wF0" class="w w24" d="M150 70 H180"/>
+          <path id="wJ1" class="w w24" d="M232 70 H262"/>
+          <path id="wF1" class="w w24" d="M302 70 H352"/>
+          <path id="wTVS" class="w w24" d="M326 70 V112"/>
+          <path id="wProt" class="w w24" d="M392 70 H940"/>
+          <path id="wDivB" class="w w24" d="M470 70 V112"/>
+          <path id="wVR1in" class="w w24" d="M620 70 V112"/>
+          <path id="wVR2in" class="w w24" d="M820 70 V112"/>
+          <path id="wR3byp" class="w w24" d="M206 112 V96 M206 150 V196 H576 V180" style="display:none"/>
+          <path id="wKL15" class="w w24" d="M232 104 H262 V182 H300"/>
+          <path id="wKLadc" class="w wsig" d="M380 182 H400 V330 H440"/>
+          <path id="wVBadc" class="w wsig" d="M470 152 V250 H420 V306 H440"/>
+          <path id="w5bus" class="w w5" d="M620 172 V226 H940"/>
+          <path id="w5esp" class="w w5" d="M640 226 V246 H600 V262"/>
+          <path id="w5gsm" class="w w5" d="M908 226 V312"/>
+          <path id="w5gps" class="w w5" d="M848 226 V262"/>
+          <path id="w5sd" class="w w5" d="M791 226 V321 H786"/>
+          <path id="w33" class="w w33" d="M600 296 H664 V279 H690 M664 296 V375 H690"/>
+          <path id="wSPI" class="w wspi" d="M600 306 H676 V321 H690 M676 306 V289 H690"/>
+          <path id="wI2C" class="w wi2c" d="M600 380 H690"/>
+          <path id="wUART" class="w wuart" d="M600 340 H800 M600 350 H796 V279 H800"/>
+          <path id="wVsol" class="w w12" d="M820 172 V196 H945 V466 H710 V474 M945 410 H710 V416"/>
+          <path id="wTrig1" class="w wact" d="M600 430 H680"/>
+          <path id="wTrig2" class="w wact" d="M600 470 H640 V488 H680"/>
+          <path id="wOut1" class="w wact" d="M740 446 H800"/>
+          <path id="wOut2" class="w wact" d="M740 504 H800"/>
+          <path id="wSW1" class="w wsig" d="M150 430 H440"/>
+          <path id="wSW2" class="w wsig" d="M150 486 H260 V470 H440"/>
+        </g>
+        <!-- blocos -->
+        <g id="blocks">
+          <rect class="blk" id="bBat" x="16" y="48" width="64" height="44" rx="6"/><text class="bt" x="48" y="66" text-anchor="middle">BATERIA</text><text class="val" id="vBat" x="48" y="83" text-anchor="middle">25,4 V</text>
+          <rect class="blk" id="bF0" x="110" y="58" width="40" height="24" rx="4"/><text class="bt" x="130" y="74" text-anchor="middle">F0 5A</text>
+          <rect class="blk" id="bJ1" x="180" y="40" width="52" height="110" rx="5"/><text class="bt" x="206" y="56" text-anchor="middle">J1</text>
+          <text class="bs" x="186" y="74">1 KL30</text><text class="bs" x="186" y="108">2 KL15</text><text class="bs" x="186" y="140">3 GND</text>
+          <rect class="blk" id="bF1" x="262" y="58" width="40" height="24" rx="4"/><text class="bt" x="282" y="74" text-anchor="middle">F1 3A</text>
+          <rect class="blk" id="bTVS" x="306" y="112" width="40" height="34" rx="4"/><text class="bt" x="326" y="127" text-anchor="middle">D1</text><text class="bs" x="326" y="140" text-anchor="middle">TVS</text>
+          <text class="val" id="vTVS" x="352" y="134" style="fill:var(--crit)"></text>
+          <rect class="blk" id="bD2" x="352" y="58" width="40" height="24" rx="4"/><text class="bt" x="372" y="74" text-anchor="middle">D2</text>
+          <text class="val" id="vProt" x="400" y="60" style="fill:var(--r24)">+24V_PROT</text>
+          <rect class="blk" id="bDivB" x="430" y="112" width="80" height="40" rx="5"/><text class="bt" x="470" y="128" text-anchor="middle">R1/R2 + BAT43</text><text class="val" id="vDivB" x="470" y="144" text-anchor="middle">0,00 V</text>
+          <rect class="blk" id="bKLdiv" x="300" y="164" width="80" height="36" rx="5"/><text class="bt" x="340" y="179" text-anchor="middle">R7/R8 KL15</text><text class="val" id="vDivK" x="340" y="194" text-anchor="middle">0,00 V</text>
+          <rect class="blk" id="bVR1" x="566" y="112" width="108" height="60" rx="6"/><text class="bt" x="620" y="130" text-anchor="middle">VR1 LM2596HV</text><text class="bs" x="620" y="143" text-anchor="middle">Vin ≤ 60 V · 5,0 V</text><text class="val" id="vVR1" x="620" y="162" text-anchor="middle">—</text>
+          <rect class="blk" id="bVR2" x="766" y="112" width="108" height="60" rx="6"/><text class="bt" x="820" y="130" text-anchor="middle">VR2 LM2596HV</text><text class="bs" x="820" y="143" text-anchor="middle">12,0 V → V_SOL</text><text class="val" id="vVR2" x="820" y="162" text-anchor="middle">—</text>
+          <text class="val" id="v5bus" x="760" y="220" style="fill:var(--r5)">+5V</text>
+          <rect class="blk" id="bESP" x="440" y="262" width="160" height="236" rx="8"/>
+          <text class="bt" x="520" y="280" text-anchor="middle">ESP32 DevKit</text><text class="val" id="vESP" x="520" y="295" text-anchor="middle">desligado</text>
+          <text class="bs" x="446" y="310">G32 VBAT</text><text class="bs" x="446" y="334">G39 KL15</text>
+          <text class="bs" x="446" y="434">G35 SW1</text><text class="bs" x="446" y="474">G36 SW2</text>
+          <text class="bs" x="594" y="300" text-anchor="end">3V3</text><text class="bs" x="594" y="310" text-anchor="end">SPI</text>
+          <text class="bs" x="594" y="344" text-anchor="end">UART2</text><text class="bs" x="594" y="354" text-anchor="end">UART1</text>
+          <text class="bs" x="594" y="384" text-anchor="end">I2C</text><text class="bs" x="594" y="434" text-anchor="end">G25</text><text class="bs" x="594" y="474" text-anchor="end">G26</text>
+          <circle id="led" cx="520" cy="476" r="6" class="dot" style="fill:var(--off)"/><text class="bs" x="530" y="480">G2 LED</text>
+          <circle id="buz" cx="520" cy="458" r="6" class="dot" style="fill:var(--off)"/><text class="bs" x="530" y="462">G15 BUZ</text>
+          <rect class="blk" id="bLoRa" x="690" y="262" width="96" height="34" rx="5"/><text class="bt" x="738" y="277" text-anchor="middle">LoRa SX1276</text><text class="val" id="vLoRa" x="738" y="290" text-anchor="middle">—</text>
+          <rect class="blk" id="bSD" x="690" y="306" width="96" height="30" rx="5"/><text class="bt" x="738" y="319" text-anchor="middle">Micro SD</text><text class="val" id="vSD" x="738" y="331" text-anchor="middle">—</text>
+          <rect class="blk" id="bRTC" x="690" y="360" width="96" height="30" rx="5"/><text class="bt" x="738" y="373" text-anchor="middle">RTC DS3231</text><text class="val" id="vRTC" x="738" y="385" text-anchor="middle">—</text>
+          <rect class="blk" id="bGPS" x="800" y="262" width="96" height="34" rx="5"/><text class="bt" x="848" y="277" text-anchor="middle">GPS NEO-6M</text><text class="val" id="vGPS" x="848" y="290" text-anchor="middle">—</text>
+          <rect class="blk" id="bGSM" x="800" y="312" width="120" height="40" rx="5"/><text class="bt" x="860" y="327" text-anchor="middle">SIM800L V2.0</text><text class="val" id="vGSM" x="860" y="343" text-anchor="middle">—</text>
+          <rect class="blk" id="bM1" x="680" y="416" width="60" height="36" rx="5"/><text class="bt" x="710" y="431" text-anchor="middle">M1</text><text class="bs" x="710" y="444" text-anchor="middle">D4184</text>
+          <rect class="blk" id="bM2" x="680" y="474" width="60" height="36" rx="5"/><text class="bt" x="710" y="489" text-anchor="middle">M2</text><text class="bs" x="710" y="502" text-anchor="middle">D4184</text>
+          <rect class="blk" id="bS1" x="800" y="420" width="120" height="34" rx="5"/><text class="bt" x="860" y="434" text-anchor="middle">SOL1</text><text class="val" id="vS1" x="860" y="447" text-anchor="middle">—</text>
+          <rect class="blk" id="bS2" x="800" y="478" width="120" height="34" rx="5"/><text class="bt" x="860" y="492" text-anchor="middle">SOL2</text><text class="val" id="vS2" x="860" y="505" text-anchor="middle">—</text>
+          <rect class="blk" id="bSW1" x="40" y="414" width="110" height="32" rx="5"/><text class="bt" x="95" y="428" text-anchor="middle">SW1 lingueta 1</text><text class="val" id="vSW1" x="95" y="440" text-anchor="middle">—</text>
+          <rect class="blk" id="bSW2" x="40" y="470" width="110" height="32" rx="5"/><text class="bt" x="95" y="484" text-anchor="middle">SW2 lingueta 2</text><text class="val" id="vSW2" x="95" y="496" text-anchor="middle">—</text>
+          <text class="bs" x="20" y="545">Fio cinza tracejado = sem tensão · traço colorido = energizado · rótulos ao vivo em V / A</text>
+        </g>
+      </svg>
+      </div>
+    </section>
+
+    <div class="two">
+      <section class="card" aria-labelledby="h-mech">
+        <h2 id="h-mech">Bocal e linguetas</h2>
+        <svg id="mech" viewBox="0 0 420 230" width="100%" role="img" aria-label="Vista superior do bocal com a tampa e as duas linguetas">
+          <circle cx="210" cy="125" r="78" style="fill:var(--panel2);stroke:var(--line);stroke-width:2"/>
+          <text x="210" y="222" text-anchor="middle" class="bs">bocal do tanque (vista superior)</text>
+          <g id="lidG">
+            <circle id="lid" cx="210" cy="125" r="62" style="fill:color-mix(in srgb,var(--muted) 30%,var(--panel));stroke:var(--ink);stroke-width:2"/>
+            <text id="lidTxt" x="210" y="130" text-anchor="middle" class="bt">TAMPA</text>
+          </g>
+          <rect x="22" y="104" width="60" height="42" rx="4" style="fill:var(--panel);stroke:var(--line)"/>
+          <text x="52" y="98" text-anchor="middle" class="bs">SOL1</text>
+          <rect id="coil1" x="28" y="110" width="48" height="30" rx="3" style="fill:var(--panel2);stroke:var(--line)"/>
+          <rect id="latch1" x="82" y="118" width="70" height="14" rx="2" style="fill:var(--ink)"/>
+          <circle id="sw1d" cx="100" cy="160" r="6" style="fill:var(--off)"/><text x="110" y="164" class="bs">SW1</text>
+          <rect x="338" y="104" width="60" height="42" rx="4" style="fill:var(--panel);stroke:var(--line)"/>
+          <text x="368" y="98" text-anchor="middle" class="bs">SOL2</text>
+          <rect id="coil2" x="344" y="110" width="48" height="30" rx="3" style="fill:var(--panel2);stroke:var(--line)"/>
+          <rect id="latch2" x="268" y="118" width="70" height="14" rx="2" style="fill:var(--ink)"/>
+          <circle id="sw2d" cx="320" cy="160" r="6" style="fill:var(--off)"/><text x="294" y="164" class="bs" text-anchor="end">SW2</text>
+          <text id="mechTxt" x="210" y="24" text-anchor="middle" class="bt">travada</text>
+        </svg>
+        <p class="note">O microswitch fica no batente: só fecha com a lingueta estendida e encaixada na tampa.</p>
+      </section>
+      <section class="card" aria-labelledby="h-ch">
+        <h2 id="h-ch">Últimos 60 s</h2>
+        <canvas id="chV" width="600" height="150" aria-label="Gráfico de tensões"></canvas>
+        <div class="legend"><span><i style="background:var(--r24)"></i>+24V_PROT</span><span><i style="background:var(--r5)"></i>+5V</span><span><i style="background:var(--r12)"></i>V_SOL</span></div>
+        <canvas id="chI" width="600" height="110" style="height:110px;margin-top:6px" aria-label="Gráfico de corrente de entrada"></canvas>
+        <div class="legend"><span><i style="background:var(--ink)"></i>corrente na entrada (A)</span><span><i style="background:var(--crit)"></i>limite F1 3 A</span></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- COLUNA DIREITA -->
+  <div class="col right">
+    <section class="card" aria-labelledby="h-fw">
+      <h2 id="h-fw">Firmware v2.0</h2>
+      <dl class="kv">
+        <dt>VBAT lida (G32)</dt><dd id="fVb">—</dd>
+        <dt>Ignição (G39)</dt><dd id="fKl">—</dd>
+        <dt>Modo</dt><dd id="fMode">—</dd>
+        <dt>Pulso nas bobinas</dt><dd id="fPulse">—</dd>
+        <dt>Próximo pulso liberado</dt><dd id="fCool">—</dd>
+        <dt>Pulsos no último minuto</dt><dd id="fCount">0 / 3</dd>
+        <dt>Senhas erradas</dt><dd id="fAuth">0 / 5</dd>
+        <dt>Contador anti-reenvio</dt><dd id="fCnt">0</dd>
+        <dt>GPS</dt><dd id="fGps">—</dd>
+      </dl>
+    </section>
+    <section class="card" aria-labelledby="h-pins">
+      <h2 id="h-pins">Pinos do ESP32</h2>
+      <table class="pins">
+        <thead><tr><th>GPIO</th><th>Função</th><th>Valor</th></tr></thead>
+        <tbody id="pinBody"></tbody>
+      </table>
+    </section>
+    <section class="card" aria-labelledby="h-log">
+      <h2 id="h-log">Registros</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabSd" aria-selected="true">Log do SD</button>
+        <button role="tab" id="tabMsg" aria-selected="false">Mensagens</button>
+      </div>
+      <div class="log" id="logSd" role="tabpanel" aria-label="Log de eventos gravado no cartão SD"></div>
+      <div class="log" id="logMsg" role="tabpanel" aria-label="Mensagens LoRa, SMS e Wi-Fi" hidden></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const fmt=(v,d=1)=>v.toFixed(d).replace('.',',');
+const DT=0.05;                     // passo de simulação (s)
+const SYS={24:{rest:25.4,run:28.2,crank:17.5,dump:120,vmin:20},12:{rest:12.7,run:14.2,crank:8.2,dump:80,vmin:10.5}};
+const TVS_CLAMP=49.9, TVS_BR=34.2;
+const LAT=-22.7253, LON=-47.6492; // posição de exemplo (pátio)
+
+let S; // estado completo
+function fresh(){
+  return {
+    t:0, run:true, speed:1, sys:24, vrest:25.4, kl15:false, engine:false, crankT:-1, dumpT:-1, reverse:false,
+    f0:true, f1:true, f0h:0, f1h:0,
+    dead:{vr1:false,vr2:false,pa:false,c1:false,c2:false,tvs:false}, paTx:0, tvsE:0, fastT:0,
+    lid:'closed', coilT:[30,30], trig:[false,false], energ:[false,false], ext:[true,true],
+    R:18, Tp:3, pullIn:8.5,
+    // elétrico (saídas)
+    vin:0, va:0, vprot:0, v5:0, v5gsm:0, v33:0, vsol:0, iin:0, iinPk:0, i5:0, isol:0, tvs:false,
+    // firmware
+    on:false, boot:0, st:'DESLIGADO', why:'sem alimentação', sev:'info', stT:0,
+    raw:[1,1], filt:[1,1], cnt:[0,0], vbFw:0, adc:0, adcK:0, klOn:false, klOffT:0, low:false,
+    pulseT:-1, pulseStart2:0, lastPulseEnd:-99, pulses:[], authFails:0, lockT:0, alarm:false, waitT:0,
+    counter:0, usedCnt:new Set(), lastPkt:null, gpsT:0, gpsFix:false, nextStatus:5,
+    queue:[], txLora:0, txGsm:0, txWifi:0, txSd:0, smsQ:[], incT:0, bootGlitch:0, sysFw:24,
+    hist:[], log:[], msg:[], scen:[], lastRtc:''
+  };
+}
+S=fresh();
+
+const F={}; // falhas
+['r3vr1','r3conv','r3zener','r3pd','cut1','cgsm','2g','gps','ant','sd','nolim'].forEach(k=>F[k]=false);
+
+/* ---------- registro ---------- */
+function rtc(t){const base=8*3600;const s=Math.floor(base+t);const h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60,ss=s%60;return [h,m,ss].map(x=>String(x).padStart(2,'0')).join(':')}
+function log(text,sev=''){S.log.push({t:rtc(S.t),text,sev}); if(S.log.length>400)S.log.shift(); dirtyLog=true;
+  if(S.on){S.txSd=0.15; if(F.sd && S.txLora>0){S.log.push({t:rtc(S.t),text:'Erro SPI: escrita no SD falhou durante transmissão LoRa (MISO em conflito)',sev:'crit'});}}}
+function msg(text,sev='info'){S.msg.push({t:rtc(S.t),text,sev}); if(S.msg.length>300)S.msg.shift(); dirtyLog=true}
+function hwlog(text,sev='crit'){S.log.push({t:rtc(S.t),text:'[hardware] '+text,sev}); dirtyLog=true}
+
+/* ---------- comunicação ---------- */
+function pkt(kind,extra){
+  S.counter++; const p={id:'EHR-01',tipo:kind,estado:S.st,vbat:+S.vbFw.toFixed(1),ign:S.klOn?1:0,
+    pos:S.gpsFix?`${LAT.toFixed(4)},${LON.toFixed(4)}`:'sem fix',hora:rtc(S.t),n:S.counter,...(extra||{})};
+  return JSON.stringify(p);
+}
+function sendLora(kind,extra,sev='info'){
+  if(!S.on) return;
+  S.txLora=0.35;
+  if(F.ant){ S.paTx++; if(S.paTx>=3 && !S.dead.pa){S.dead.pa=true; hwlog('Estágio de saída do LoRa danificado: transmitiu 3× sem antena');}
+    msg('LoRa TX '+kind+' → base não recebeu (sem antena)','warn'); return;}
+  if(S.dead.pa){msg('LoRa TX '+kind+' → sem sinal (estágio de saída danificado)','crit'); return;}
+  if(F.sd && S.txSd>0){msg('LoRa TX '+kind+' corrompido: SD ocupava o SPI (MISO em conflito)','crit'); return;}
+  msg('LoRa ▲ '+pkt(kind,extra)+'  RSSI na base −94 dBm',sev);
+}
+function sendSms(text){
+  if(!S.on) return;
+  if(F['2g']){S.smsQ.push(text); msg('SMS na fila (sem rede 2G): '+text,'warn'); return;}
+  S.txGsm=2.0; msg('SMS ▲ para +55 19 9XXXX-XXXX: '+text,'info');
+}
+
+/* ---------- comandos ---------- */
+function command(kind){ // kind: ok | bad | replay | ack
+  const via=curVia;
+  if(!S.on){toast('cmdToast','Sem resposta: a placa está sem alimentação.');msg(`${viaName(via)} ▼ comando sem resposta (placa desligada)`,'warn');return}
+  if(via==='app' && S.low){msg('App Wi-Fi: rede TRAVA-EHR-01 não encontrada (Wi-Fi desligado no modo economia)','warn');return}
+  if(via==='sms' && F['2g']){msg('SMS ▼ não entregue: sem rede 2G na região','warn');return}
+  if(via==='app') S.txWifi=0.4;
+  if(via==='sms') S.txGsm=Math.max(S.txGsm,0.6);
+  S.queue.push({via,kind,at:S.t+(via==='sms'?1.5:via==='lora'?0.3:0.15)});
+}
+function viaName(v){return v==='lora'?'LoRa':v==='sms'?'SMS':'App'}
+
+function processCmd(c){
+  wake('comando '+viaName(c.via));
+  let n;
+  if(c.kind==='replay'){
+    if(!S.lastPkt){msg(`${viaName(c.via)} ▼ nenhum pacote gravado para reenviar`,'warn');return}
+    n=S.lastPkt; msg(`${viaName(c.via)} ▼ DESTRAVAR n=${n} (cópia de pacote antigo)`,'warn');
+  } else { n=(S.lastPkt||100)+1+Math.floor(Math.random()*3); msg(`${viaName(c.via)} ▼ ${c.kind==='ack'?'RECONHECER':'DESTRAVAR'} n=${n} HMAC=${c.kind==='bad'?'inválido':'ok'}`,'info'); }
+  if(S.lockT>S.t){reply(c,'recusado: bloqueio por senhas erradas ('+Math.ceil(S.lockT-S.t)+' s)');log('Comando recusado: bloqueio ativo','warn');return}
+  if(c.kind==='bad'){S.authFails++;log(`Autenticação falhou via ${viaName(c.via)} (${S.authFails}/5)`,'warn');reply(c,'recusado: autenticação inválida');
+    if(S.authFails>=5){S.lockT=S.t+60;S.authFails=0;log('5 falhas: comandos bloqueados por 60 s','crit');sendLora('ALERTA',{motivo:'tentativas de senha'},'warn')}return}
+  if(c.kind==='replay' || S.usedCnt.has(n)){log(`Reenvio detectado via ${viaName(c.via)}: contador n=${n} já usado`,'crit');reply(c,'recusado: pacote repetido');sendLora('ALERTA',{motivo:'reenvio de pacote'},'warn');return}
+  S.usedCnt.add(n); S.lastPkt=n; S.authFails=0;
+  if(c.kind==='ack'){ if(S.alarm){S.alarm=false;log('Alarme reconhecido por comando autenticado','ok');reply(c,'alarme reconhecido');evalAfterAck();} else reply(c,'sem alarme ativo'); return}
+  // DESTRAVAR
+  if(S.st==='DESTRAVANDO'){reply(c,'já destravando');return}
+  if(S.st==='ABERTO'){reply(c,'tampa já aberta');return}
+  const vmin=SYS[S.sysFw].vmin;
+  if(S.vbFw<vmin){log(`Destravar recusado: VBAT ${fmt(S.vbFw)} V abaixo de ${fmt(vmin)} V`,'warn');reply(c,'recusado: bateria baixa');return}
+  const cool=S.lastPulseEnd+10-S.t;
+  S.pulses=S.pulses.filter(x=>S.t-x<60);
+  if(cool>0){log(`Destravar recusado: bobinas esfriando (${Math.ceil(cool)} s)`,'warn');reply(c,'recusado: aguarde '+Math.ceil(cool)+' s');return}
+  if(S.pulses.length>=3){log('Destravar recusado: limite de 3 pulsos por minuto','warn');reply(c,'recusado: limite de pulsos');return}
+  S.pulses.push(S.t); S.pulseT=0; S._lowWarn=false; if(S.alarm){S.alarm=false; log('Alarme reconhecido pelo destravamento autorizado','ok');} setState('DESTRAVANDO','pulso nas duas bobinas','info');
+  log(`DESTRAVAR autorizado via ${viaName(c.via)} — pulso ${fmt(S.Tp)} s, VBAT ${fmt(S.vbFw)} V`,'ok');
+  reply(c,'destravando: abra a tampa em até '+fmt(S.Tp,0)+' s');
+}
+function reply(c,text){
+  if(c.via==='lora') sendLora('RESPOSTA',{resp:text});
+  else if(c.via==='sms') sendSms('EHR-01: '+text);
+  else {S.txWifi=0.3; msg('App ◀ HTTP 200 {"resp":"'+text+'","estado":"'+S.st+'"}','info')}
+}
+function evalAfterAck(){ if(S.filt[0]===0&&S.filt[1]===0) setState('TRAVADO','linguetas encaixadas','ok'); else if(S.lid==='open') setState('ABERTO','tampa aberta','warn'); else setState('INCOMPLETO','uma lingueta fora do batente','warn'); }
+
+/* ---------- firmware ---------- */
+function setState(st,why,sev){ if(S.st!==st){S.stT=S.t;} S.st=st;S.why=why;S.sev=sev; }
+function wake(reason){ if(S.low){S.low=false; S.klOffT=0; log('Saiu do modo economia: '+reason,'info'); S.gpsT=0;} }
+
+function firmware(){
+  // leitura dos sensores (LOW = lingueta encaixada no batente)
+  readRaw();
+  for(let i=0;i<2;i++){
+    if(S.raw[i]!==S.filt[i]){ S.cnt[i]++; if(S.cnt[i]>=3){ S.filt[i]=S.raw[i]; S.cnt[i]=0; onSensor(i);} } else S.cnt[i]=0;
+  }
+  // ADC
+  S.adc = F.r3zener ? (S.vprot>1?0.68:0) : Math.min(S.vprot*0.0625, 3.6);
+  S.vbFw = S.adc*16 + (S.adc>0.05?0.35:0);
+  const vkl = S.kl15 && !S.reverse ? (S.vbatReal||0) : 0;
+  S.adcK = Math.min(vkl*0.0625,3.6);
+  const vk=S.adcK*16;
+  if(vk>8 && !S.klOn){S.klOn=true; log('Ignição ligada (KL15 '+fmt(vk)+' V)','info'); wake('ignição');}
+  if(vk<4 && S.klOn){S.klOn=false; log('Ignição desligada','info');}
+  // detecção 12/24 V com histerese
+  if(S.vbFw>18){S.sysFw=24;S._lowSysT=0;} else if(S.vbFw>9&&S.vbFw<16){ S._lowSysT=(S._lowSysT||0)+DT; if(S._lowSysT>5&&S.sysFw!==12){S.sysFw=12;log('Firmware detectou sistema 12 V','info');} }
+  // economia
+  if(!S.klOn && S.st==='TRAVADO' && !S.alarm){ S.klOffT+=DT; if(S.klOffT>=60 && !S.low){S.low=true; log('Modo economia: ignição desligada há 1 min (GPS em espera, GSM em sleep, Wi-Fi off)','info');} }
+  else S.klOffT=0;
+  // pulso
+  if(S.st==='DESTRAVANDO'){
+    S.pulseT+=DT;
+    S.trig[0]=true; S.trig[1]=S.pulseT>=0.05;
+    if(S.vbFw < SYS[S.sysFw].vmin-2 && !S._lowWarn){ S._lowWarn=true; log(`VBAT caiu para ${fmt(S.vbFw)} V durante o pulso: as linguetas podem não recolher`,'warn'); }
+    if(!F.nolim && S.pulseT>=S.Tp) endPulse();
+  } else { S.trig[0]=S.trig[1]=false; }
+  if(S.st==='AGUARDA'){ S.waitT-=DT; if(S.waitT<=0){
+      if(S.filt[0]===0&&S.filt[1]===0){setState('TRAVADO','janela expirou, tampa não foi aberta','ok');log('Janela de abertura expirou: linguetas encaixadas de novo','info');sendLora('STATUS');}
+      else if(S.filt[0]===1&&S.filt[1]===1){setState('ABERTO','abastecimento autorizado','warn');log('Tampa aberta (autorizado)','ok');sendLora('STATUS');}
+      else {setState('INCOMPLETO','uma lingueta fora do batente','warn');log('Travamento incompleto após o pulso','warn');}
+  }}
+  if(S.st==='ABERTO'||S.st==='INCOMPLETO'){
+    const both0=S.filt[0]===0&&S.filt[1]===0, one=(S.filt[0]+S.filt[1])===1;
+    if(both0 && !S.alarm){ setState('TRAVADO','tampa fechada e travada','ok'); log('Tampa fechada: SW1 e SW2 encaixados','ok'); sendLora('STATUS'); }
+    else if(one && S.lid==='closed'){ S.incT+=DT; if(S.incT>3 && S.st!=='INCOMPLETO'){setState('INCOMPLETO','SW'+(S.filt[0]?1:2)+' não fechou','warn');log('Travamento incompleto: SW'+(S.filt[0]?1:2)+' aberto com a tampa fechada','warn');sendLora('ALERTA',{motivo:'travamento incompleto'},'warn');} }
+    else S.incT=0;
+  }
+  // LED / buzzer
+  // status periódico
+  if(S.t>=S.nextStatus){ S.nextStatus=S.t+(S.low?120:30); if(S.st!=='BOOT') sendLora('STATUS'); }
+  // GPS
+  if(!S.low){ S.gpsT+=DT; if(!S.gpsFix && !F.gps && S.gpsT>35){S.gpsFix=true;log('GPS com fix (8 satélites)','info');} }
+  if(F.gps && S.gpsFix){S.gpsFix=false;log('GPS perdeu o fix','warn');}
+  // comandos na fila
+  for(let k=S.queue.length-1;k>=0;k--){ if(S.t>=S.queue[k].at){ const c=S.queue.splice(k,1)[0]; processCmd(c);} }
+  // SMS pendente
+  if(S.smsQ.length && !F['2g'] && S.txGsm<=0){ const m=S.smsQ.shift(); S.txGsm=2; msg('SMS ▲ (da fila) '+m,'info'); }
+}
+function readRaw(){ for(let i=0;i<2;i++){ const engaged=S.ext[i]&&S.lid==='closed'; const cut=i===0&&F.cut1; S.raw[i]=(engaged&&!cut)?0:1; } }
+function endPulse(){ S.trig[0]=S.trig[1]=false; S.lastPulseEnd=S.t; S.pulseT=-1; setState('AGUARDA','verificando linguetas','info'); S.waitT=0.5; log('Fim do pulso: bobinas desligadas','info'); }
+
+function onSensor(i){
+  const name='SW'+(i+1), v=S.filt[i];
+  if(S.st==='BOOT'||S.st==='DESLIGADO') return;
+  if(v===1 && (S.st==='TRAVADO') ){
+    // abriu sem autorização
+    S.alarm=true; setState('VIOLAÇÃO',name+' abriu sem comando','crit'); wake('violação');
+    const cause = (i===0&&F.cut1)?'cabo do SW1 cortado ou sensor em falha':'tampa forçada';
+    log(`VIOLAÇÃO: ${name} abriu sem destravamento autorizado (${cause})`,'crit');
+    sendLora('ALERTA',{motivo:'violação '+name},'crit'); sendSms(`ALERTA EHR-01: violação ${name} às ${rtc(S.t)} pos ${S.gpsFix?LAT.toFixed(4)+','+LON.toFixed(4):'sem fix'}`);
+  }
+  if(S.st==='VIOLAÇÃO' && S.filt[0]===0 && S.filt[1]===0){ S.why='tampa fechada; alarme aguarda reconhecimento'; }
+  if(v===0 && S.st==='INCOMPLETO' && S.filt[0]===0 && S.filt[1]===0){ setState('TRAVADO','tampa fechada e travada','ok'); log('Travamento completo','ok'); }
+}
+
+/* ---------- física ---------- */
+function physics(){
+  const P=SYS[S.sys];
+  // tensão da bateria / alternador
+  let vb = S.engine ? Math.max(S.vrest, P.run) : S.vrest;
+  if(S.crankT>=0){
+    const tc=S.crankT; S.crankT+=DT;
+    const dip = tc<0.08 ? P.crank-1.5 : tc<1.2 ? P.crank + (tc-0.08)*0.6 : P.run;
+    vb = Math.min(S.vrest, dip);
+    if(tc>=1.4){ S.crankT=-1; S.engine=true; log('Motor em funcionamento (alternador '+fmt(P.run)+' V)','info'); }
+  }
+  let vdump=0, fast=false;
+  if(S.dumpT>=0){ vdump = P.dump*Math.exp(-S.dumpT/0.09); S.dumpT+=DT; if(S.dumpT>0.6) S.dumpT=-1; }
+  if(S.fastT>0){ vdump += (S.sys===24?200:110); S.fastT--; fast=true; }   // ISO 7637 pulso rápido (~1 ms)
+  const vbat = vb + vdump;
+  S.vbatReal=vbat;
+  let vin = S.reverse ? -vbat : vbat;
+  if(!S.f0) vin=0;
+  S.vin=vin;
+  // F1 + TVS (nó A)
+  let va = S.f1 ? vin : 0;
+  S.tvs=false;
+  if(S.dead.tvs){ va=0; if(S.f1 && Math.abs(vin)>1){ S.f1=false; hwlog('F1 3 A abriu: D1 em curto colocou a entrada em curto-circuito'); } }
+  else if(Math.abs(va)>TVS_BR){
+    const sgn=Math.sign(va), over=Math.abs(va)-TVS_CLAMP;
+    if(over>0){ const itvs=over/(fast?2:1.5); S.tvsE += TVS_CLAMP*itvs*(fast?1e-4:DT); }   // pulso rápido ~100 µs; load dump: fonte ~1,5 ohm
+    va = sgn*Math.min(Math.abs(va), TVS_CLAMP); S.tvs=true;
+    if(S.tvsE>2.0){ S.dead.tvs=true; hwlog(`D1 P6KE36CA entrou em curto: absorveu ${fmt(S.tvsE)} J (capacidade ~2 J). Um load dump completo exige TVS de 5–6,6 kW ou a supressão central do caminhão`); }
+  }
+  if(!S.tvs) S.tvsE=Math.max(0,S.tvsE-0.5*DT);
+  S.va=va;
+  // D2
+  const drop = 0.30+0.05*S.iin;
+  S.vprot = va>drop ? va-drop : 0;
+  // VR1
+  const vr1in = F.r3vr1 ? vin : S.vprot;
+  const lim1 = F.r3conv ? 30 : 60;
+  if(!S.dead.vr1 && (vr1in>lim1 || vr1in<-1)){ S.dead.vr1=true;
+    hwlog(vr1in<0?`VR1 destruído por polaridade invertida (${fmt(vr1in)} V na entrada, sem D2)`:`VR1 destruído: ${fmt(vr1in)} V na entrada, máximo ${lim1} V`+(F.r3vr1?' (ligado direto no KL30, como no R3)':'')); }
+  let v5 = 0;
+  if(!S.dead.vr1){ const vmin1 = F.r3conv?10:7; v5 = vr1in>=vmin1 ? 5.0 : Math.max(0, vr1in-1.8); }
+  // VR2
+  let vsol=0;
+  if(!S.dead.vr2 && S.vprot>60){S.dead.vr2=true;hwlog('VR2 destruído por sobretensão');}
+  if(!S.dead.vr2){ vsol = S.vprot>=13.5 ? 12.0 : Math.max(0,S.vprot-1.5); }
+  // cargas 5 V
+  const gsmBurst = S.txGsm>0;
+  let i5 = 0;
+  if(v5>4.3){
+    i5 += S.low?0.015:0.075;                 // ESP32
+    if(!S.low) i5+=0.03; if(S.txWifi>0) i5+=0.2; // Wi-Fi AP
+    i5 += S.txLora>0?0.125:0.011;            // LoRa
+    i5 += S.low?0.008:0.045;                 // GPS
+    i5 += S.txSd>0?0.08:0.003;               // SD
+    i5 += gsmBurst?0.35:(S.low?0.002:0.015); // GSM médio
+    if(buzOn) i5+=0.03;
+  }
+  const i5pk = i5 + (gsmBurst?1.65:0);
+  // queda no pino do modem durante a rajada
+  S.v5gsm = v5>0 ? (gsmBurst ? v5-(F.cgsm?0.95:0.14) : v5) : 0;
+  if(gsmBurst && S.v5gsm<4.4 && v5>4.5 && !S._gsmDropLogged){ S._gsmDropLogged=true; log(`Modem reiniciou: 5V caiu a ${fmt(S.v5gsm,2)} V na rajada de 2 A (sem C_GSM)`,'crit'); msg('SMS falhou: modem reiniciou na transmissão','crit'); }
+  if(!gsmBurst) S._gsmDropLogged=false;
+  S.v5=v5; S.v33 = v5>=4.3 ? 3.30 : Math.max(0, v5-1.1);
+  // bobinas
+  S.isol=0;
+  for(let i=0;i<2;i++){
+    const drive = S.trig[i] || (S.bootGlitch>0 && F.r3pd);
+    S.energ[i] = drive && vsol>0.5 && !S.dead['c'+(i+1)];
+    const vc = S.energ[i]? vsol : 0;
+    const ic = vc/S.R; S.isol+=ic;
+    S.ext[i] = !(S.energ[i] && vc>=S.pullIn);
+    const Pw = vc*ic, Ta=30, Rth=14, Cth=6;
+    S.coilT[i] += (Pw - (S.coilT[i]-Ta)/Rth)/Cth*DT;
+    if(S.coilT[i]>130 && !S.dead['c'+(i+1)]){ S.dead['c'+(i+1)]=true; hwlog(`Bobina SOL${i+1} queimou (${Math.round(S.coilT[i])} °C): energizada por tempo demais`); }
+  }
+  // corrente de entrada
+  const vp=Math.max(S.vprot,1);
+  const pin = (v5*i5)/0.85 + (vsol*S.isol)/0.88 + 0.004*S.vprot;
+  const pinPk = (v5*i5pk)/0.85 + (vsol*S.isol)/0.88;
+  S.iin = S.vprot>1 ? pin/vp : 0;
+  S.iinPk = S.vprot>1 ? pinPk/vp : 0;
+  S.i5=i5; S.vsol=vsol;
+  // fusíveis (I²t simplificado sobre a corrente média)
+  if(S.f1){ S.f1h = Math.max(0, S.f1h + (S.iin*S.iin-9)*DT); if(S.f1h>6){S.f1=false;hwlog('F1 3 A queimou (corrente de entrada '+fmt(S.iin,2)+' A)');} }
+  // energia do ESP32
+  const was=S.on;
+  if(S.v33>=3.0 && !was){ S.on=true; S.boot=0.8; setState('BOOT','inicializando','info'); S.bootGlitch=0.25; S.gpsT=0; S.gpsFix=false;
+    S.sysFw = S.vprot>18?24:12; log(`BOOT · +24V_PROT ${fmt(S.vprot)} V · sistema ${S.sysFw} V detectado`,'info'); }
+  if(S.v33<2.8 && was){ S.on=false; S.trig=[false,false]; setState('DESLIGADO', S.v5>0?'reset por subtensão (brownout)':'sem alimentação','crit'); S.low=false;
+    S.log.push({t:rtc(S.t),text:'— placa sem alimentação ('+(S.dead.vr1?'VR1 queimado':'3V3 = '+fmt(S.v33,2)+' V')+') —',sev:'crit'}); dirtyLog=true; }
+  if(S.bootGlitch>0) S.bootGlitch-=DT;
+  if(S.on && S.boot>0){ S.boot-=DT; if(S.boot<=0){ readRaw(); S.filt=[...S.raw]; const ok=S.filt[0]===0&&S.filt[1]===0;
+      if(ok) setState('TRAVADO','linguetas encaixadas','ok'); else if(S.lid==='open') setState('ABERTO','tampa aberta no boot','warn'); else setState('INCOMPLETO','sensor aberto no boot','warn');
+      log('Firmware pronto · estado '+S.st+(F.r3pd?' · ATENÇÃO: G25/G26 flutuaram no boot (sem pull-down)':''),F.r3pd?'warn':'ok'); S.nextStatus=S.t+2; } }
+  // timers de TX
+  S.txLora=Math.max(0,S.txLora-DT); S.txGsm=Math.max(0,S.txGsm-DT); S.txWifi=Math.max(0,S.txWifi-DT); S.txSd=Math.max(0,S.txSd-DT);
+}
+
+let buzOn=false, ledOn=false;
+function indicators(){
+  const t=S.t;
+  buzOn = S.on && S.alarm && (Math.floor(t*2)%2===0);
+  if(!S.on){ledOn=false;return}
+  if(S.st==='TRAVADO') ledOn = S.low ? (t%2<0.1) : true;
+  else if(S.st==='DESTRAVANDO'||S.st==='AGUARDA') ledOn = Math.floor(t*6)%2===0;
+  else if(S.st==='VIOLAÇÃO') ledOn = Math.floor(t*3)%2===0;
+  else if(S.st==='BOOT') ledOn = Math.floor(t*10)%2===0;
+  else ledOn=false;
+}
+
+/* ---------- loop ---------- */
+let acc=0,last=performance.now(),dirtyLog=true,uiT=0;
+function step(){
+  // roteiro
+  for(let k=S.scen.length-1;k>=0;k--){ if(S.t>=S.scen[k].at){ const a=S.scen.splice(k,1)[0]; a.fn(); if(a.say) $('scenToast').textContent=a.say; } }
+  physics(); if(S.on && S.boot<=0) firmware(); indicators();
+  S.t+=DT;
+  if(Math.round(S.t/DT)%5===0){ S.hist.push([S.t,S.vprot,S.v5,S.vsol,S.iin,S.iinPk]); while(S.hist.length && S.hist[0][0]<S.t-60) S.hist.shift(); }
+}
+function frame(now){
+  const dt=Math.min(0.25,(now-last)/1000); last=now;
+  if(S.run){ acc+=dt*S.speed; let n=0; while(acc>=DT && n<2000){ step(); acc-=DT; n++; } }
+  uiT+=dt; if(uiT>0.1){ uiT=0; render(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- render ---------- */
+const PIN_DEF=[
+ ['G25','TRIG1 → M1 (SOL1)',()=>lv(S.trig[0]||(S.bootGlitch>0&&F.r3pd))],
+ ['G26','TRIG2 → M2 (SOL2)',()=>lv(S.trig[1]||(S.bootGlitch>0&&F.r3pd))],
+ ['G35','FC_TRAVA1 (SW1)',()=>lv(S.raw[0]===1,S.raw[0]===1?'aberto':'encaixado')],
+ ['G36','FC_TRAVA2 (SW2)',()=>lv(S.raw[1]===1,S.raw[1]===1?'aberto':'encaixado')],
+ ['G32','VBAT_ADC',()=>`${Math.round(S.adc*1000)} mV`],
+ ['G39','KL15_SENSE',()=>`${Math.round(S.adcK*1000)} mV`],
+ ['G2','LED de status',()=>lv(ledOn)],
+ ['G15','Buzzer (Q1)',()=>lv(buzOn)],
+ ['G5','LORA_NSS',()=>lv(!(S.txLora>0),S.txLora>0?'ativo':'')],
+ ['G13','SD_CS',()=>lv(!(S.txSd>0),S.txSd>0?'ativo':'')],
+ ['G17/G16','UART2 GSM',()=>S.txGsm>0?'<span class="lv x">TX</span>':'<span class="lv l">—</span>'],
+ ['G33/G34','UART1 GPS',()=>S.on&&!S.low?'<span class="lv h">NMEA</span>':'<span class="lv l">—</span>'],
+];
+function lv(h,label){ if(!S.on) return '<span class="lv l">—</span>'; return `<span class="lv ${h?'h':'l'}">${h?'1':'0'}</span>${label?' <span class="lbl">'+label+'</span>':''}`; }
+function setW(id,on){ const e=$(id); if(e) e.classList.toggle('off',!on); }
+function txt(id,s){ const e=$(id); if(e && e.textContent!==s) e.textContent=s; }
+
+function render(){
+  txt('clock','RTC '+rtc(S.t)+(S.run?'':' · pausado'));
+  // faixa
+  const stEl=$('stTile'); stEl.dataset.sev=S.sev; txt('stName',S.st+(S.low&&S.st==='TRAVADO'?' · ECONOMIA':'')); txt('stWhy',S.why+(S.alarm&&S.st!=='VIOLAÇÃO'?' · alarme ativo':''));
+  txt('tBat',fmt(S.vbatReal||0)+' V'); txt('tBatS',(S.reverse?'polaridade invertida · ':'')+(S.crankT>=0?'dando partida':S.engine?'motor ligado':'motor parado')+(S.dumpT>=0?' · LOAD DUMP':''));
+  txt('tProt',fmt(S.vprot)+' V'); txt('tProtS',S.dead.tvs?'D1 em curto, F1 aberto':!S.f1?'F1 queimado':!S.f0?'F0 queimado':S.tvs?'TVS grampeando ~50 V':S.reverse?'D2 bloqueou a inversão':'após F1/D1/D2');
+  txt('t5',fmt(S.v5,2)+' V'); txt('t5S',S.dead.vr1?'VR1 queimado':(S.txGsm>0?'modem '+fmt(S.v5gsm,2)+' V na rajada':'3V3 = '+fmt(S.v33,2)+' V'));
+  txt('t12',fmt(S.vsol)+' V'); txt('t12S',S.dead.vr2?'VR2 queimado':S.isol>0?fmt(S.isol,2)+' A nas bobinas':'bobinas desligadas');
+  txt('tI',fmt(S.iin,2)+' A'); txt('tIS','pico '+fmt(S.iinPk,2)+' A · F1 '+(S.f1?'3 A ok':'queimado'));
+  txt('tCoil',Math.round(S.coilT[0])+' / '+Math.round(S.coilT[1])+' °C'); txt('tCoilS',(S.dead.c1||S.dead.c2)?'bobina queimada':S.energ[0]||S.energ[1]?'energizadas':'desligadas');
+  // diagrama
+  const vin=S.vin, onIn=vin>0.5, onA=S.va>0.5, onP=S.vprot>0.5;
+  setW('wBat',Math.abs(S.vbatReal)>0.5); setW('wF0',S.f0&&Math.abs(vin)>0.5); setW('wJ1',Math.abs(vin)>0.5); setW('wF1',S.f1&&Math.abs(S.va)>0.5); setW('wTVS',S.tvs);
+  setW('wProt',onP); setW('wDivB',onP); setW('wVR1in',F.r3vr1?false:onP); setW('wVR2in',onP);
+  const byp=$('wR3byp'); byp.style.display=F.r3vr1?'':'none'; setW('wR3byp',Math.abs(vin)>0.5);
+  setW('wKL15',S.kl15&&!S.reverse&&(S.vbatReal||0)>1); setW('wKLadc',S.adcK>0.05); setW('wVBadc',S.adc>0.05);
+  const on5=S.v5>4; ['w5bus','w5esp','w5gsm','w5gps','w5sd'].forEach(id=>setW(id,on5)); setW('w33',S.v33>3);
+  setW('wSPI',S.on&&(S.txLora>0||S.txSd>0)); setW('wI2C',S.on); setW('wUART',S.on&&!S.low);
+  setW('wVsol',S.vsol>1); setW('wTrig1',S.on&&(S.trig[0]||(S.bootGlitch>0&&F.r3pd))); setW('wTrig2',S.on&&(S.trig[1]||(S.bootGlitch>0&&F.r3pd)));
+  setW('wOut1',S.energ[0]); setW('wOut2',S.energ[1]); setW('wSW1',S.on&&S.raw[0]===0); setW('wSW2',S.on&&S.raw[1]===0);
+  txt('vBat',fmt(S.vbatReal||0)+' V'); txt('vTVS',S.dead.tvs?'EM CURTO':S.tvs?'grampeia':'');
+  txt('vProt','+24V_PROT '+fmt(S.vprot)+' V · '+fmt(S.iin,2)+' A');
+  txt('vDivB',fmt(S.adc,2)+' V → G32'); txt('vDivK',fmt(S.adcK,2)+' V → G39');
+  txt('vVR1',S.dead.vr1?'QUEIMADO':fmt(S.v5,2)+' V · '+fmt(S.i5,2)+' A'); txt('vVR2',S.dead.vr2?'QUEIMADO':fmt(S.vsol)+' V · '+fmt(S.isol,2)+' A');
+  txt('v5bus','+5V '+fmt(S.v5,2)+' V');
+  txt('vESP',S.on?(S.boot>0?'boot…':S.low?'economia':'rodando'):'desligado');
+  txt('vLoRa',!S.on?'—':S.dead.pa?'PA danificado':S.txLora>0?'TX 915 MHz':'RX');
+  txt('vSD',!S.on?'—':S.txSd>0?'gravando':'pronto'); txt('vRTC',S.on?rtc(S.t):'—');
+  txt('vGPS',!S.on?'—':S.low?'espera':S.gpsFix?'fix 8 sat':'buscando');
+  txt('vGSM',!S.on?'—':F['2g']?'sem rede 2G':S.txGsm>0?'TX · '+fmt(S.v5gsm,2)+' V':S.low?'sleep':'registrado');
+  ['1','2'].forEach((n,i)=>{ txt('vS'+n, S.dead['c'+n]?'QUEIMADA':S.energ[i]?`${fmt(S.vsol)} V · ${Math.round(S.coilT[i])} °C`:`${S.ext[i]?'estendida':'recolhida'} · ${Math.round(S.coilT[i])} °C`);
+    txt('vSW'+n, !S.on?'—':S.raw[i]===0?'encaixado (0)':'aberto (1)'); });
+  const blk=(id,on,dead)=>{const e=$(id); e.classList.toggle('on',!!on); e.classList.toggle('dead',!!dead);};
+  blk('bVR1',S.v5>4,S.dead.vr1); blk('bVR2',S.vsol>1,S.dead.vr2); blk('bESP',S.on,false); blk('bF1',S.f1&&onA,!S.f1); blk('bF0',S.f0,!S.f0);
+  blk('bLoRa',S.on,S.dead.pa); blk('bGSM',S.on&&!F['2g'],false); blk('bS1',S.energ[0],S.dead.c1); blk('bS2',S.energ[1],S.dead.c2); blk('bTVS',S.tvs,S.dead.tvs);
+  $('led').style.fill = ledOn?'var(--ok)':'var(--off)'; $('buz').style.fill = buzOn?'var(--crit)':'var(--off)';
+  // mecânica
+  const open=S.lid==='open';
+  $('lid').style.opacity=open?0.35:1; $('lid').style.strokeDasharray=open?'6 5':'none';
+  txt('lidTxt',open?'TAMPA ABERTA':'TAMPA');
+  const L1=$('latch1'), L2=$('latch2');
+  L1.setAttribute('width', S.ext[0]?70:22); L2.setAttribute('x', S.ext[1]?268:316); L2.setAttribute('width', S.ext[1]?70:22);
+  $('coil1').style.fill = S.energ[0]?'color-mix(in srgb, var(--r12) 55%, var(--panel2))':'var(--panel2)';
+  $('coil2').style.fill = S.energ[1]?'color-mix(in srgb, var(--r12) 55%, var(--panel2))':'var(--panel2)';
+  $('sw1d').style.fill = S.raw[0]===0?'var(--ok)':'var(--off)'; $('sw2d').style.fill = S.raw[1]===0?'var(--ok)':'var(--off)';
+  txt('mechTxt', open ? (S.ext[0]&&S.ext[1]?'tampa aberta · linguetas estendidas':'tampa aberta') : (S.ext[0]&&S.ext[1]?'travada: linguetas encaixadas':(!S.ext[0]&&!S.ext[1])?'linguetas recolhidas: pode abrir':'uma lingueta recolhida'));
+  // firmware
+  txt('fVb',S.on?fmt(S.vbFw)+' V'+(F.r3zener?' (ERRADO: zener)':''):'—');
+  txt('fKl',S.on?(S.klOn?'ligada':'desligada')+' · '+fmt(S.adcK*16)+' V':'—');
+  txt('fMode',!S.on?'—':S.low?'economia':'normal'+(S.klOn?'':' · economia em '+Math.max(0,Math.ceil(60-S.klOffT))+' s'));
+  txt('fPulse',S.st==='DESTRAVANDO'?fmt(S.pulseT)+' / '+(F.nolim?'sem limite':fmt(S.Tp)+' s'):'—');
+  const cool=S.lastPulseEnd+10-S.t; txt('fCool',cool>0?Math.ceil(cool)+' s':'agora');
+  txt('fCount',S.pulses.filter(x=>S.t-x<60).length+' / 3'); txt('fAuth',(S.lockT>S.t?'bloqueado '+Math.ceil(S.lockT-S.t)+' s':S.authFails+' / 5'));
+  txt('fCnt',String(S.lastPkt||0)); txt('fGps',!S.on?'—':S.gpsFix?LAT.toFixed(4)+', '+LON.toFixed(4):S.low?'em espera':'buscando ('+Math.max(0,Math.ceil(35-S.gpsT))+' s)');
+  $('pinBody').innerHTML = PIN_DEF.map(([g,f,fn])=>`<tr><td class="mono">${g}</td><td>${f}</td><td>${fn()}</td></tr>`).join('');
+  if(dirtyLog){ drawLog('logSd',S.log); drawLog('logMsg',S.msg); dirtyLog=false; }
+  drawCharts();
+}
+function drawLog(id,arr){
+  const el=$(id); const atBottom = el.scrollHeight-el.scrollTop-el.clientHeight<30;
+  el.innerHTML = arr.slice(-160).map(r=>`<div class="${r.sev?'e-'+r.sev:''}"><span class="t">${r.t}</span> ${esc(r.text)}</div>`).join('');
+  if(atBottom) el.scrollTop=el.scrollHeight;
+}
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function drawCharts(){
+  const H=S.hist; const now=S.t;
+  // tensões
+  plot('chV',[{i:1,c:css('--r24')},{i:2,c:css('--r5')},{i:3,c:css('--r12')}], Math.max(32, ...H.map(h=>h[1]+2)), 'V', null);
+  plot('chI',[{i:4,c:css('--ink')}], Math.max(3.6, ...H.map(h=>h[4]+0.3)), 'A', 3);
+  function plot(id,series,ymax,unit,limit){
+    const c=$(id), r=c.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    const W=Math.max(200,r.width), Hh=r.height; if(c.width!==Math.round(W*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(Hh*dpr);}
+    const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,Hh);
+    const L=34,R=8,T=8,B=18, pw=W-L-R, ph=Hh-T-B;
+    g.font='10px "IBM Plex Mono", monospace'; g.fillStyle=css('--muted'); g.strokeStyle=css('--line'); g.lineWidth=1;
+    const step = ymax>40?20:ymax>10?8:1;
+    for(let y=0;y<=ymax+1e-9;y+=step){ const py=T+ph-(y/ymax)*ph; g.beginPath(); g.moveTo(L,py); g.lineTo(L+pw,py); g.stroke(); g.fillText(String(y).replace('.',','),4,py+3); }
+    for(let s=0;s<=60;s+=15){ const px=L+pw-(s/60)*pw; g.fillText(s===0?'agora':'−'+s+'s',px-(s===0?28:12),Hh-4); }
+    if(limit!=null){ const py=T+ph-(limit/ymax)*ph; g.strokeStyle=css('--crit'); g.setLineDash([4,4]); g.beginPath(); g.moveTo(L,py); g.lineTo(L+pw,py); g.stroke(); g.setLineDash([]); }
+    series.forEach(sr=>{ g.strokeStyle=sr.c; g.lineWidth=1.8; g.beginPath(); let first=true;
+      H.forEach(h=>{ const px=L+pw-((now-h[0])/60)*pw, py=T+ph-(Math.max(0,h[sr.i])/ymax)*ph; if(first){g.moveTo(px,py);first=false}else g.lineTo(px,py); }); g.stroke();
+      if(H.length){ const h=H[H.length-1]; const py=T+ph-(Math.max(0,h[sr.i])/ymax)*ph; g.fillStyle=sr.c; g.beginPath(); g.arc(L+pw,py,3,0,7); g.fill(); } });
+  }
+}
+
+/* ---------- controles ---------- */
+let curVia='lora';
+function seg(id,cb){ const el=$(id); el.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false')); cb(b); }); }
+seg('speedSeg',b=>{S.speed=+b.dataset.s});
+seg('sysSeg',b=>{ S.sys=+b.dataset.v; S.vrest=SYS[S.sys].rest; $('vbat').value=S.vrest; txt('vbatV',fmt(S.vrest)+' V'); S.engine=false; log('Sistema elétrico alterado para '+S.sys+' V','info'); });
+seg('viaSeg',b=>{curVia=b.dataset.v});
+function toast(){}
+$('bPlay').onclick=()=>{S.run=!S.run; $('bPlay').textContent=S.run?'Pausar':'Continuar'; render();};
+$('bReset').onclick=()=>{ Object.keys(F).forEach(k=>{F[k]=false; const el=$('f_'+k); if(el) el.checked=false;}); const keep={sys:S.sys,speed:S.speed}; S=fresh(); S.sys=keep.sys; S.speed=keep.speed; S.vrest=SYS[S.sys].rest; $('vbat').value=S.vrest; txt('vbatV',fmt(S.vrest)+' V'); $('kl15').checked=false; $('scenToast').textContent=''; $('lidToast').textContent='Tampa fechada e travada pelas linguetas.'; readParams(); dirtyLog=true; };
+$('bRepair').onclick=()=>{ S.dead={vr1:false,vr2:false,pa:false,c1:false,c2:false,tvs:false}; S.paTx=0; S.tvsE=0; S.f0=true; S.f1=true; S.f1h=0; S.coilT=[30,30]; hwlog('Hardware reparado: D1, VR1, VR2, bobinas, LoRa e fusíveis trocados','ok'); };
+$('vbat').oninput=e=>{S.vrest=+e.target.value; txt('vbatV',fmt(S.vrest)+' V')};
+$('kl15').onchange=e=>{S.kl15=e.target.checked; if(!S.kl15 && S.engine){S.engine=false; log('Motor desligado pela chave','info');}};
+$('bCrank').onclick=()=>{ if(!S.kl15){$('lidToast').textContent='Ligue a chave de ignição antes de dar partida.';return} if(S.crankT<0){S.crankT=0; log('Partida: motor de arranque acionado','info');} };
+$('bStop').onclick=()=>{ if(S.engine){S.engine=false; log('Motor desligado','info');} };
+$('bDump').onclick=()=>{ if(S.dumpT<0){ S.dumpT=0; log(`Load dump: pico de ${SYS[S.sys].dump} V no chicote`,'warn'); } };
+$('bFast').onclick=()=>{ S.fastT=1; log(`Transiente rápido: ${S.sys===24?200:110} V por ~1 ms no chicote`,'warn'); };
+$('bRev').onclick=()=>{ S.reverse=!S.reverse; $('bRev').textContent=S.reverse?'Corrigir polaridade':'Inverter polaridade'; log(S.reverse?'Bateria ligada invertida':'Polaridade corrigida', S.reverse?'warn':'info'); };
+$('bOpen').onclick=()=>{ if(S.lid==='open'){$('lidToast').textContent='A tampa já está aberta.';return}
+  if(!S.ext[0]&&!S.ext[1]){S.lid='open'; $('lidToast').textContent='Tampa aberta. Abasteça e feche: as linguetas chanfradas travam sozinhas.';}
+  else $('lidToast').textContent='A tampa não abre: '+(S.ext[0]&&S.ext[1]?'as duas linguetas estão':'uma lingueta está')+' estendida. Envie o comando destravar.'; };
+$('bClose').onclick=()=>{ if(S.lid==='closed'){$('lidToast').textContent='A tampa já está fechada.';return} S.lid='closed'; $('lidToast').textContent='Tampa fechada.'+(S.ext[0]&&S.ext[1]?' As linguetas encaixaram no batente.':' Aguardando as linguetas estenderem.'); if(F.nolim && S.st==='DESTRAVANDO') endPulse(); };
+$('bForce').onclick=()=>{ if(S.lid==='open'){$('lidToast').textContent='A tampa já está aberta.';return} S.lid='open'; $('lidToast').textContent='Tampa arrancada à força. As linguetas não estão mais no batente.'; };
+$('bCmdOk').onclick=()=>command('ok'); $('bCmdBad').onclick=()=>command('bad'); $('bCmdReplay').onclick=()=>command('replay'); $('bAck').onclick=()=>command('ack');
+Object.keys(F).forEach(k=>{ const el=$('f_'+k); if(!el) return; el.onchange=()=>{ F[k]=el.checked; const lab=el.closest('.switch').querySelector('label'); const name=[...lab.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim(); log((el.checked?'Falha ativada: ':'Falha removida: ')+name, el.checked?'warn':'info'); }; });
+function readParams(){ S.R=+$('pR').value; S.Tp=+$('pT').value; S.pullIn=+$('pPI').value;
+  txt('pRV',S.R+' Ω · '+fmt(12/S.R,2)+' A'); txt('pTV',fmt(S.Tp)+' s'); txt('pPIV',fmt(S.pullIn)+' V'); }
+['pR','pT','pPI'].forEach(id=>$(id).oninput=readParams); readParams();
+$('tabSd').onclick=()=>{ $('tabSd').setAttribute('aria-selected','true'); $('tabMsg').setAttribute('aria-selected','false'); $('logSd').hidden=false; $('logMsg').hidden=true; };
+$('tabMsg').onclick=()=>{ $('tabMsg').setAttribute('aria-selected','true'); $('tabSd').setAttribute('aria-selected','false'); $('logMsg').hidden=false; $('logSd').hidden=true; };
+
+/* ---------- roteiros ---------- */
+function setFault(k,v){ F[k]=v; const el=$('f_'+k); if(el) el.checked=v; }
+function selVia(v){ curVia=v; $('viaSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v?'true':'false')); }
+function setKl(v){ S.kl15=v; $('kl15').checked=v; if(!v) S.engine=false; }
+document.querySelectorAll('[data-scen]').forEach(b=>b.onclick=()=>{
+  const t=S.t, k=b.dataset.scen; S.scen=[];
+  const at=(d,fn,say)=>S.scen.push({at:t+d,fn,say});
+  if(S.lid==='open'){S.lid='closed';}
+  if(k==='normal'){ setKl(false); selVia('lora');
+    at(0.5,()=>command('ok'),'1/4 · Base envia DESTRAVAR por LoRa…');
+    at(1.6,()=>$('bOpen').click(),'2/4 · Frentista abre a tampa durante o pulso');
+    at(6,()=>{},'3/4 · Abastecendo (pulso já terminou, tampa segue aberta)');
+    at(14,()=>$('bClose').click(),'4/4 · Tampa fechada: linguetas encaixam e o firmware confirma TRAVADO'); }
+  if(k==='arrombamento'){ setKl(false);
+    at(0.5,()=>$('bForce').click(),'Tampa forçada sem comando: veja o alarme, o SMS e o pacote LoRa'); }
+  if(k==='partida'){ setKl(true); selVia('app');
+    at(0.5,()=>command('ok'),'Comando pelo app com a chave ligada…');
+    at(0.9,()=>$('bCrank').click(),'Partida no meio do pulso: compare 24 V e 12 V (botão no topo do card Caminhão)'); }
+  if(k==='loaddump'){ setFault('r3vr1',false);
+    at(0.5,()=>$('bFast').click(),'1/3 · Transiente rápido: o D1 grampeia em ~50 V e nada queima');
+    at(3,()=>$('bDump').click(),'2/3 · Load dump completo no R4: o D1 grampeia, passa da energia dele, entra em curto e o F1 abre. A placa desliga protegida.');
+    at(7,()=>{ $('bRepair').click(); setFault('r3vr1',true); log('Modo R3: VR1 ligado direto no KL30','warn'); },'3/3 · Agora com o VR1 ligado como no R3…');
+    at(9,()=>$('bDump').click(),'3/3 · R3: os 120 V chegam ao VR1 e ele queima. Use "Reparar hardware" e desligue a falha.'); }
+  if(k==='replay'){ selVia('lora');
+    at(0.5,()=>command('ok'),'1/3 · Comando legítimo (o atacante grava o pacote)…');
+    at(1.6,()=>$('bOpen').click());
+    at(8,()=>$('bClose').click(),'2/3 · Tampa fechada e travada');
+    at(12,()=>command('replay'),'3/3 · Atacante reenvia o pacote gravado: deve ser recusado'); }
+});
+
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
