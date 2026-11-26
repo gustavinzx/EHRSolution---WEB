@@ -50,7 +50,9 @@ Token: `mac = HMAC-SHA256(chave, "UNLOCK:<truck_id>:<session_id>:<exp>")` em hex
 - Recusado se: relógio inválido, token expirado, validade > 15 min, `session_id` ≤ última sessão destravada (anti-replay, persistida), MAC incorreto. 5 falhas seguidas bloqueiam 5 min.
 - **Quem gera o token:** o backend emite o token em `POST /api/fueling/sessions/:id/offline-token` (`backend/src/services/offlineUnlockService.js`) para sessões `authorized` ou `active`, e o aplicativo mobile o envia via `localLockClient.unlockWithToken()` quando o motorista aciona **"Liberar via Wi-Fi da Trava (Sem Sinal)"** na tela de operação.
 
-Obter o `HMAC_KEY_HEX` de um caminhão para o `config.h` (Node, na pasta `backend/`):
+A `HMAC_KEY_HEX` de cada caminhão aparece no painel (Frota → caminhão) ao gerar ou trocar a chave do hardware, e também no campo `hmac_key_hex` da resposta de `POST /api/fleet/:id/hardware-key`. Copie esse valor para o `config.h` da placa. Ela é derivada do `HARDWARE_HMAC_SECRET` do servidor (ou do `JWT_SECRET`, se vazio), então não mude esse segredo depois de gravar as placas.
+
+Alternativa pela linha de comando (Node, na pasta `backend/`):
 
 ```js
 const { deriveTruckHmacKeyHex } = require('./src/services/offlineUnlockService');

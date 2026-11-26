@@ -7,6 +7,7 @@ const { app } = require('../src/index');
 const db = require('../src/config/db');
 const authHardware = require('../src/middleware/authHardware');
 const security = require('../src/services/securityService');
+const { deriveTruckHmacKeyHex } = require('../src/services/offlineUnlockService');
 const clean = require('./clean');
 
 if (!process.env.DB_NAME || !process.env.DB_NAME.endsWith('_test')) {
@@ -176,7 +177,7 @@ describe('Hardware Key Provisioning, Trigger, Backfill & Auth (Bloco A-D, F1)', 
       .post(`/api/fleet/${truckId}/hardware-key`)
       .set('Authorization', 'Bearer ' + tokenManager);
     expect(rGen1.status).toBe(201);
-    expect(Object.keys(rGen1.body).sort()).toEqual(['api_key', 'created_at', 'prefix']);
+    expect(Object.keys(rGen1.body).sort()).toEqual(['api_key', 'created_at', 'hmac_key_hex', 'prefix']);
     const key1 = rGen1.body.api_key;
     expect(key1).toMatch(/^[0-9a-f]{64}$/);
     expect(rGen1.body.prefix).toBe(key1.slice(0, 8));
@@ -414,6 +415,22 @@ describe('Hardware Key Provisioning, Trigger, Backfill & Auth (Bloco A-D, F1)', 
       expect(rHw.status).toBe(401);
       expect(rHw.body).toEqual({ error: 'Authorization token missing or invalid' });
     }
+  });
+
+  it('POST devolve hmac_key_hex derivada do id do caminhão e o GET de status não a expõe', async () => {
+    const rGen = await request(app)
+      .post(`/api/fleet/${truckId}/hardware-key`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(rGen.status).toBe(201);
+    expect(rGen.body.hmac_key_hex).toMatch(/^[0-9a-f]{64}$/);
+    expect(rGen.body.hmac_key_hex).toBe(deriveTruckHmacKeyHex(truckId));
+
+    const rStatus = await request(app)
+      .get(`/api/fleet/${truckId}/hardware-key`)
+      .set('Authorization', 'Bearer ' + tokenManager);
+    expect(rStatus.status).toBe(200);
+    expect(JSON.stringify(rStatus.body)).not.toContain(rGen.body.hmac_key_hex);
+    expect(rStatus.body).not.toHaveProperty('hmac_key_hex');
   });
 
   it('Validação de :id inválido (400) e caminhão inexistente (404) nas três rotas', async () => {
