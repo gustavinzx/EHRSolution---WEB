@@ -354,6 +354,7 @@ exports.createTruck = async (req, res) => {
 };
 
 const crypto = require('crypto');
+const { deriveTruckHmacKeyHex } = require('../services/offlineUnlockService');
 
 function parseTruckIdParam(rawId) {
   const str = String(rawId ?? '');
@@ -401,8 +402,16 @@ exports.generateHardwareKey = async (req, res) => {
       console.error(`Failed to record hardware_key_generated security event for truck #${truckId}:`, eventErr.message || eventErr);
     }
 
+    let hmacKeyHex = null;
+    try {
+      hmacKeyHex = deriveTruckHmacKeyHex(truckId);
+    } catch (hmacErr) {
+      console.error(`Failed to derive HMAC key for truck #${truckId}:`, hmacErr.message || hmacErr);
+    }
+
     return res.status(201).json({
       api_key: rawKey,
+      hmac_key_hex: hmacKeyHex,
       prefix: rows[0].prefix,
       created_at: rows[0].created_at,
     });
