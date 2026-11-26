@@ -206,8 +206,10 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
 
   it('exibe ID e comando PowerShell com chave e ID certos na janela, e apaga chave e comando ao fechar', async () => {
     const newSecretKey = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const hmacKeyHex = '0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0';
     mockGenerateHardwareKey.mockResolvedValue({
       api_key: newSecretKey,
+      hmac_key_hex: hmacKeyHex,
       prefix: 'a1b2c3d4',
       created_at: '2026-10-18T12:00:00.000Z',
     });
@@ -233,6 +235,7 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
     expect(screen.getByText('Guarde agora; ela não será exibida de novo')).toBeTruthy();
     expect(screen.getByTestId('hardware-key-modal-truck-id').textContent).toContain('ID do caminhão: 7');
     expect(screen.getByTestId('hardware-key-secret-value').textContent).toBe(newSecretKey);
+    expect(screen.getByTestId('hardware-key-hmac-value').textContent).toBe(hmacKeyHex);
 
     const psCommandEl = screen.getByTestId('hardware-key-ps-command');
     expect(psCommandEl.textContent).toContain(`$h = @{ "x-api-key" = "${newSecretKey}" }`);
@@ -256,6 +259,8 @@ describe('TruckDetailsPage — Cartão Chave do hardware & Polimento (Blocos A, 
     await waitFor(() => {
       expect(screen.queryByTestId('hardware-key-modal')).toBeNull();
       expect(screen.queryByTestId('hardware-key-ps-command')).toBeNull();
+      expect(screen.queryByTestId('hardware-key-hmac-value')).toBeNull();
+      expect(screen.queryByText(hmacKeyHex)).toBeNull();
       expect(screen.queryByText(newSecretKey)).toBeNull();
       expect(document.body.textContent).not.toContain('/fueling/sessions/7/active');
     });

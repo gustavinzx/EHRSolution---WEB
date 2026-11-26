@@ -135,6 +135,31 @@ function HardwareKeyModal({ generatedData, truckId, truckPlate, onClose }) {
           {rawKey}
         </div>
 
+        {generatedData.hmac_key_hex && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
+              Chave HMAC do destravamento offline (HMAC_KEY_HEX no config.h da placa):
+            </span>
+            <div
+              data-testid="hardware-key-hmac-value"
+              style={{
+                background: 'rgba(6, 11, 19, 0.8)',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '12px',
+                color: '#e2e8f0',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                userSelect: 'text',
+              }}
+            >
+              {generatedData.hmac_key_hex}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
             Exemplo para testar no PowerShell:
