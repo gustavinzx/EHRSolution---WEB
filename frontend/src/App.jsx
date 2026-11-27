@@ -1,26 +1,45 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import ErrorBoundary from './components/ErrorBoundary';
 
-import LoginPage        from './pages/LoginPage';
-import DashboardPage    from './pages/DashboardPage';
-import DriversPage      from './pages/DriversPage';
-import FleetPage        from './pages/FleetPage';
-import TruckDetailsPage from './pages/TruckDetailsPage';
-import FuelingPage      from './pages/FuelingPage';
-import ReportsPage      from './pages/ReportsPage';
-import FacialAttemptsPage from './pages/FacialAttemptsPage';
-import InvestigationPage from './pages/InvestigationPage';
-import StationsPage     from './pages/StationsPage';
-import AlertsPage       from './pages/AlertsPage';
-import SettingsPage     from './pages/SettingsPage';
-import UsersPage        from './pages/UsersPage';
-import Sidebar          from './components/Sidebar';
-import TopBar           from './components/TopBar';
-import StagingBanner    from './components/StagingBanner';
-import useFleetState    from './store/useFleetState';
+import LoginPage     from './pages/LoginPage';
+import Sidebar       from './components/Sidebar';
+import TopBar        from './components/TopBar';
+import StagingBanner from './components/StagingBanner';
+import useFleetState from './store/useFleetState';
+
+const DashboardPage      = lazy(() => import('./pages/DashboardPage'));
+const DriversPage        = lazy(() => import('./pages/DriversPage'));
+const FleetPage          = lazy(() => import('./pages/FleetPage'));
+const TruckDetailsPage   = lazy(() => import('./pages/TruckDetailsPage'));
+const FuelingPage        = lazy(() => import('./pages/FuelingPage'));
+const ReportsPage        = lazy(() => import('./pages/ReportsPage'));
+const FacialAttemptsPage = lazy(() => import('./pages/FacialAttemptsPage'));
+const InvestigationPage  = lazy(() => import('./pages/InvestigationPage'));
+const StationsPage       = lazy(() => import('./pages/StationsPage'));
+const AlertsPage         = lazy(() => import('./pages/AlertsPage'));
+const SettingsPage       = lazy(() => import('./pages/SettingsPage'));
+const UsersPage          = lazy(() => import('./pages/UsersPage'));
+
+const PageLoadingFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '240px',
+      color: '#94a3b8',
+      fontSize: '13px',
+      letterSpacing: '0.04em',
+    }}
+  >
+    Carregando módulo…
+  </div>
+);
 
 export const RequireAdmin = ({ children }) => {
   const { user } = useAuth();
@@ -52,7 +71,9 @@ export const ProtectedLayout = ({ children }) => {
         <TopBar />
         <main style={{ flex: 1, padding: '22px 26px', overflowY: 'auto' }}>
           <ErrorBoundary>
-            {children}
+            <Suspense fallback={<PageLoadingFallback />}>
+              {children}
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>
