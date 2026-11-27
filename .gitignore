@@ -34,3 +34,9 @@ fix*.js
 *_test_output.txt
 *.apk
 Guia-Homologacao*.pdf
+
+# Servidor local (arquivos gerados e credenciais locais)
+scripts/servidor-local/ENDERECOS.txt
+scripts/servidor-local/.senhas-locais
+ENDERECOS.txt
+.senhas-locais

@@ -206,6 +206,15 @@ EHR-Solutions-Web/
 
 ---
 
+## ⚠️ 8. Limitações conhecidas
+
+* **Reconhecimento facial real e prova de vida:** O provedor facial real (`rekognition`) ainda não está implementado (`NOT_IMPLEMENTED`); hoje só existe o provedor `mock`. Não existe prova de vida (*liveness*).
+* **Validação física da trava R4:** O firmware da trava R4 não foi validado em bancada com a placa física (checklist em [`hardware/TravaEHR_R4/README.md`](hardware/TravaEHR_R4/README.md)).
+* **Medição física de volume no tanque:** A revisão R4 da trava não tem sensor de nível nem de vazão; sem eles, a verificação "litros da bomba × variação do tanque" só roda com o simulador.
+* **Credenciais de demonstração do servidor local:** As senhas das contas de demonstração do servidor local (`scripts/servidor-local/`) são geradas aleatoriamente por máquina na primeira execução (guardadas em `.senhas-locais` e exibidas no `ENDERECOS.txt` local, ignorados pelo Git).
+
+---
+
 <div align="center">
   <sub>Desenvolvido com foco em excelência técnica, segurança e inovação para o ecossistema de transporte de cargas.</sub>
 </div>
