@@ -5,20 +5,23 @@
   Não precisa de Docker nem de administrador. Na primeira vez baixa o que faltar
   (Node.js portátil, PostgreSQL portátil, dependências) e demora alguns minutos.
 
-  Uso:  servidor_local.ps1 iniciar | parar | status
+  Uso:  servidor_local.ps1 iniciar | parar | status | resetar-senhas
+        servidor_local.ps1 iniciar -ResetarSenhas
 #>
 param(
-  [Parameter(Position = 0)] [ValidateSet('iniciar', 'parar', 'status')] [string] $Acao = 'iniciar',
+  [Parameter(Position = 0)] [ValidateSet('iniciar', 'parar', 'status', 'resetar-senhas')] [string] $Acao = 'iniciar',
   [switch] $SemPausa,      # não espera Enter no fim (usado no teste automático)
-  [switch] $SemFirewall    # não tenta liberar o firewall
+  [switch] $SemFirewall,   # não tenta liberar o firewall
+  [switch] $ResetarSenhas  # gera novas senhas locais e atualiza o banco local
 )
 
 # ============================== CONFIGURAÇÃO ===============================
 $PortaApi      = 3001
 $PortaPainel   = 5173
 $PortaBanco    = 5433          # 5433 para não colidir com um PostgreSQL já instalado
-$SenhaGestor   = 'EhrGestor2026'
-$SenhaMotorista = 'EhrMotorista2026'
+$SenhaGestor   = $null
+$SenhaMotorista = $null
+$PrecisaSincronizarSenhas = $false
 $VersaoNode    = 'latest-v22.x'
 # ===========================================================================
 
@@ -37,6 +40,8 @@ $Estado     = Join-Path $Local 'estado'
 $DadosBanco = Join-Path $Local 'pgdata'
 $PastaBanco = Join-Path $Local 'banco'
 $ArqEnderecos = Join-Path $Pasta 'ENDERECOS.txt'
+$ArqSenhas    = Join-Path $Pasta '.senhas-locais'
+$ArqSenhasEstado = Join-Path $Estado 'senhas-locais.txt'
 
 function Titulo($t) { Write-Host ''; Write-Host "== $t ==" -ForegroundColor Cyan }
 function Ok($t)     { Write-Host "  [OK] $t" -ForegroundColor Green }
@@ -159,14 +164,20 @@ function Instalar-Dependencias([string] $pasta, [string] $nome) {
 function Preparar-Codigo {
   Titulo 'Código do EHR Solutions'
   if (-not (Test-Path (Join-Path $Codigo 'backend\package.json'))) {
-    if (-not (Test-Path $ZipCodigo)) { Falhar "Não encontrei $Codigo nem $ZipCodigo" }
-    Info 'Extraindo o código para a pasta (primeira vez)...'
-    Expand-Archive -Path $ZipCodigo -DestinationPath $Pasta -Force
+    $RaizRepo = Split-Path -Parent (Split-Path -Parent $Pasta)
+    if (Test-Path (Join-Path $RaizRepo 'backend\package.json')) {
+      $script:Codigo = $RaizRepo
+    } elseif (-not (Test-Path $ZipCodigo)) {
+      Falhar "Não encontrei $Codigo nem $ZipCodigo"
+    } else {
+      Info 'Extraindo o código para a pasta (primeira vez)...'
+      Expand-Archive -Path $ZipCodigo -DestinationPath $Pasta -Force
+    }
   }
   Ok "Código em $Codigo"
   # Cópia de trabalho fora do Google Drive (node_modules tem dezenas de milhares de arquivos)
   Garantir-Pasta $App
-  & robocopy.exe $Codigo $App /MIR /XD node_modules .git dist build /XF .env .env.local /NFL /NDL /NJH /NJS /NP | Out-Null
+  & robocopy.exe $Codigo $App /MIR /XD node_modules .git dist build /XF .env .env.local .senhas-locais ENDERECOS.txt /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Falhar "Falha ao copiar o código para $App" }
   $global:LASTEXITCODE = 0
   Ok "Cópia de trabalho atualizada em $App"
@@ -221,6 +232,100 @@ const { Client } = require('pg');
 }
 
 # ------------------------------------------------------------------ Backend
+function Gerar-SenhaAleatoria([int] $tamanho = 20) {
+  # Alfabeto sem caracteres ambíguos (sem 0, O, o, 1, l, I)
+  $alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'.ToCharArray()
+  $bytes = New-Object byte[] $tamanho
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+  $chars = for ($i = 0; $i -lt $tamanho; $i++) { $alfabeto[$bytes[$i] % $alfabeto.Length] }
+  return -join $chars
+}
+
+function Ler-ArquivoSenhas([string] $caminho) {
+  if (-not (Test-Path $caminho)) { return $null }
+  $mapa = @{}
+  foreach ($linha in (Get-Content $caminho -Encoding UTF8)) {
+    if ($linha -match '^\s*([A-Z_]+)\s*=\s*(.+?)\s*$') {
+      $mapa[$matches[1]] = $matches[2].Trim()
+    }
+  }
+  if ($mapa['SEED_ADMIN_PASSWORD'] -and $mapa['SEED_DRIVER_PASSWORD'] -and
+      $mapa['SEED_ADMIN_PASSWORD'].Length -ge 16 -and $mapa['SEED_DRIVER_PASSWORD'].Length -ge 16) {
+    return $mapa
+  }
+  return $null
+}
+
+function Salvar-ArquivoSenhas([string] $gestor, [string] $motorista) {
+  $conteudo = @(
+    "# Senhas locais de demonstracao (geradas automaticamente por maquina - NAO commitar)"
+    "SEED_ADMIN_PASSWORD=$gestor"
+    "SEED_DRIVER_PASSWORD=$motorista"
+  ) -join "`r`n"
+  $utf8SemBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($ArqSenhas, "$conteudo`r`n", $utf8SemBom)
+  [System.IO.File]::WriteAllText($ArqSenhasEstado, "$conteudo`r`n", $utf8SemBom)
+}
+
+function Carregar-Ou-GerarSenhas([switch] $ForcarReset) {
+  Titulo 'Credenciais locais de demonstração'
+  $bancoJaExiste = Test-Path (Join-Path $DadosBanco 'PG_VERSION')
+  if (-not $ForcarReset) {
+    $lidas = Ler-ArquivoSenhas $ArqSenhas
+    if (-not $lidas) {
+      $lidas = Ler-ArquivoSenhas $ArqSenhasEstado
+      if ($lidas) {
+        Salvar-ArquivoSenhas $lidas['SEED_ADMIN_PASSWORD'] $lidas['SEED_DRIVER_PASSWORD']
+      }
+    }
+    if ($lidas) {
+      $script:SenhaGestor = $lidas['SEED_ADMIN_PASSWORD']
+      $script:SenhaMotorista = $lidas['SEED_DRIVER_PASSWORD']
+      $script:PrecisaSincronizarSenhas = $false
+      Ok "Senhas locais reutilizadas de $ArqSenhas"
+      return
+    }
+  }
+  $script:SenhaGestor = Gerar-SenhaAleatoria 20
+  $script:SenhaMotorista = Gerar-SenhaAleatoria 20
+  Salvar-ArquivoSenhas $script:SenhaGestor $script:SenhaMotorista
+  $script:PrecisaSincronizarSenhas = $ForcarReset -or $bancoJaExiste
+  if ($ForcarReset) {
+    Ok "Novas senhas locais geradas (-ResetarSenhas) e salvas em $ArqSenhas"
+  } else {
+    Ok "Senhas locais geradas na primeira execução e salvas em $ArqSenhas"
+  }
+}
+
+function Sincronizar-SenhasBanco {
+  $scriptNode = @"
+const { Client } = require('pg');
+const bcrypt = require('bcrypt');
+(async () => {
+  const c = new Client({ host: '127.0.0.1', port: $PortaBanco, user: 'postgres', password: 'postgres', database: 'ehr_fleet' });
+  await c.connect();
+  const adminHash = await bcrypt.hash(process.env.SYNC_ADMIN_PASS, 10);
+  const driverHash = await bcrypt.hash(process.env.SYNC_DRIVER_PASS, 10);
+  await c.query("UPDATE users SET password_hash = `$1 WHERE LOWER(email) = 'gestor@ehr.com'", [adminHash]);
+  await c.query("UPDATE drivers SET password_hash = `$1 WHERE LOWER(email) = 'motorista@ehr.com'", [driverHash]);
+  await c.end();
+})().catch(e => { console.error(e.message); process.exit(1); });
+"@
+  Push-Location (Join-Path $App 'backend')
+  try {
+    $env:SYNC_ADMIN_PASS = $SenhaGestor
+    $env:SYNC_DRIVER_PASS = $SenhaMotorista
+    $saida = $scriptNode | & node.exe -
+    if ($LASTEXITCODE -ne 0) { Falhar "Não consegui sincronizar as senhas no banco: $saida" }
+  } finally {
+    Remove-Item Env:\SYNC_ADMIN_PASS -ErrorAction SilentlyContinue
+    Remove-Item Env:\SYNC_DRIVER_PASS -ErrorAction SilentlyContinue
+    Pop-Location
+  }
+  Ok 'Senhas do gestor e do motorista sincronizadas com o banco local'
+}
+
 function Segredo-Jwt {
   $arq = Join-Path $Estado 'jwt_secret.txt'
   if (-not (Test-Path $arq)) {
@@ -267,6 +372,7 @@ function Iniciar-Backend {
   if (Porta-Aberta $PortaApi) { Aviso "A porta $PortaApi já estava em uso: parando o servidor anterior"; Parar-Porta $PortaApi }
   $log = Iniciar-Processo 'servidor' $pasta 'src/index.js'
   Esperar-Http "http://127.0.0.1:$PortaApi/api/health" 120 'Servidor' $log
+  if ($PrecisaSincronizarSenhas) { Sincronizar-SenhasBanco }
   Ok "Servidor ligado na porta $PortaApi"
 }
 
@@ -368,12 +474,24 @@ try {
   switch ($Acao) {
     'parar'  { Parar-Tudo }
     'status' { Status }
+    'resetar-senhas' {
+      $dirNode = Garantir-Node
+      $env:PATH = "$dirNode;$env:PATH"
+      $global:NodeExe = Join-Path $dirNode 'node.exe'
+      Carregar-Ou-GerarSenhas -ForcarReset
+      Preparar-Codigo
+      Iniciar-Banco
+      Iniciar-Backend
+      $ip = Obter-IP
+      Mostrar-Enderecos $ip
+    }
     'iniciar' {
       Write-Host 'SERVIDOR LOCAL EHR SOLUTIONS' -ForegroundColor Cyan
       Write-Host "Cópia de trabalho: $Local"
       $dirNode = Garantir-Node
       $env:PATH = "$dirNode;$env:PATH"
       $global:NodeExe = Join-Path $dirNode 'node.exe'
+      Carregar-Ou-GerarSenhas -ForcarReset:$ResetarSenhas
       Preparar-Codigo
       Iniciar-Banco
       Iniciar-Backend

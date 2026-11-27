@@ -22,8 +22,13 @@ computador, dê dois cliques em INICIAR_SERVIDOR.bat de novo.
 
 LOGINS DE TESTE
 ---------------
-Painel web (gestor):   gestor@ehr.com      senha EhrGestor2026
-App (motorista):       motorista@ehr.com   senha EhrMotorista2026
+Painel web (gestor):   gestor@ehr.com
+App (motorista):       motorista@ehr.com
+As senhas aparecem no ENDERECOS.txt gerado ao iniciar (e na janela do
+terminal). Elas são geradas automaticamente na primeira execução desta
+máquina, guardadas em .senhas-locais e reutilizadas nas execuções seguintes.
+Para gerar senhas novas e atualizar o banco local, execute:
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\servidor_local.ps1 iniciar -ResetarSenhas
 
 APP EHR MOTORISTA (versão Local)
 --------------------------------
@@ -85,5 +90,6 @@ PROBLEMAS
 - Remover a liberação do firewall: Windows Defender Firewall > Regras de
   entrada > "EHR Servidor Local (teste)" > Excluir.
 
-ATENÇÃO: este servidor é só para teste. As senhas são conhecidas e a
-verificação facial aceita qualquer foto. Não use com dados reais.
+ATENÇÃO: este servidor é só para teste. As senhas aparecem no ENDERECOS.txt
+gerado ao iniciar e a verificação facial aceita qualquer foto. Não use com
+dados reais.
